@@ -1,0 +1,11 @@
+CMAKE_MINIMUM_REQUIRED(VERSION 2.6)
+
+ADD_SUBDIRECTORY(stuff)
+ADD_SUBDIRECTORY(core)
+
+# Pre-canned types
+ADD_SUBDIRECTORY(types)
+
+# Solvers
+ADD_SUBDIRECTORY(solvers)
+

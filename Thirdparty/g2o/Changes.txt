@@ -1,0 +1,2 @@
+You should have received this g2o version along with ORB-SLAM.
+See the main changes and license in doc/license-bsd.txt
