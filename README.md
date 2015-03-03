@@ -52,7 +52,7 @@ including only the components we need and also some modifications that are liste
 It only depends on OpenCV, but it should be included in the ROS distribution.
 
 
-#3.Installation
+#3. Installation
 
 1. Make sure you have installed ROS and all library dependencies (boost, eigen3, cholmod, blas, lapack).
 
