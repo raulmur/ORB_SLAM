@@ -6,7 +6,7 @@ Copyright (c) 2015 Dorian Galvez-Lopez. http://doriangalvez.com
 All rights reserved.
 
 This version contains only a subset of the original components of the library
-and FORB.cpp and FORB.h have been modified (see the files for details).
+and FORB.cpp has been modified (see the file for details).
 
 
 Redistribution and use in source and binary forms, with or without
