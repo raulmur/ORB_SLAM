@@ -84,7 +84,7 @@ It only depends on OpenCV, but it should be included in the ROS distribution.
 		mkdir build
 		cd build
 		cmake .. -DROS_BUILD_TYPE=Release
-		rosmake
+		make
 
 	*Tip: Set your favorite compilation flags in line 12 and 13 of* `Thirdparty/DBoW2/CMakeLists.txt` (by default -03 -march=native)
 
