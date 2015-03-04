@@ -546,13 +546,13 @@ void ORBextractor::ComputeKeyPoints(vector<vector<KeyPoint> >& allKeypoints)
         const int nCells = levelRows*levelCols;
         const int nfeaturesCell = ceil((float)nDesiredFeatures/nCells);
 
-        vector<KeyPoint> cellKeyPoints[levelRows][levelCols];
+        vector<vector<vector<KeyPoint> > > cellKeyPoints(levelRows, vector<vector<KeyPoint> >(levelCols));
 
-        int nToRetain[levelRows][levelCols];
-        int nTotal[levelRows][levelCols];
-        bool bNoMore[levelRows][levelCols];
-        int iniXCol[levelCols];
-        int iniYRow[levelRows];
+        vector<vector<int> > nToRetain(levelRows,vector<int>(levelCols));
+        vector<vector<int> > nTotal(levelRows,vector<int>(levelCols));
+        vector<vector<bool> > bNoMore(levelRows,vector<bool>(levelCols,false));
+        vector<int> iniXCol(levelCols);
+        vector<int> iniYRow(levelRows);
         int nNoMore = 0;
         int nToDistribute = 0;
 
