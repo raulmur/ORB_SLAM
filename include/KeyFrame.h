@@ -19,7 +19,7 @@
 */
 
 
-﻿#ifndef KEYFRAME_H
+#ifndef KEYFRAME_H
 #define KEYFRAME_H
 
 #include "MapPoint.h"
