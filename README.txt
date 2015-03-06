@@ -115,7 +115,8 @@ We already provide the vocabulary file we use in ORB_SLAM/Data. Uncompress the f
 		rosrun rviz rviz -d Data/rviz.rviz
 
 4. ORB_SLAM will receive the images from the topic /camera/image_raw. You can now play your rosbag or start your camera node. 
-Currently we do not support reading image files from disk. If you have a sequence with individual image files, you will need to generate a bag from them.
+Currently we do not support reading image files from disk. If you have a sequence with individual image files, 
+you will need to generate a bag from them. We provide a tool to do that: https://github.com/raulmur/BagFromImages
 
 
 Tip: Use a roslaunch to launch ORB_SLAM, image_view and rviz from just one instruction. We provide an example:
