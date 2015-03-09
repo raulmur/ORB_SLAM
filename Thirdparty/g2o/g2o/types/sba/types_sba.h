@@ -27,9 +27,9 @@
 #ifndef G2O_SBA_TYPES
 #define G2O_SBA_TYPES
 
-#include "g2o/core/base_vertex.h"
-#include "g2o/core/base_binary_edge.h"
-#include "g2o/core/base_multi_edge.h"
+#include "../../core/base_vertex.h"
+#include "../../core/base_binary_edge.h"
+#include "../../core/base_multi_edge.h"
 #include "sbacam.h"
 #include <Eigen/Geometry>
 #include <iostream>
