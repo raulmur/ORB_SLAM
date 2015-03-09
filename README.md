@@ -123,11 +123,11 @@ If you have a sequence with individual image files, you will need to generate a 
 
 *in ROS Fuerte*:
 
-	roslaunch Launch/ExampleFuerte.launch
+	roslaunch ExampleFuerte.launch
 
 *in ROS Groovy or Hydro*:
 
-	roslaunch Launch/ExampleGroovyHydro.launch
+	roslaunch ExampleGroovyHydro.launch
 
 
 #5. Example Sequence
@@ -139,11 +139,11 @@ We provide the settings and the rosbag of an example sequence in our lab. In thi
 
   *in ROS Fuerte*:
 
-	  roslaunch Launch/ExampleFuerte.launch
+	  roslaunch ExampleFuerte.launch
 
 	*in ROS Groovy or newer versions*:
 
-	  roslaunch Launch/ExampleGroovyHydro.launch
+	  roslaunch ExampleGroovyHydro.launch
 
 3. Once the ORB vocabulary has been loaded, play the rosbag (press space to start):
 
