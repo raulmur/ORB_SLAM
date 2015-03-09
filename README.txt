@@ -123,11 +123,11 @@ Tip: Use a roslaunch to launch ORB_SLAM, image_view and rviz from just one instr
 
 	- for ROS Fuerte:
 
-		roslaunch Launch/ExampleFuerte.launch
+		roslaunch ExampleFuerte.launch
 
 	- for ROS Groovy and Hydro:
 
-		roslaunch Launch/ExampleGroovyHydro.launch
+		roslaunch ExampleGroovyHydro.launch
 
 
 5) Example Sequence
@@ -140,11 +140,11 @@ Uncompress the file.
 
 	- for ROS Fuerte:
 
-		roslaunch Launch/ExampleFuerte.launch
+		roslaunch ExampleFuerte.launch
 
 	- for ROS Groovy or newer versions:
 
-		roslaunch Launch/ExampleGroovyHydro.launch
+		roslaunch ExampleGroovyHydro.launch
 
 3. Once the ORB vocabulary has been loaded, start playing the bag 
 
