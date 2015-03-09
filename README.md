@@ -134,11 +134,11 @@ If you have a sequence with individual image files, you will need to generate a 
 We provide the settings and the rosbag of an example sequence in our lab. In this sequence you will see a loop closure and two relocalisation from a big viewpoint change.
 
 1. Download the rosbag file:  
-http://webdiis.unizar.es/~raulmur/orbslam/downloads/Example.bag.tar.gz. 
+	http://webdiis.unizar.es/~raulmur/orbslam/downloads/Example.bag.tar.gz. 
 
-Alternative link: https://drive.google.com/file/d/0B8Qa2__-sGYgRmozQ21oRHhUZWM/view?usp=sharing
+	Alternative link: https://drive.google.com/file/d/0B8Qa2__-sGYgRmozQ21oRHhUZWM/view?usp=sharing
 
-Uncompress the file.
+	Uncompress the file.
 
 2. Launch ORB_SLAM with the settings for the example sequence. You should have already uncompressed the vocabulary file (`/Data/ORBvoc.yml.tar.gz`)
 
