@@ -18,6 +18,7 @@
 #include <string>
 #include <algorithm>
 #include <opencv/cv.h>
+#include <limits>
 
 #include "FeatureVector.h"
 #include "BowVector.h"
