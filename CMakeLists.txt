@@ -9,22 +9,26 @@ find_package(catkin REQUIRED COMPONENTS
   cv_bridge
 )
 
-
 LIST(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake_modules)
 find_package(Cholmod REQUIRED)
 find_package(Eigen3 REQUIRED)
 
 catkin_package()
 
-
 include_directories(
   include
   ${EIGEN3_INCLUDE_DIR}
   ${CHOLMOD_INCLUDE_DIR}
+  ${PROJECT_SOURCE_DIR}
 )
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}  -Wall  -O3 -march=native ")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall  -O3 -march=native")
+
+add_subdirectory(Thirdparty/DBoW2)
+
+set(g2o_SOURCE_DIR ${PROJECT_SOURCE_DIR}/Thirdparty/g2o)
+add_subdirectory(Thirdparty/g2o)
 
 add_executable(${PROJECT_NAME}
   src/main.cc
@@ -47,16 +51,16 @@ add_executable(${PROJECT_NAME}
   src/Initializer.cc
 )
 target_link_libraries(${PROJECT_NAME}
-  ${CATKIN_LIBRARIES}
+  ${catkin_LIBRARIES}
   ${EIGEN3_LIBS}
-# cholmod
-  ${PROJECT_SOURCE_DIR}/Thirdparty/DBoW2/lib/libDBoW2.so
-  ${PROJECT_SOURCE_DIR}/Thirdparty/g2o/lib/libg2o_core.so
-  ${PROJECT_SOURCE_DIR}/Thirdparty/g2o/lib/libg2o_solver_cholmod.so
-  ${PROJECT_SOURCE_DIR}/Thirdparty/g2o/lib/libg2o_solver_dense.so
-  ${PROJECT_SOURCE_DIR}/Thirdparty/g2o/lib/libg2o_stuff.so
-  ${PROJECT_SOURCE_DIR}/Thirdparty/g2o/lib/libg2o_types_sba.so
-  ${PROJECT_SOURCE_DIR}/Thirdparty/g2o/lib/libg2o_types_sim3.so
-  ${PROJECT_SOURCE_DIR}/Thirdparty/g2o/lib/libg2o_types_slam3d.so
+  cholmod
+  DBoW2
+  g2o_core
+#  g2o_solver_cholmod
+#  g2o_solver_dense
+#  g2o_stuff
+#  g2o_types_sba
+#  g2o_types_sim3
+#  g2o_types_slam3d
 )
 

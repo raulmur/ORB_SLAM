@@ -1,3 +1,4 @@
+
 ADD_LIBRARY(stuff ${G2O_LIB_TYPE}
   filesys_tools.h    string_tools.h
   color_macros.h     macros.h         timeutil.cpp
