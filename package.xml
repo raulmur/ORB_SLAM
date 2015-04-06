@@ -15,10 +15,12 @@
   <build_depend>image_transport</build_depend>
   <build_depend>cv_bridge</build_depend>
   <build_depend>suitesparse</build_depend>
+  <build_depend>g2o</build_depend>
 
   <run_depend>roscpp</run_depend>
   <run_depend>tf</run_depend>
   <run_depend>sensor_msgs</run_depend>
   <run_depend>image_transport</run_depend>
   <run_depend>cv_bridge</run_depend>
+  <run_depend>g2o</run_depend>
 </package>

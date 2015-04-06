@@ -1,14 +1,14 @@
 <launch>
 
    <node pkg="image_view" type="image_view" name="image_view" respawn="false" output="log">
-	<remap from="/image" to="/ORB_SLAM/Frame" />
+	<remap from="/image" to="/orb_slam/frame" />
 	<param name="autosize" value="true"/>
 	</node>
 
-	<node pkg="rviz" type="rviz" name="rviz" args="-d $(find ORB_SLAM)/Data/rviz.rviz" output="log">
-   </node>
+	<node pkg="rviz" type="rviz" name="rviz" args="-d $(find orb_slam)/Data/rviz.rviz" output="log"/>
 
- 	<node pkg="ORB_SLAM" type="ORB_SLAM" name="ORB_SLAM"  args="Data/ORBvoc.yml Data/Settings.yaml" cwd="node" output="screen">
-   </node>
+ 	<node pkg="orb_slam" type="orb_slam" name="orb_slam"  args="$(find orb_slam)/Data/ORBvoc.yml $(find orb_slam)/Data/Settings.yaml" cwd="node" output="screen">
+	  <remap from="/camera/image_raw" to="/usb_cam/image_raw" />
+  </node>
 
 </launch>
