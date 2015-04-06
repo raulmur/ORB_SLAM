@@ -1,7 +1,7 @@
 <package>
-  <name>ORB_SLAM</name>
+  <name>orb_slam</name>
   <version>0.0.0</version>
-  <description>ORB_SLAM</description>
+  <description>orb_slam</description>
   
   <maintainer email="raulmur@unizar.es">Raul Mur-Artal</maintainer>
   <author>Raul Mur-Artal</author>
