@@ -1,0 +1,4 @@
+ADD_SUBDIRECTORY(dense)
+ADD_SUBDIRECTORY(cholmod)
+
+
