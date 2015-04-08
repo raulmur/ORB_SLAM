@@ -22,6 +22,7 @@
 #include "FeatureVector.h"
 #include "BowVector.h"
 #include "ScoringObject.h"
+#include <limits>
 
 #include "../DUtils/Random.h"
 
