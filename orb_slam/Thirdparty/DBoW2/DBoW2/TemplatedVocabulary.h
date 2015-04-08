@@ -442,7 +442,7 @@ TemplatedVocabulary<TDescriptor,F>::TemplatedVocabulary
 template<class TDescriptor, class F>
 void TemplatedVocabulary<TDescriptor,F>::createScoringObject()
 {
-  delete m_scoring_object;
+  //delete m_scoring_object;
   m_scoring_object = NULL;
   
   switch(m_scoring)
@@ -506,7 +506,7 @@ TemplatedVocabulary<TDescriptor,F>::TemplatedVocabulary(
 template<class TDescriptor, class F>
 TemplatedVocabulary<TDescriptor,F>::~TemplatedVocabulary()
 {
-  delete m_scoring_object;
+  //delete m_scoring_object;
 }
 
 // --------------------------------------------------------------------------
