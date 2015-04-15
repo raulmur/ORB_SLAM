@@ -27,6 +27,9 @@ If you use ORB-SLAM in an academic work, please cite:
 
 #2. Prerequisites (dependencies)
 
+With the catkin version you only need to install the dependencies running rosdep.
+Skip to the installation step.
+
 ##2.1 Boost
 
 We use the Boost library to launch the different threads of our SLAM system.
@@ -35,7 +38,7 @@ We use the Boost library to launch the different threads of our SLAM system.
 
 ##2.2 ROS
 We use ROS to receive images from the camera or from a recorded sequence (rosbag), and for visualization (rviz, image_view). 
-**We have tested ORB-SLAM in Ubuntu 12.04 with ROS Fuerte, Groovy and Hydro**. 
+**We have tested ORB-SLAM in Ubuntu 12.04 with ROS Fuerte, Groovy, Hydro and Indigo**. 
 If you do not have already installed ROS in your computer, we recommend you to install the Full-Desktop version of ROS Fuerte (http://wiki.ros.org/fuerte/Installation/Ubuntu).
 
 ##2.3 g2o (included)
@@ -56,37 +59,14 @@ It only depends on OpenCV, but it should be included in the ROS distribution.
 
 #3. Installation
 
-1. Make sure you have installed ROS and all library dependencies (boost, eigen3, cholmod, blas, lapack).
-
-2. In your ROS package path (check your environment variable `ROS_PACKAGE_PATH`) clone this repository:
+1. In your ROS package path (check your environment variable `ROS_PACKAGE_PATH`) clone this repository:
 
 		git clone https://github.com/raulmur/ORB_SLAM.git ORB_SLAM
 
-3. Build g2o. Go into `Thirdparty/g2o/` and execute:
+2. Run this line from your catkin workspace root, `indigo` here should be replaced with your preferred ROS distro.
+	`rosdep install --from-paths src --ignore-src --rosdistro indigo -y` 
 
-		mkdir build
-		cd build
-		cmake .. -DCMAKE_BUILD_TYPE=Release
-		make 
-
-	*Tip: To achieve the best performance in your computer, set your favorite compilation flags in line 97 and 98 of* `Thirdparty/g2o/CMakeLists.txt` 
-		  (by default -03 -march=native)
-
-4. Build DBoW2. Go into Thirdparty/DBoW2/ and execute:
-
-		mkdir build
-		cd build
-		cmake .. -DCMAKE_BUILD_TYPE=Release
-		make  
-
-	*Tip: Set your favorite compilation flags in line 4 and 5 of* `Thirdparty/DBoW2/CMakeLists.txt` (by default -03 -march=native)
-
-5. Build ORB_SLAM. In the ORB_SLAM root execute:
-
-		mkdir build
-		cd build
-		cmake .. -DROS_BUILD_TYPE=Release
-		make
+3. Build all by running catkin_make in your workspace root.
 
 	*Tip: Set your favorite compilation flags in line 12 and 13 of* `Thirdparty/DBoW2/CMakeLists.txt` (by default -03 -march=native)
 
@@ -94,18 +74,18 @@ It only depends on OpenCV, but it should be included in the ROS distribution.
 
 **See section 5 to run the Example Sequence**.
 
-1. Launch ORB-SLAM from the terminal (`roscore` should have been already executed):
+1. Launch orb_slam from the terminal (`roscore` should have been already executed):
 
-		rosrun ORB_SLAM ORB_SLAM PATH_TO_VOCABULARY PATH_TO_SETTINGS_FILE
+		rosrun orb_slam orb_slam PATH_TO_VOCABULARY PATH_TO_SETTINGS_FILE
 
-  You have to provide the path to the ORB vocabulary and to the settings file. The paths must be absolute or relative   to the ORB_SLAM directory.  
-  We already provide the vocabulary file we use in `ORB_SLAM/Data/ORBvoc.yml`. Uncompress the file, as it will be   loaded much faster.
+  You have to provide the path to the ORB vocabulary and to the settings file. The paths must be absolute or relative   to the orb_slam directory.  
+  We already provide the vocabulary file we use in `orb_slam/Data/ORBvoc.yml`. Uncompress the file, as it will be   loaded much faster.
 
-2. The last processed frame is published to the topic `/ORB_SLAM/Frame`. You can visualize it using `image_view`:
+2. The last processed frame is published to the topic `/orb_slam/Frame`. You can visualize it using `image_view`:
 
-		rosrun image_view image_view image:=/ORB_SLAM/Frame _autosize:=true
+		rosrun image_view image_view image:=/orb_slam/Frame _autosize:=true
 
-3. The map is published to the topic `/ORB_SLAM/Map`, the current camera pose and global world coordinate origin are sent through `/tf` in frames `/ORB_SLAM/Camera` and `/ORB_SLAM/World` respectively.  Run `rviz` to visualize the map:
+3. The map is published to the topic `/orb_slam/Map`, the current camera pose and global world coordinate origin are sent through `/tf` in frames `/orb_slam/Camera` and `/orb_slam/World` respectively.  Run `rviz` to visualize the map:
 	
 	*in ROS Fuerte*:
 
@@ -115,11 +95,11 @@ It only depends on OpenCV, but it should be included in the ROS distribution.
 
 		rosrun rviz rviz -d Data/rviz.rviz
 
-4. ORB_SLAM will receive the images from the topic `/camera/image_raw`. You can now play your rosbag or start your camera node. 
+4. orb_slam will receive the images from the topic `/camera/image_raw`. You can now play your rosbag or start your camera node. 
 If you have a sequence with individual image files, you will need to generate a bag from them. We provide a tool to do that: https://github.com/raulmur/BagFromImages.
 
 
-**Tip: Use a roslaunch to launch `ORB_SLAM`, `image_view` and `rviz` from just one instruction. We provide an example**:
+**Tip: Use a roslaunch to launch `orb_slam`, `image_view` and `rviz` from just one instruction. We provide an example**:
 
 *in ROS Fuerte*:
 
@@ -128,6 +108,10 @@ If you have a sequence with individual image files, you will need to generate a 
 *in ROS Groovy or Hydro*:
 
 	roslaunch ExampleGroovyHydro.launch
+	
+*in ROS Groovy or Hydro*:
+
+	roslaunch orb_slam orb_slam.launch
 
 
 #5. Example Sequence
@@ -157,7 +141,7 @@ We provide the settings and the rosbag of an example sequence in our lab. In thi
 
 #6. The Settings File
 
-ORB_SLAM reads the camera calibration and setting parameters from a YAML file. We provide an example in `Data/Settings.yaml`, where you will find all parameters and their description. We use the camera calibration model of OpenCV.
+orb_slam reads the camera calibration and setting parameters from a YAML file. We provide an example in `Data/Settings.yaml`, where you will find all parameters and their description. We use the camera calibration model of OpenCV.
 
 Please make sure you write and call your own settings file for your camera (copy the example file and modify the calibration)
 
@@ -172,5 +156,5 @@ The system is able to initialize from planar and non-planar scenes. In the case 
 
 #8. Need Help?
 
-If you have any trouble installing or running ORB-SLAM, contact the authors.
+If you have any trouble installing or running orb_slam, contact the authors.
 
