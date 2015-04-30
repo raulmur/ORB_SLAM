@@ -58,11 +58,13 @@ It only depends on OpenCV, but it should be included in the ROS distribution.
 
 1. Make sure you have installed ROS and all library dependencies (boost, eigen3, cholmod, blas, lapack).
 
-2. In your ROS package path (check your environment variable `ROS_PACKAGE_PATH`) clone this repository:
+2. Clone the repository:
 
 		git clone https://github.com/raulmur/ORB_SLAM.git ORB_SLAM
+		
+3. Add the path where you cloned ORB-SLAM to the `ROS_PACKAGE_PATH` environment variable (better if you add the export line to your .bashrc file)
 
-3. Build g2o. Go into `Thirdparty/g2o/` and execute:
+4. Build g2o. Go into `Thirdparty/g2o/` and execute:
 
 		mkdir build
 		cd build
@@ -72,7 +74,7 @@ It only depends on OpenCV, but it should be included in the ROS distribution.
 	*Tip: To achieve the best performance in your computer, set your favorite compilation flags in line 97 and 98 of* `Thirdparty/g2o/CMakeLists.txt` 
 		  (by default -03 -march=native)
 
-4. Build DBoW2. Go into Thirdparty/DBoW2/ and execute:
+5. Build DBoW2. Go into Thirdparty/DBoW2/ and execute:
 
 		mkdir build
 		cd build
@@ -81,7 +83,7 @@ It only depends on OpenCV, but it should be included in the ROS distribution.
 
 	*Tip: Set your favorite compilation flags in line 4 and 5 of* `Thirdparty/DBoW2/CMakeLists.txt` (by default -03 -march=native)
 
-5. Build ORB_SLAM. In the ORB_SLAM root execute:
+6. Build ORB_SLAM. In the ORB_SLAM root execute:
 
 		mkdir build
 		cd build
