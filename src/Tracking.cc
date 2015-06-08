@@ -37,6 +37,8 @@
 #include<fstream>
 
 
+
+
 using namespace std;
 
 namespace ORB_SLAM
@@ -312,6 +314,19 @@ void Tracking::GrabImage(const sensor_msgs::ImageConstPtr& msg)
         tf::Transform tfTcw(M,V);
 
         mTfBr.sendTransform(tf::StampedTransform(tfTcw,ros::Time::now(), "ORB_SLAM/World", "ORB_SLAM/Camera"));
+
+	geometry_msgs::PoseStamped poseMSG;
+	poseMSG.pose.position.x = tfTcw.getOrigin().x();
+	poseMSG.pose.position.y = tfTcw.getOrigin().y();
+	poseMSG.pose.position.z = tfTcw.getOrigin().z();
+	poseMSG.pose.orientation.x = tfTcw.getRotation().x();
+	poseMSG.pose.orientation.y = tfTcw.getRotation().y();
+	poseMSG.pose.orientation.z = tfTcw.getRotation().z();
+	poseMSG.pose.orientation.w = tfTcw.getRotation().w();
+	poseMSG.header.frame_id = "VSLAM";
+	poseMSG.header.stamp = ros::Time::now();
+	PosPub.publish(poseMSG);
+	
     }
 
 }
