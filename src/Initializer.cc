@@ -295,7 +295,7 @@ cv::Mat Initializer::ComputeF21(const vector<cv::Point2f> &vP1,const vector<cv::
 
     cv::SVDecomp(Fpre,w,u,vt,cv::SVD::MODIFY_A | cv::SVD::FULL_UV);
 
-    w.at<float>(2,2)=0;
+    w.at<float>(2)=0;
 
     return  u*cv::Mat::diag(w)*vt;
 }
