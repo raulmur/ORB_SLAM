@@ -35,8 +35,10 @@ We use the Boost library to launch the different threads of our SLAM system.
 
 ##2.2 ROS
 We use ROS to receive images from the camera or from a recorded sequence (rosbag), and for visualization (rviz, image_view). 
-**We have tested ORB-SLAM in Ubuntu 12.04 with ROS Fuerte, Groovy and Hydro**. 
+**We have tested ORB-SLAM in Ubuntu 12.04 with ROS Fuerte, Groovy and Hydro; and in Ubuntu 14.04 with ROS Indigo**. 
 If you do not have already installed ROS in your computer, we recommend you to install the Full-Desktop version of ROS Fuerte (http://wiki.ros.org/fuerte/Installation/Ubuntu).
+
+**If you use ROS Indigo, remove the depency of opencv2 in the manifest.xml.**
 
 ##2.3 g2o (included)
 We use g2o to perform several optimizations. We include a modified copy of the library including only the components we need 
@@ -113,7 +115,7 @@ It only depends on OpenCV, but it should be included in the ROS distribution.
 
 		rosrun rviz rviz -d Data/rviz.vcg
 
-	*in ROS Groovy or Hydro*:
+	*in ROS Groovy or a newer version*:
 
 		rosrun rviz rviz -d Data/rviz.rviz
 
@@ -127,9 +129,9 @@ If you have a sequence with individual image files, you will need to generate a 
 
 	roslaunch ExampleFuerte.launch
 
-*in ROS Groovy or Hydro*:
+*in ROS Groovy or a newer version*:
 
-	roslaunch ExampleGroovyHydro.launch
+	roslaunch ExampleGroovyOrNewer.launch
 
 
 #5. Example Sequence
