@@ -17,10 +17,10 @@ For a closed-source version of ORB-SLAM for commercial purposes, please contact 
 
 If you use ORB-SLAM in an academic work, please cite:
 
-    @article{murSubTro2015,
+    @article{murAcceptedTRO2015,
       title={{ORB-SLAM}: a Versatile and Accurate Monocular {SLAM} System},
       author={Mur-Artal, Ra\'ul, Montiel, J. M. M. and Tard\'os, Juan D.},
-      journal={Submitted to IEEE Transaction on Robotics. arXiv preprint arXiv:1502.00956},
+      journal={IEEE Transaction on Robotics (Accepted). arXiv preprint arXiv:1502.00956},
       year={2015}
      }
 
