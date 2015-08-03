@@ -51,8 +51,7 @@ In order to compile g2o you will need to have installed CHOLMOD, BLAS, LAPACK an
 	sudo apt-get install libeigen3-dev
 
 ##2.4 DBoW2 (included)
-We make use of some components of the DBoW2 library for place recognition and feature matching. We include a modified copy of the library
-including only the components we need and also some modifications that are listed in `Thirdparty/DBoW2/LICENSE.txt`. 
+We make use of some components of the DBoW2 library (https://github.com/dorian3d/DBoW2) for place recognition and feature matching. We include a modified copy of the library including only the components we need and also some modifications that are listed in `Thirdparty/DBoW2/LICENSE.txt`. 
 It only depends on OpenCV, but it should be included in the ROS distribution.
 
 
