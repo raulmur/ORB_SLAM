@@ -74,6 +74,7 @@ int main(int argc, char **argv)
     ORB_SLAM::FramePublisher FramePub;
 
     //Load ORB Vocabulary
+   /* Old version to load vocabulary using cv::FileStorage
     string strVocFile = ros::package::getPath("ORB_SLAM")+"/"+argv[1];
     cout << endl << "Loading ORB Vocabulary. This could take a while." << endl;
     cv::FileStorage fsVoc(strVocFile.c_str(), cv::FileStorage::READ);
@@ -85,6 +86,24 @@ int main(int argc, char **argv)
     }
     ORB_SLAM::ORBVocabulary Vocabulary;
     Vocabulary.load(fsVoc);
+    */
+    
+    // New version to load vocabulary from text file "Data/ORBvoc.txt". 
+    // If you have an own .yml vocabulary, use the function
+    // saveToTextFile in Thirdparty/DBoW2/DBoW2/TemplatedVocabulary.h
+    string strVocFile = ros::package::getPath("ORB_SLAM")+"/"+argv[1];
+    cout << endl << "Loading ORB Vocabulary. This could take a while." << endl;
+    
+    ORB_SLAM::ORBVocabulary Vocabulary;
+    bool bVocLoad = Vocabulary.loadFromTextFile(strVocFile);
+
+    if(!bVocLoad)
+    {
+        cerr << "Wrong path to vocabulary. Path must be absolut or relative to ORB_SLAM package directory." << endl;
+        cerr << "Falied to open at: " << strVocFile << endl;
+        ros::shutdown();
+        return 1;
+    }
 
     cout << "Vocabulary loaded!" << endl << endl;
 
