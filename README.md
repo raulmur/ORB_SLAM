@@ -20,7 +20,7 @@ If you use ORB-SLAM in an academic work, please cite:
     @article{murAcceptedTRO2015,
       title={{ORB-SLAM}: a Versatile and Accurate Monocular {SLAM} System},
       author={Mur-Artal, Ra\'ul, Montiel, J. M. M. and Tard\'os, Juan D.},
-      journal={IEEE Transaction on Robotics (Accepted). arXiv preprint arXiv:1502.00956},
+      journal={IEEE Transaction on Robotics (to appear). arXiv preprint arXiv:1502.00956},
       year={2015}
      }
 
@@ -102,7 +102,7 @@ It only depends on OpenCV, but it should be included in the ROS distribution.
 		rosrun ORB_SLAM ORB_SLAM PATH_TO_VOCABULARY PATH_TO_SETTINGS_FILE
 
   You have to provide the path to the ORB vocabulary and to the settings file. The paths must be absolute or relative   to the ORB_SLAM directory.  
-  We already provide the vocabulary file we use in `ORB_SLAM/Data/ORBvoc.yml`. Uncompress the file, as it will be   loaded much faster.
+  We already provide the vocabulary file we use in `ORB_SLAM/Data/ORBvoc.txt.tar.gz`. Uncompress the file, as it will be loaded much faster.
 
 2. The last processed frame is published to the topic `/ORB_SLAM/Frame`. You can visualize it using `image_view`:
 
@@ -143,7 +143,7 @@ We provide the settings and the rosbag of an example sequence in our lab. In thi
 
 	Uncompress the file.
 
-2. Launch ORB_SLAM with the settings for the example sequence. You should have already uncompressed the vocabulary file (`/Data/ORBvoc.yml.tar.gz`)
+2. Launch ORB_SLAM with the settings for the example sequence. You should have already uncompressed the vocabulary file (`/Data/ORBvoc.txt.tar.gz`)
 
   *in ROS Fuerte*:
 
