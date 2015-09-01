@@ -17,7 +17,7 @@ If you use ORB-SLAM in an academic work, please cite:
 @article{murSubTro2015,
   title={{ORB-SLAM}: a Versatile and Accurate Monocular {SLAM} System},
   author={Mur-Artal, Ra\'ul, Montiel, J. M. M. and Tard\'os, Juan D.},
-  journal={Submitted to IEEE Transaction on Robotics. arXiv preprint arXiv:1502.00956},
+  journal={IEEE Transaction on Robotics (to appear). arXiv preprint arXiv:1502.00956},
   year={2015}
 }
 
@@ -98,7 +98,7 @@ See section 5 to run the Example Sequence.
 		rosrun ORB_SLAM ORB_SLAM PATH_TO_VOCABULARY PATH_TO_SETTINGS_FILE
 
 You have to provide the path to the ORB vocabulary and to the settings file. The paths must be absolute or relative to the ORB_SLAM directory.  
-We already provide the vocabulary file we use in ORB_SLAM/Data. Uncompress the file, as it will be loaded much faster.
+We already provide the vocabulary file we use in ORB_SLAM/Data/ORBvoc.txt.tar.gz. Uncompress the file, as it will be loaded much faster.
 
 2. The last processed frame is published to the topic /ORB_SLAM/Frame. You can visualize it using image_view:
 
@@ -110,7 +110,7 @@ We already provide the vocabulary file we use in ORB_SLAM/Data. Uncompress the f
 
 		rosrun rviz rviz -d Data/rviz.vcg
 
-	- for ROS Groovy and Hydro:
+	- for ROS Groovy or newer versions:
 
 		rosrun rviz rviz -d Data/rviz.rviz
 
@@ -125,9 +125,9 @@ Tip: Use a roslaunch to launch ORB_SLAM, image_view and rviz from just one instr
 
 		roslaunch ExampleFuerte.launch
 
-	- for ROS Groovy and Hydro:
+	- for ROS Groovy or newer versions:
 
-		roslaunch ExampleGroovyHydro.launch
+		roslaunch ExampleGroovyOrNewer.launch
 
 
 5) Example Sequence
@@ -136,7 +136,7 @@ We provide the settings and the rosbag of an example sequence in our lab. In thi
 1. Download the rosbag file:  http://webdiis.unizar.es/~raulmur/orbslam/downloads/Example.bag.tar.gz
 Uncompress the file.
 
-2. Launch ORB_SLAM with the settings for the example sequence. You should have already uncompressed the vocabulary file (/Data/ORBvoc.yml.tar.gz)
+2. Launch ORB_SLAM with the settings for the example sequence. You should have already uncompressed the vocabulary file (/Data/ORBvoc.txt.tar.gz)
 
 	- for ROS Fuerte:
 
@@ -144,7 +144,7 @@ Uncompress the file.
 
 	- for ROS Groovy or newer versions:
 
-		roslaunch ExampleGroovyHydro.launch
+		roslaunch ExampleGroovyOrNewer.launch
 
 3. Once the ORB vocabulary has been loaded, start playing the bag 
 
