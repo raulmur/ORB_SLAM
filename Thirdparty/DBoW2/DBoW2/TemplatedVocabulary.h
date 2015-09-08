@@ -1354,16 +1354,17 @@ bool TemplatedVocabulary<TDescriptor,F>::loadFromTextFile(const std::string &fil
     ss >> m_L;
     int n1, n2;
     ss >> n1;
-    m_scoring = (ScoringType)n1;
     ss >> n2;
-    m_weighting = (WeightingType)n2;
-    createScoringObject();
 
     if(m_k<0 || m_k>20 || m_L<1 || m_L>10 || n1<0 || n1>5 || n2<0 || n2>3)
     {
         std::cerr << "Vocabulary loading failure: This is not a correct text file!" << endl;
 	return false;
     }
+    
+    m_scoring = (ScoringType)n1;
+    m_weighting = (WeightingType)n2;
+    createScoringObject();
 
     // nodes
     int expected_nodes =
