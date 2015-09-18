@@ -6,7 +6,8 @@ See our project webpage: http://webdiis.unizar.es/~raulmur/orbslam/
 
 ###Related Publications:
 
-[1] Raúl Mur-Artal, J. M. M. Montiel and Juan D. Tardós. **ORB-SLAM: A Versatile and Accurate Monocular SLAM System**. *IEEE Transactions on Robotics (Accepted). 2015. arXiv preprint: http://arxiv.org/abs/1502.00956*
+[1] Raúl Mur-Artal, J. M. M. Montiel and Juan D. Tardós. **ORB-SLAM: A Versatile and Accurate Monocular SLAM System**. *IEEE Transactions on Robotics (Accepted). 2015. DOI: 10.1109/TRO.2015.2463671. *
+*Link to pdf: http://webdiis.unizar.es/~raulmur/MurMontielTardosTRO15.pdf *
 
 
 #1. License
@@ -20,7 +21,8 @@ If you use ORB-SLAM in an academic work, please cite:
     @article{murAcceptedTRO2015,
       title={{ORB-SLAM}: a Versatile and Accurate Monocular {SLAM} System},
       author={Mur-Artal, Ra\'ul, Montiel, J. M. M. and Tard\'os, Juan D.},
-      journal={IEEE Transaction on Robotics (to appear). arXiv preprint arXiv:1502.00956},
+      journal={IEEE Transaction on Robotics (to appear).},
+      doi = {10.1109/TRO.2015.2463671},
       year={2015}
      }
 
