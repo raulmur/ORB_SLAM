@@ -96,7 +96,7 @@ It only depends on OpenCV, but it should be included in the ROS distribution.
 		cmake .. -DROS_BUILD_TYPE=Release
 		make
 
-	*Tip: Set your favorite compilation flags in line 12 and 13 of* `Thirdparty/DBoW2/CMakeLists.txt` (by default -03 -march=native)
+	*Tip: Set your favorite compilation flags in line 12 and 13 of* `./CMakeLists.txt` (by default -03 -march=native)
 
 #4. Usage
 
