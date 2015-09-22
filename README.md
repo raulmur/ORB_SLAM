@@ -91,6 +91,8 @@ It only depends on OpenCV, but it should be included in the ROS distribution.
 
 6. Build ORB_SLAM. In the ORB_SLAM root execute:
 
+	**If you use ROS Indigo, remove the depency of opencv2 in the manifest.xml.**
+
 		mkdir build
 		cd build
 		cmake .. -DROS_BUILD_TYPE=Release
