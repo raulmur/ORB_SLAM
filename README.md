@@ -110,11 +110,10 @@ For vikit, it is not necessary to install it. But you need to set its path in th
 
 1. Launch ORB-SLAM from the terminal:
 
-		ORB_SLAM PATH_TO_SETTINGS_FILE
+		test_orbslam PATH_TO_SETTINGS_FILE
 
 You have to provide the path to the settings file which contains path to the vocabulary file. The paths must be absolute or relative to the ORB_SLAM directory.  
 We already provide the vocabulary file we use in ORB_SLAM/Data. Uncompress the file, as it will be loaded much faster.
-
 
 2. The Settings File
 
