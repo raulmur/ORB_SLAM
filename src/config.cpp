@@ -87,7 +87,7 @@ Config::Config() :
     triang_min_disp(3.5f),
     triang_max_cos_rays(0.99995f),
     pdop_thresh(1e8),
-    crop_roi_xl(0), crop_roi_xr(640), //for KITTI set to 292 and 949
+    crop_roi_xl(292), crop_roi_xr(949), //for KITTI set to 292 and 949
     use_decay_velocity_model(true),
     temporal_window_size(3),
     spatial_window_size(7)

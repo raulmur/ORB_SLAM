@@ -69,7 +69,7 @@ public:
       outlier_flow_tolerance = 5;
       multi_stage            = 1;
       half_resolution        = 1;
-      refinement             = 2; //use subpixel refinement may improve results on some dataset but not overall of KITTI odometry
+      refinement             = 1; //use subpixel refinement may improve results on some dataset but not overall of KITTI odometry
     }    
   };
 
