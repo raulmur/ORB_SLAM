@@ -7,21 +7,23 @@ ORB-SLAM is a versatile and accurate Monocular SLAM solution able to compute in 
 Related Publications:
 
 [1] Raúl Mur-Artal, J. M. M. Montiel and Juan D. Tardós. ORB-SLAM: A Versatile and Accurate Monocular SLAM System. Submitted to IEEE Transactions on Robotics. arXiv preprint: http://arxiv.org/abs/1502.00956
+
 [2] Jianzhu Huai, Charles K. Toth and Dorota A. Grejner-Brzezinska: Stereo-inertial odometry using nonlinear optimization. Proceedings of the 27th International Technical Meeting of The Satellite Division of the Institute of Navigation (ION GNSS+ 2015) 2015.
 
 #1. License
 
-ORB-SLAM is released under a GPLv3 license. Please note that we provide along ORB-SLAM a modified version of g2o and DBoW2 which are both BSD. 
+ORB-SLAM-DWO is released under a GPLv3 license. Please note that we provide along ORB-SLAM a modified version of DBoW2 which is under BSD. 
 
-For a closed-source version of ORB-SLAM for commercial purposes, please contact the authors. 
+For a closed-source version of ORB-SLAM-DWO for commercial purposes, please contact the authors. 
 
-If you use ORB-SLAM in an academic work, please cite:
+If you use ORB-SLAM-DWO in an academic work, please cite:
 
-	@article{murSubTro2015,
-	  title={{ORB-SLAM}: a Versatile and Accurate Monocular {SLAM} System},
-	  author={Mur-Artal, Ra\'ul, Montiel, J. M. M. and Tard\'os, Juan D.},
-	  journal={Submitted to IEEE Transaction on Robotics. arXiv preprint arXiv:1502.00956},
-	  year={2015}
+	@inproceedings{Huai2015stereo,
+	title={Stereo-inertial odometry using nonlinear optimization},
+	author={Huai, Jianzhu and Toth, Charles and Grejner-Brzezinska, Dorota},
+	booktitle={Proceedings of the 27th International Technical Meeting of The Satellite Division of the Institute of Navigation (ION GNSS+ 2015)},
+	year={2015},
+	organization={ION}
 	}
 
 I tested the following installation procedure on Ubuntu 14.04 and 14.04.2 with Qt5

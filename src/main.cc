@@ -41,7 +41,6 @@
 
 using namespace std;
 
-
 int main(int argc, char **argv)
 {
 //    ros::init(argc, argv, "ORB_SLAM");
@@ -75,20 +74,42 @@ int main(int argc, char **argv)
     ORB_SLAM::FramePublisher FramePub;
 
     //Load ORB Vocabulary
+    string strVocFile = fsSettings["voc_file_path"];   //            ros::package::getPath("ORB_SLAM")+"/"+argv[1];
+    size_t found = strVocFile.find_last_of('.');
+    string extension = strVocFile.substr(found+1);
 
-    string strVocFile = fsSettings["voc_file_path"];
-//            ros::package::getPath("ORB_SLAM")+"/"+argv[1];
+    ORB_SLAM::ORBVocabulary Vocabulary;
+
     cout << endl << "Loading ORB Vocabulary. This could take a while." << endl;
-    cv::FileStorage fsVoc(strVocFile.c_str(), cv::FileStorage::READ);
-    if(!fsVoc.isOpened())
-    {
-        cerr << endl << "Wrong path to vocabulary. Path must be absolut or relative to ORB_SLAM package directory." << endl;
-//        ros::shutdown();
+    if (extension == "yml" || extension == "YML"){
+        // Old version to load vocabulary using cv::FileStorage
+        cv::FileStorage fsVoc(strVocFile.c_str(), cv::FileStorage::READ);
+        if(!fsVoc.isOpened())
+        {
+            cerr << "Wrong path to vocabulary. Path must be absolut or relative to ORB_SLAM package directory." << endl;
+            cerr << "Falied to open at: " << strVocFile << endl;
+            //        ros::shutdown();
+            return 1;
+        }
+        Vocabulary.load(fsVoc);
+    }else if(extension == "txt" || extension == "TXT"){
+        // New version to load vocabulary from text file "Data/ORBvoc.txt".
+        // If you have an own .yml vocabulary, use the function
+        // saveToTextFile in Thirdparty/DBoW2/DBoW2/TemplatedVocabulary.h
+        bool bVocLoad = Vocabulary.loadFromTextFile(strVocFile);
+        if(!bVocLoad)
+        {
+            cerr << "Wrong path to vocabulary. Path must be absolut or relative to ORB_SLAM package directory." << endl;
+            cerr << "Falied to open at: " << strVocFile << endl;
+            //        ros::shutdown();
+            return 1;
+        }
+    }else {
+        cerr << "Wrong path to vocabulary. Path must be absolut or relative to ORB_SLAM package directory." << endl;
+        cerr << "Falied to open at: " << strVocFile << endl;
+        //        ros::shutdown();
         return 1;
     }
-    ORB_SLAM::ORBVocabulary Vocabulary;
-    Vocabulary.load(fsVoc);
-
     cout << "Vocabulary loaded!" << endl << endl;
 
     //Create KeyFrame Database
