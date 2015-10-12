@@ -1,13 +1,13 @@
-# ORB_SLAM
+# ORB-SLAM-DWO
+
+ORB-SLAM-DWO is an adapted version of ORB-SLAM with double window optimization by Jianzhu Huai. In contrast to ORB-SLAM, (1) it does not rely on ROS, (2) it does not use the modified version of g2o shipped in ORB-SLAM, instead it used the g2o from github, (3) it used Eigen vectors and Sophus members instead of Opencv Mat to represent pose entities, and (4) it also incorporate a camera model from vikit of SVO and a motion model of Stereo PTAM for KITTI.
 
 ORB-SLAM is a versatile and accurate Monocular SLAM solution able to compute in real-time the camera trajectory and a sparse 3D reconstruction of the scene in a wide variety of environments, ranging from small hand-held sequences to a car driven around several city blocks. It is able to close large loops and perform global relocalisation in real-time and from wide baselines.
 
-See our project webpage: http://webdiis.unizar.es/~raulmur/orbslam/
+Related Publications:
 
-###Related Publications:
-
-[1] Raúl Mur-Artal, J. M. M. Montiel and Juan D. Tardós. **ORB-SLAM: A Versatile and Accurate Monocular SLAM System**. *Submitted to IEEE Transactions on Robotics. arXiv preprint: http://arxiv.org/abs/1502.00956*
-
+[1] Raúl Mur-Artal, J. M. M. Montiel and Juan D. Tardós. ORB-SLAM: A Versatile and Accurate Monocular SLAM System. Submitted to IEEE Transactions on Robotics. arXiv preprint: http://arxiv.org/abs/1502.00956
+[2] Jianzhu Huai, Charles K. Toth and Dorota A. Grejner-Brzezinska: Stereo-inertial odometry using nonlinear optimization. Proceedings of the 27th International Technical Meeting of The Satellite Division of the Institute of Navigation (ION GNSS+ 2015) 2015.
 
 #1. License
 
@@ -17,160 +17,121 @@ For a closed-source version of ORB-SLAM for commercial purposes, please contact 
 
 If you use ORB-SLAM in an academic work, please cite:
 
-    @article{murSubTro2015,
-      title={{ORB-SLAM}: a Versatile and Accurate Monocular {SLAM} System},
-      author={Mur-Artal, Ra\'ul, Montiel, J. M. M. and Tard\'os, Juan D.},
-      journal={Submitted to IEEE Transaction on Robotics. arXiv preprint arXiv:1502.00956},
-      year={2015}
-     }
+	@article{murSubTro2015,
+	  title={{ORB-SLAM}: a Versatile and Accurate Monocular {SLAM} System},
+	  author={Mur-Artal, Ra\'ul, Montiel, J. M. M. and Tard\'os, Juan D.},
+	  journal={Submitted to IEEE Transaction on Robotics. arXiv preprint arXiv:1502.00956},
+	  year={2015}
+	}
 
-
+I tested the following installation procedure on Ubuntu 14.04 and 14.04.2 with Qt5
 #2. Prerequisites (dependencies)
 
 ##2.1 Boost
-
 We use the Boost library to launch the different threads of our SLAM system.
 
 	sudo apt-get install libboost-all-dev 
 
-##2.2 ROS
-We use ROS to receive images from the camera or from a recorded sequence (rosbag), and for visualization (rviz, image_view). 
-**We have tested ORB-SLAM in Ubuntu 12.04 with ROS Fuerte, Groovy and Hydro**. 
-If you do not have already installed ROS in your computer, we recommend you to install the Full-Desktop version of ROS Fuerte (http://wiki.ros.org/fuerte/Installation/Ubuntu).
-
-##2.3 g2o (included)
-We use g2o to perform several optimizations. We include a modified copy of the library including only the components we need 
-and also some changes that are listed in `Thirdparty/g2o/Changes.txt`. 
-In order to compile g2o you will need to have installed CHOLMOD, BLAS, LAPACK and Eigen3.
-
-	sudo apt-get install libsuitesparse-dev
-	sudo apt-get install libblas-dev
-	sudo apt-get install liblapack-dev
-	sudo apt-get install libeigen3-dev
+##2.2 g2o and its dependencies 
+We use g2o to perform several optimizations. I recommend installing g2o on a local folder, say $HOME/svslocal
+	mkdir $HOME/svslocal
+To install g2o dependencies(Eigen, CMAKE, SuiteSparse, QGLViewer), in terminal:
+	sudo apt-get install cmake libeigen3-dev libsuitesparse-dev libqglviewer-dev
+To install g2o, in terminal:
+	cd ~
+	git clone https://github.com/RainerKuemmerle/g2o.git
+	cd g2o
+	mkdir build
+	cd build
+	cmake .. -DCMAKE_INSTALL_PREFIX:PATH=$HOME/svslocal -DCMAKE_BUILD_TYPE=Release
+	make -j4
+	make install
+	cd ~
+##2.3 OpenCV 2.4.10 tested
+You may install openCV following instructions https://help.ubuntu.com/community/OpenCV. Using a shell file greatly simplifies its installation.
 
 ##2.4 DBoW2 (included)
 We make use of some components of the DBoW2 library for place recognition and feature matching. We include a modified copy of the library
-including only the components we need and also some modifications that are listed in `Thirdparty/DBoW2/LICENSE.txt`. 
-It only depends on OpenCV, but it should be included in the ROS distribution.
+including only the components we need and also some modifications that are listed in Thirdparty/DBoW2/LICENSE.txt. 
+It only depends on OpenCV, but it should be included in the distribution. Its installation will be detailed later on.
 
+##2.5 Sophus
+We used the modified version of Sophus by Steven Lovegrove to manipulate lie group members. The reason we do not use Hauke Strasdat's version is that Lovegrove's version only needs to include headers for use. And it also complies with Jet numbers used in Ceres Solver's automatic differentiation.
+To install it, in terminal
+	git clone https://github.com/stevenlovegrove/Sophus.git
+	cd Sophus
+	mkdir build
+	cd build
+	cmake .. -DCMAKE_INSTALL_PREFIX:PATH=$HOME/svslocal
+	make -j4
+	make install
+	cd ~
 
+##2.6 vikit
+Drawing lessons from SVO, vikit is used to deal with camera models. 
+	git clone https://github.com/uzh-rpg/rpg_vikit.git
+It depends on Strasdat's version of Sophus. To make it work with Lovegrove's Sophus, you need to change SE3 to SE3d, rotation_matrix() to rotationMatrix(), #include <sophus/se3.h> to #include <sophus/se3.hpp> in several files. Then, in rpg_vikit/vikit_common/CMakeLists.txt set the flag USE_ROS to FALSE.
+To install it, in terminal,
+	cd rpg_vikit/vikit_common
+	mkdir build
+	cd build
+	cmake .. -DCMAKE_INSTALL_PREFIX:PATH=$HOME/svslocal
+	make
+For vikit, it is not necessary to install it. But you need to set its path in the CMakeLists.txt of ORB-SLAM-DWO.
 #3. Installation
 
-1. Make sure you have installed ROS and all library dependencies (boost, eigen3, cholmod, blas, lapack).
+1. Make sure you have installed all library dependencies.
 
-2. In your ROS package path (check your environment variable `ROS_PACKAGE_PATH`) clone this repository:
+2. Clone this ORB_SLAM into your project folder
 
-		git clone https://github.com/raulmur/ORB_SLAM.git ORB_SLAM
-
-3. Build g2o. Go into `Thirdparty/g2o/` and execute:
-
-		mkdir build
-		cd build
-		cmake .. -DCMAKE_BUILD_TYPE=Release
-		make 
-
-	*Tip: To achieve the best performance in your computer, set your favorite compilation flags in line 97 and 98 of* `Thirdparty/g2o/CMakeLists.txt` 
-		  (by default -03 -march=native)
-
-4. Build DBoW2. Go into Thirdparty/DBoW2/ and execute:
+3. Build DBoW2. Go into Thirdparty/DBoW2/ and execute:
 
 		mkdir build
 		cd build
 		cmake .. -DCMAKE_BUILD_TYPE=Release
 		make  
 
-	*Tip: Set your favorite compilation flags in line 4 and 5 of* `Thirdparty/DBoW2/CMakeLists.txt` (by default -03 -march=native)
+	Tip: Set your favorite compilation flags in line 4 and 5 of Thirdparty/DBoW2/CMakeLists.txt
+		  (by default -03 -march=native)
 
-5. Build ORB_SLAM. In the ORB_SLAM root execute:
+4. Build ORB_SLAM. In the ORB-SLAM-DWO root execute:
 
 		mkdir build
 		cd build
-		cmake .. -DROS_BUILD_TYPE=Release
+		cmake .. -DCMAKE_BUILD_TYPE=Release
 		make
 
-	*Tip: Set your favorite compilation flags in line 12 and 13 of* `Thirdparty/DBoW2/CMakeLists.txt` (by default -03 -march=native)
+	Tip: Set your favorite compilation flags in line 12 and 13 of Thirdparty/DBoW2/CMakeLists.txt
+		  (by default -03 -march=native)
 
 #4. Usage
 
-**See section 5 to run the Example Sequence**.
+1. Launch ORB-SLAM from the terminal:
 
-1. Launch ORB-SLAM from the terminal (`roscore` should have been already executed):
+		ORB_SLAM PATH_TO_SETTINGS_FILE
 
-		rosrun ORB_SLAM ORB_SLAM PATH_TO_VOCABULARY PATH_TO_SETTINGS_FILE
-
-  You have to provide the path to the ORB vocabulary and to the settings file. The paths must be absolute or relative   to the ORB_SLAM directory.  
-  We already provide the vocabulary file we use in `ORB_SLAM/Data/ORBvoc.yml`. Uncompress the file, as it will be   loaded much faster.
-
-2. The last processed frame is published to the topic `/ORB_SLAM/Frame`. You can visualize it using `image_view`:
-
-		rosrun image_view image_view image:=/ORB_SLAM/Frame _autosize:=true
-
-3. The map is published to the topic `/ORB_SLAM/Map`, the current camera pose and global world coordinate origin are sent through `/tf` in frames `/ORB_SLAM/Camera` and `/ORB_SLAM/World` respectively.  Run `rviz` to visualize the map:
-	
-	*in ROS Fuerte*:
-
-		rosrun rviz rviz -d Data/rviz.vcg
-
-	*in ROS Groovy or Hydro*:
-
-		rosrun rviz rviz -d Data/rviz.rviz
-
-4. ORB_SLAM will receive the images from the topic `/camera/image_raw`. You can now play your rosbag or start your camera node. 
-If you have a sequence with individual image files, you will need to generate a bag from them. We provide a tool to do that: https://github.com/raulmur/BagFromImages.
+You have to provide the path to the settings file which contains path to the vocabulary file. The paths must be absolute or relative to the ORB_SLAM directory.  
+We already provide the vocabulary file we use in ORB_SLAM/Data. Uncompress the file, as it will be loaded much faster.
 
 
-**Tip: Use a roslaunch to launch `ORB_SLAM`, `image_view` and `rviz` from just one instruction. We provide an example**:
+2. The Settings File
 
-*in ROS Fuerte*:
-
-	roslaunch ExampleFuerte.launch
-
-*in ROS Groovy or Hydro*:
-
-	roslaunch ExampleGroovyHydro.launch
-
-
-#5. Example Sequence
-We provide the settings and the rosbag of an example sequence in our lab. In this sequence you will see a loop closure and two relocalisation from a big viewpoint change.
-
-1. Download the rosbag file:  
-	http://webdiis.unizar.es/~raulmur/orbslam/downloads/Example.bag.tar.gz. 
-
-	Alternative link: https://drive.google.com/file/d/0B8Qa2__-sGYgRmozQ21oRHhUZWM/view?usp=sharing
-
-	Uncompress the file.
-
-2. Launch ORB_SLAM with the settings for the example sequence. You should have already uncompressed the vocabulary file (`/Data/ORBvoc.yml.tar.gz`)
-
-  *in ROS Fuerte*:
-
-	  roslaunch ExampleFuerte.launch
-
-	*in ROS Groovy or newer versions*:
-
-	  roslaunch ExampleGroovyHydro.launch
-
-3. Once the ORB vocabulary has been loaded, play the rosbag (press space to start):
-
-		rosbag play --pause Example.bag
-
-
-#6. The Settings File
-
-ORB_SLAM reads the camera calibration and setting parameters from a YAML file. We provide an example in `Data/Settings.yaml`, where you will find all parameters and their description. We use the camera calibration model of OpenCV.
+We provide the settings of example sequences in Data folder, KITTI odometry and Tsukuba CG Stereo dataset daylight.
+ORB_SLAM_DWO reads the camera calibration and setting parameters from a YAML file. We provide an example in Data/Tsukuba.yaml, where you will find all parameters and their description. We use the camera calibration model of OpenCV.
 
 Please make sure you write and call your own settings file for your camera (copy the example file and modify the calibration)
 
-#7. Failure Modes
+#5. Failure Modes
 
-You should expect to achieve good results in sequences similar to those in which we show results in our paper [1], in terms of camera movement and texture in the environment. In general our Monocular SLAM solution is expected to have a bad time in the following situations:
-- Pure rotations in exploration
+In general our stereo SLAM solution is expected to have a bad time in the following situations:
+- Pure rotations and features are very distant in exploration
 - Low texture environments
 - Many (or big) moving objects, especially if they move slowly.
 
 The system is able to initialize from planar and non-planar scenes. In the case of planar scenes, depending on the camera movement relative to the plane, it is possible that the system refuses to initialize, see the paper [1] for details. 
 
-#8. Need Help?
+#6. Need Help?
 
 If you have any trouble installing or running ORB-SLAM, contact the authors.
+
 
