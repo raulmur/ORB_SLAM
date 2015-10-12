@@ -61,7 +61,8 @@
 
 #include "ORBextractor.h"
 
-#include <ros/ros.h>
+#include <vikit/vision.h> //for shitomasiscore
+//#include <ros/ros.h>
 
 
 using namespace cv;
@@ -152,7 +153,7 @@ static float IC_Angle(const Mat& image, Point2f pt,  const vector<int> & u_max)
 
 
 const float factorPI = (float)(CV_PI/180.f);
-static void computeOrbDescriptor(const KeyPoint& kpt,
+void computeOrbDescriptor(const KeyPoint& kpt,
                                  const Mat& img, const Point* pattern,
                                  uchar* desc)
 {
@@ -456,22 +457,28 @@ static int bit_pattern_31_[256*4] =
 
 ORBextractor::ORBextractor(int _nfeatures, float _scaleFactor, int _nlevels, int _scoreType,
          int _fastTh):
-    nfeatures(_nfeatures), scaleFactor(_scaleFactor), nlevels(_nlevels),
+    nlevels(_nlevels), nfeatures(_nfeatures), scaleFactor(_scaleFactor),
     scoreType(_scoreType), fastTh(_fastTh)
 {
+    //Scale Levels Info
     mvScaleFactor.resize(nlevels);
     mvScaleFactor[0]=1;
-    for(int i=1; i<nlevels; i++)
+    mvLevelSigma2.resize(nlevels);
+    mvLevelSigma2[0]=1.0f;
+    for(int i=1; i<nlevels; i++){
         mvScaleFactor[i]=mvScaleFactor[i-1]*scaleFactor;
+        mvLevelSigma2[i]=mvScaleFactor[i]*mvScaleFactor[i];
+    }
 
     float invScaleFactor = 1.0f/scaleFactor;
     mvInvScaleFactor.resize(nlevels);
     mvInvScaleFactor[0]=1;
-    for(int i=1; i<nlevels; i++)
+    for(int i=1; i<nlevels; ++i)
         mvInvScaleFactor[i]=mvInvScaleFactor[i-1]*invScaleFactor;
 
-    mvImagePyramid.resize(nlevels);
-    mvMaskPyramid.resize(nlevels);
+    mvInvLevelSigma2.resize(mvLevelSigma2.size());
+    for(int i=0; i<nlevels; ++i)
+        mvInvLevelSigma2[i]=1/mvLevelSigma2[i];
 
     mnFeaturesPerLevel.resize(nlevels);
     float factor = (float)(1.0 / scaleFactor);
@@ -510,7 +517,7 @@ ORBextractor::ORBextractor(int _nfeatures, float _scaleFactor, int _nlevels, int
     }
 }
 
-static void computeOrientation(const Mat& image, vector<KeyPoint>& keypoints, const vector<int>& umax)
+void computeOrientation(const Mat& image, vector<KeyPoint>& keypoints, const vector<int>& umax)
 {
     for (vector<KeyPoint>::iterator keypoint = keypoints.begin(),
          keypointEnd = keypoints.end(); keypoint != keypointEnd; ++keypoint)
@@ -519,12 +526,253 @@ static void computeOrientation(const Mat& image, vector<KeyPoint>& keypoints, co
     }
 }
 
-void ORBextractor::ComputeKeyPoints(vector<vector<KeyPoint> >& allKeypoints)
+// used for initializing evenly distributed binned seed keypoints
+// however we choose the scale factor, this function does not totally prevent spawning very close keypoints accross levels
+void ORBextractor::operator()( std::vector<cv::KeyPoint>& _keypoints,
+                               const std::vector<cv::Mat> & vImagePyramid,
+                               const std::vector<cv::Mat> & vBlurredImagePyramid,
+OutputArray _descriptors,  const float detection_threshold)
 {
+ /*   std::vector<cv::KeyPoint> corners(grid_n_cols_*grid_n_rows_, cv::KeyPoint());
+    vector<vector<KeyPoint> > allKeypoints;
+#if 1
+    ComputeKeyPointsBF(allKeypoints, vImagePyramid);// this generates more points than ComputeKeyPoints
+#else
+    ComputeKeyPoints(allKeypoints);
+#endif
+    for(int L=0; L<nlevels; ++L)
+    {
+        const float scale = mvScaleFactor[L];
+        vector<KeyPoint> &keypoints=allKeypoints[L];
+        for(vector<KeyPoint>::const_iterator it=keypoints.begin(), ite=keypoints.end(); it!=ite; ++it)
+        {
+            const cv::Point2f & xy = it->pt;
+            const int k = static_cast<int>((xy.y*scale)/cell_size_)*grid_n_cols_
+                    + static_cast<int>((xy.x*scale)/cell_size_);
+            if(grid_occupancy_[k])
+                continue;
+            const float score = vk::shiTomasiScore(vImagePyramid[L], xy.x, xy.y);
+            if(score > corners.at(k).response)
+                corners.at(k) = *it;
+        }
+        keypoints.clear();
+        keypoints.reserve(grid_n_cols_*grid_n_rows_/2);
+    }
 
+    // Create feature for every corner that has high enough corner score, refill allKeyPoints
+    std::for_each(corners.begin(), corners.end(), [&](cv::KeyPoint& c) {
+        if(c.response > detection_threshold)
+            allKeypoints[c.octave].push_back(c);
+    });
+    resetGrid();
+    //compute ORB descriptors
+    Mat descriptors;
+    int nkeypoints = 0;
+    for (int level = 0; level < nlevels; ++level)
+        nkeypoints += (int)allKeypoints[level].size();
+    if( nkeypoints == 0 )
+        _descriptors.release();
+    else
+    {
+        _descriptors.create(nkeypoints, 32, CV_8U);
+        descriptors = _descriptors.getMat();
+    }
+    _keypoints.clear();
+    _keypoints.reserve(nkeypoints);
+
+    int offset = 0;
+    for (int level = 0; level < nlevels; ++level)
+    {
+        vector<KeyPoint>& keypoints = allKeypoints[level];
+        int nkeypointsLevel = (int)keypoints.size();
+
+        if(nkeypointsLevel==0)
+            continue;
+        const Mat& workingMat = vBlurredImagePyramid[level];
+
+        // Compute the descriptors
+        Mat desc = descriptors.rowRange(offset, offset + nkeypointsLevel);
+        computeDescriptors(workingMat, keypoints, desc, pattern);
+
+        offset += nkeypointsLevel;
+
+        // Scale keypoint coordinates
+        if (level != 0)
+        {
+            float scale = mvScaleFactor[level]; //getScale(level, firstLevel, scaleFactor);
+            for (vector<KeyPoint>::iterator keypoint = keypoints.begin(),
+                 keypointEnd = keypoints.end(); keypoint != keypointEnd; ++keypoint)
+                keypoint->pt *= scale;
+        }
+        // And add the keypoints to the output
+        _keypoints.insert(_keypoints.end(), keypoints.begin(), keypoints.end());
+    }*/
+}
+
+void ORBextractor::ComputeKeyPointsBF(vector<vector<KeyPoint> >& allKeypoints,
+                                      const std::vector<cv::Mat>& vImagePyramid)
+{
+    allKeypoints.resize(nlevels);
+    size_t total(0);
+    for(int L=0; L<nlevels; ++L)
+    {
+        std::vector<cv::KeyPoint> &keysCell=allKeypoints[L];
+#if 0
+        const float scale = mvScaleFactor[L];
+
+        vector<fast::fast_xy> fast_corners;
+#if __SSE2__
+        fast::fast_corner_detect_10_sse2(
+                    (fast::fast_byte*) img_pyr[L].data, img_pyr[L].cols,
+                    img_pyr[L].rows, img_pyr[L].cols, 20, fast_corners);
+#elif HAVE_FAST_NEON
+        fast::fast_corner_detect_9_neon(
+                    (fast::fast_byte*) img_pyr[L].data, img_pyr[L].cols,
+                    img_pyr[L].rows, img_pyr[L].cols, 20, fast_corners);
+#else
+        fast::fast_corner_detect_10(
+                    (fast::fast_byte*) img_pyr[L].data, img_pyr[L].cols,
+                    img_pyr[L].rows, img_pyr[L].cols, 20, fast_corners);
+#endif
+        vector<int> scores, nm_corners;
+        fast::fast_corner_score_10((fast::fast_byte*) img_pyr[L].data, img_pyr[L].cols, fast_corners, 20, scores);
+        fast::fast_nonmax_3x3(fast_corners, scores, nm_corners);
+
+        for(auto it=nm_corners.begin(), ite=nm_corners.end(); it!=ite; ++it)
+        {
+            fast::fast_xy& xy = fast_corners.at(*it);
+            const int k = static_cast<int>((xy.y*scale)/cell_size_)*grid_n_cols_
+                    + static_cast<int>((xy.x*scale)/cell_size_);
+            if(grid_occupancy_[k])
+                continue;
+            const float score = vk::shiTomasiScore(img_pyr[L], xy.x, xy.y);
+            if(score > corners.at(k).score)
+                corners.at(k) = Corner(xy.x*scale, xy.y*scale, score, L, 0.0f);
+        }
+#else
+        FAST(vImagePyramid[L], keysCell,fastTh,true);
+        for(size_t k=0, kend=keysCell.size(); k<kend; ++k)
+        {
+            keysCell[k].octave=L;
+            keysCell[k].size*=mvScaleFactor[L];
+        }
+        total+= keysCell.size();
+#endif
+        computeOrientation(vImagePyramid[L], keysCell, umax);
+    }
+#if 1
+    //apply non max sup accross levels    
+    cv::Mat responseMap(vImagePyramid[0].rows,vImagePyramid[0].cols, CV_16S, cv::Scalar(-1));
+    cv::Mat indexMap(vImagePyramid[0].rows,vImagePyramid[0].cols, CV_16S, cv::Scalar(-1));
+    cv::Mat nmsMap(vImagePyramid[0].rows,vImagePyramid[0].cols, CV_8UC1, cv::Scalar(0));
+    vector<int> nm_corners;
+    nm_corners.reserve(total);
+    size_t index=0;
+    for(int L=0; L<nlevels; ++L)
+    {
+        const float scale = mvScaleFactor[L];
+        for(std::vector<cv::KeyPoint>::const_iterator it=allKeypoints[L].begin(),
+            ite=allKeypoints[L].end(); it!=ite; ++it, ++index)
+        {
+            const cv::KeyPoint &c= *it;
+            int xx=(int)(c.pt.x*scale), yy=(int)(c.pt.y*scale);
+            if(responseMap.at<short>(yy,xx) < (short)c.response){
+            responseMap.at<short>(yy,xx) = (short)c.response;
+            indexMap.at<short>(yy,xx) =index;
+            }           
+        }
+    }
+    assert(index==total);
+    nonMaximaSuppression(responseMap, 3, nmsMap);
+
+    for(int ry=0; ry< vImagePyramid[0].rows; ++ ry )
+    {
+        for(int cx=0; cx< vImagePyramid[0].cols; ++ cx )
+        {
+            if(nmsMap.at<uchar>(ry, cx)>0){
+                nm_corners.push_back(indexMap.at<short>(ry,cx));
+            }
+        }
+    }
+    std::sort(nm_corners.begin(), nm_corners.end());
+    int level(0), start_pos(0), finish_pos(allKeypoints[level].size());
+    vector<vector<KeyPoint> > allKeypointsSub;
+    allKeypointsSub.resize(nlevels);
+    allKeypointsSub[level].reserve(allKeypoints[level].size());
+
+    for(auto it=nm_corners.begin(), ite=nm_corners.end(); it!=ite; ++it)
+    {
+        if(*it>= finish_pos)
+        {
+            start_pos=finish_pos;
+            ++level;
+            finish_pos += allKeypoints[level].size();
+
+            allKeypointsSub[level].reserve(allKeypoints[level].size());
+        }
+        allKeypointsSub[level].push_back(allKeypoints[level][*it-start_pos]);
+    }
+    assert(finish_pos== total);
+    allKeypoints=allKeypointsSub;
+#if 0
+    cv::Mat outimg;
+    std::vector<cv::KeyPoint> vKeys;
+    for(int L=0; L<nlevels; ++L)
+    {
+        vKeys.insert(vKeys.end(), allKeypoints[L].begin(), allKeypoints[L].end());
+    }
+    int jim=0;
+    for (auto it=vKeys.begin(), ite= vKeys.end(); it!=ite; ++it, ++jim)
+    {
+        cout<< jim<<" ";
+        cout<< it->pt.x<<" "<< it->pt.y<<endl;
+        it->pt.x*=mvScaleFactor[it->octave];
+        it->pt.y*=mvScaleFactor[it->octave];
+    }
+    cv::drawKeypoints(vImagePyramid[0], vKeys,outimg);
+    cv::imshow("raw keypoints", outimg);
+
+    cv::waitKey();
+#endif
+#endif
+}
+// must know each key's level
+// given keypoints position and level, compute their orientation and descriptors
+void ORBextractor::MakeKeyPoints_Rest(std::vector<cv::KeyPoint> & vKeys,
+                                      const std::vector<cv::Mat>& vImagePyramid,
+                                      const std::vector<cv::Mat>& vBlurredImagePyramid,
+                                      cv::OutputArray _descriptors)
+{
+    Mat descriptors;
+    int nkeypoints = vKeys.size();
+    if( nkeypoints == 0 )
+        _descriptors.release();
+    else
+    {
+        _descriptors.create(nkeypoints, 32, CV_8U);
+        descriptors = _descriptors.getMat();
+    }
+    int offset = 0;
+    for(auto it= vKeys.begin(), ite=vKeys.end(); it!=ite; ++it, ++offset){
+        size_t L= it->octave;
+        const float inv_scale = mvInvScaleFactor[L];
+        const float scale= mvScaleFactor[L];
+        it->size =(int)(PATCH_SIZE*scale);
+
+        it->pt =it->pt*inv_scale;
+        it->angle = IC_Angle(vImagePyramid[L], it->pt, umax);
+        // Compute the descriptors
+        Mat desc = descriptors.row(offset);
+        computeOrbDescriptor(*it, vBlurredImagePyramid[L], &pattern[0], desc.ptr(0));
+        it->pt =it->pt*scale;
+    }
+}
+void ORBextractor::ComputeKeyPoints(vector<vector<KeyPoint> >& allKeypoints, bool bGAFD)
+{
     allKeypoints.resize(nlevels);
 
     float imageRatio = (float)mvImagePyramid[0].cols/mvImagePyramid[0].rows;
+    //HUAI: I suspect it should be rows/cols, but tows/cols gives worse result in a few tests
 
     for (int level = 0; level < nlevels; ++level)
     {
@@ -597,9 +845,9 @@ void ORBextractor::ComputeKeyPoints(vector<vector<KeyPoint> >& allKeypoints)
 
                 Mat cellImage = mvImagePyramid[level].rowRange(iniY,iniY+hY).colRange(iniX,iniX+hX);
 
-                Mat cellMask;
-                if(!mvMaskPyramid[level].empty())
-                    cellMask = cv::Mat(mvMaskPyramid[level],Rect(iniX,iniY,hX,hY));
+//                Mat cellMask;
+//                if(!mvMaskPyramid[level].empty())
+//                    cellMask = cv::Mat(mvMaskPyramid[level],Rect(iniX,iniY,hX,hY));
 
                 cellKeyPoints[i][j].reserve(nfeaturesCell*5);
 
@@ -701,11 +949,13 @@ void ORBextractor::ComputeKeyPoints(vector<vector<KeyPoint> >& allKeypoints)
     }
 
     // and compute orientations
-    for (int level = 0; level < nlevels; ++level)
-        computeOrientation(mvImagePyramid[level], allKeypoints[level], umax);
+    if(!bGAFD){
+        for (int level = 0; level < nlevels; ++level)
+            computeOrientation(mvImagePyramid[level], allKeypoints[level], umax);
+    }
 }
 
-static void computeDescriptors(const Mat& image, vector<KeyPoint>& keypoints, Mat& descriptors,
+void computeDescriptors(const Mat& image, const vector<KeyPoint>& keypoints, Mat& descriptors,
                                const vector<Point>& pattern)
 {
     descriptors = Mat::zeros((int)keypoints.size(), 32, CV_8UC1);
@@ -720,11 +970,11 @@ void ORBextractor::operator()( InputArray _image, InputArray _mask, vector<KeyPo
     if(_image.empty())
         return;
 
-    Mat image = _image.getMat(), mask = _mask.getMat();
+    Mat image = _image.getMat();
     assert(image.type() == CV_8UC1 );
 
-    // Pre-compute the scale pyramids
-    ComputePyramid(image, mask);
+    // Pre-compute the scale pyramids    
+    ComputePyramid(image);
 
     vector < vector<KeyPoint> > allKeypoints;
     ComputeKeyPoints(allKeypoints);
@@ -755,8 +1005,7 @@ void ORBextractor::operator()( InputArray _image, InputArray _mask, vector<KeyPo
             continue;
 
         // preprocess the resized image
-        Mat& workingMat = mvImagePyramid[level];
-        GaussianBlur(workingMat, workingMat, Size(7, 7), 2, 2, BORDER_REFLECT_101);
+        Mat& workingMat = mvBlurredImagePyramid[level];
 
         // Compute the descriptors
         Mat desc = descriptors.rowRange(offset, offset + nkeypointsLevel);
@@ -776,48 +1025,385 @@ void ORBextractor::operator()( InputArray _image, InputArray _mask, vector<KeyPo
         _keypoints.insert(_keypoints.end(), keypoints.begin(), keypoints.end());
     }
 }
-
-void ORBextractor::ComputePyramid(cv::Mat image, cv::Mat Mask)
+// input original keypoints in image vKeys, output undistorted keypoints vKeysUn
+void UndistortKeyPoints(const std::vector<cv::KeyPoint>& vKeys, std::vector<cv::KeyPoint>& vKeysUn,
+                               const cv::Mat & K, const cv::Mat & distCoef)
 {
+    if(distCoef.at<float>(0)==0.0)
+    {
+        vKeysUn=vKeys;
+        return;
+    }
+
+    // Fill matrix with points
+    cv::Mat mat(vKeys.size(),2,CV_32F);
+    for(unsigned int i=0; i<vKeys.size(); i++)
+    {
+        mat.at<float>(i,0)=vKeys[i].pt.x;
+        mat.at<float>(i,1)=vKeys[i].pt.y;
+    }
+
+    // Undistort points
+    mat=mat.reshape(2);
+
+    cv::undistortPoints(mat,mat,K,distCoef,cv::Mat(),K);
+    mat=mat.reshape(1);
+    // Fill undistorted keypoint vector
+    vKeysUn.resize(vKeys.size());
+    for(unsigned int i=0; i<vKeys.size(); i++)
+    {
+        cv::KeyPoint kp = vKeys[i];
+        kp.pt.x=mat.at<float>(i,0);
+        kp.pt.y=mat.at<float>(i,1);
+        vKeysUn[i]=kp;
+    }
+}
+
+//assign gravity aligned orientation (GAO) angle to both keys and undistorted keys
+// This function works for points close to image border
+//input: vKeysUn stores already undistorted keypoints
+// output: vKeys and vKeyUn stores GAO
+void computeKeyPointGAO(std::vector< cv::KeyPoint>& vKeys, std::vector< cv::KeyPoint>& vKeysUn,
+                        const cv::Mat& K, const cv::Mat& distCoef, Eigen::Vector3d ginc){
+
+    ginc.normalize();
+    cv::Mat norm_point(1,3,CV_32F), distort_point(1,2, CV_32F);
+    float fx=K.at<float>(0,0), cx=K.at<float>(0,2),
+            fy=K.at<float>(1,1), cy=K.at<float>(1,2);
+    float factor=max(fx*ginc(0)+ cx*ginc(2), fy*ginc(1)+ cy*ginc(2));
+    cv::Mat rvec=cv::Mat::zeros(3,1, CV_32F);//dummy
+    cv::Mat tvec=cv::Mat::zeros(3,1, CV_32F);
+    int jade=0;
+    for (vector<cv::KeyPoint>::iterator keypoint = vKeys.begin(),
+         keypointEnd = vKeys.end(); keypoint != keypointEnd; ++keypoint, ++jade)
+    {
+        norm_point.at<float>(0)=( vKeysUn[jade].pt.x- cx)/ fx;
+        norm_point.at<float>(1)=( vKeysUn[jade].pt.y- cy)/ fy;
+        norm_point.at<float>(2)=1;
+        Eigen::Vector3d temp=ginc*2/factor; // how many pixel from p we expect p' to move
+        norm_point.at<float>(0)+=temp[0];
+        norm_point.at<float>(1)+=temp[1];
+        norm_point.at<float>(2)+=temp[2];
+        cv::projectPoints(norm_point, rvec, tvec, K, distCoef, distort_point);
+        //cout<<"Distorted :"<< distort_point<<endl;
+        keypoint->angle = atan2(distort_point.at<float>(1)-keypoint->pt.y,
+                                distort_point.at<float>(0)-keypoint->pt.x);
+        vKeysUn[jade].angle = keypoint->angle;
+//        cout<<"GAO angle:"<< keypoint->angle<<endl;
+    }
+}
+// detect keypoints in an image, this function only works for one pyramid level
+void ORBextractor::operator()(InputArray _image,cv::InputArray mask,
+  std::vector<cv::KeyPoint>& _keypoints,  cv::OutputArray _descriptors,
+  std::vector<cv::KeyPoint>& _keypointsUn,
+  const cv::Mat & K, const cv::Mat & distCoef, const Eigen::Vector3d& ginc)
+{
+    if(_image.empty())
+        return;
+
+    Mat image = _image.getMat();
+    assert(image.type() == CV_8UC1 );
+
+    // Pre-compute the scale pyramids
+    ComputePyramid(image);
+
+    vector < vector<KeyPoint> > allKeypoints;
+    ComputeKeyPoints(allKeypoints, true);
+    // copy all keypoints into output array
+    int nkeypoints = 0;
+    for (int level = 0; level < nlevels; ++level)
+        nkeypoints += (int)allKeypoints[level].size();
+    _keypoints.clear();
+    _keypoints.reserve(nkeypoints);
+    int offset = 0;
+    for (int level = 0; level < nlevels; ++level)
+    {
+        vector<KeyPoint>& keypoints = allKeypoints[level];
+        int nkeypointsLevel = (int)keypoints.size();
+
+        if(nkeypointsLevel==0)
+            continue;
+        // add the keypoints to the output
+        _keypoints.insert(_keypoints.end(), keypoints.begin(), keypoints.end());
+        // Scale keypoint coordinates
+        if (level != 0)
+        {
+            float scale = mvScaleFactor[level]; //getScale(level, firstLevel, scaleFactor);
+            for (vector<KeyPoint>::iterator keypoint = _keypoints.begin()+offset,
+                 keypointEnd = _keypoints.end(); keypoint != keypointEnd; ++keypoint)
+                keypoint->pt *= scale;
+        }
+        offset += nkeypointsLevel;
+    }
+
+    //for all keypoints, undistort and compute orientation
+
+    UndistortKeyPoints( _keypoints, _keypointsUn, K, distCoef);
+    computeKeyPointGAO(_keypoints, _keypointsUn, K, distCoef, ginc);
+    offset = 0;
+    for (int level = 0; level < nlevels; ++level)
+    {
+        vector<KeyPoint>& keypoints = allKeypoints[level];
+        int nkeypointsLevel = (int)keypoints.size();
+
+        if(nkeypointsLevel==0)
+            continue;
+        // assign keypoint angles
+        for (vector<KeyPoint>::iterator keypoint1 = _keypoints.begin()+offset,
+             keypoint2 = keypoints.begin(), key2end= keypoints.end();
+             keypoint2!=key2end; ++keypoint1, ++keypoint2)
+            keypoint2->angle = keypoint1->angle;
+        offset += nkeypointsLevel;
+    }
+
+    Mat descriptors;
+    if( nkeypoints == 0 )
+        _descriptors.release();
+    else
+    {
+        _descriptors.create(nkeypoints, 32, CV_8U);
+        descriptors = _descriptors.getMat();
+    }
+
+    offset = 0;
+    for (int level = 0; level < nlevels; ++level)
+    {
+        vector<KeyPoint>& keypoints = allKeypoints[level];
+        int nkeypointsLevel = (int)keypoints.size();
+
+        if(nkeypointsLevel==0)
+            continue;
+
+        // preprocess the resized image
+        Mat& workingMat = mvImagePyramid[level];   
+        // Compute the descriptors
+        Mat desc = descriptors.rowRange(offset, offset + nkeypointsLevel);
+        computeDescriptors(workingMat, keypoints, desc, pattern);
+
+        offset += nkeypointsLevel;   
+    }
+}
+// bGAFD if true gravity aligned feature direction provided, this function only works for one pyramid level
+void ORBextractor::operator()( InputArray _image, vector<KeyPoint>& _keypoints,
+                      OutputArray _descriptors, bool bGAFD)
+{
+    if(_image.empty())
+        return;
+    if(!bGAFD){// compute orientation
+        for (vector<KeyPoint>::iterator keypoint = _keypoints.begin(),
+             keypointEnd = _keypoints.end(); keypoint != keypointEnd; ++keypoint)
+        {
+            Mat image = _image.getMat();
+            keypoint->angle = IC_Angle(image, keypoint->pt, umax);
+        }
+    }
+    Mat image = _image.getMat();
+    assert(image.type() == CV_8UC1 );
+    // Pre-compute the scale pyramids
+    ComputePyramid(image);
+    Mat descriptors;
+    int nkeypoints = _keypoints.size();
+    if( nkeypoints == 0 )
+        _descriptors.release();
+    else
+    {
+        _descriptors.create(nkeypoints, 32, CV_8U);
+        descriptors = _descriptors.getMat();
+    }
+    // preprocess the resized image
+    Mat& workingMat = mvBlurredImagePyramid[0];
+
+    // Compute the descriptors
+    descriptors = Mat::zeros((int)_keypoints.size(), 32, CV_8UC1);
+    for (size_t i = 0; i < _keypoints.size(); i++){
+        if(_keypoints[i].size==0){ //FAQ: is it possible some keypoints in libviso2 do not have ORB descriptor?
+            cerr<<"Some keypoint has zero size in ORB extractor!"<<endl;
+            continue;
+        }
+        computeOrbDescriptor(_keypoints[i], workingMat, &pattern[0], descriptors.ptr((int)i));
+    }
+}
+void ORBextractor::ClonePyramid(std::vector<cv::Mat> & vImagePyramid)
+{
+    vImagePyramid.resize(nlevels);
+    for (int level = 0; level < nlevels; ++level)
+    {
+        vImagePyramid[level]= mvImagePyramid[level].clone();
+    }
+}
+
+void ORBextractor::ComputePyramid(cv::Mat image)
+{
+    mvImagePyramid.resize(nlevels);
+    mvBlurredImagePyramid.resize(nlevels);
     for (int level = 0; level < nlevels; ++level)
     {
         float scale = mvInvScaleFactor[level];
         Size sz(cvRound((float)image.cols*scale), cvRound((float)image.rows*scale));
         Size wholeSize(sz.width + EDGE_THRESHOLD*2, sz.height + EDGE_THRESHOLD*2);
-        Mat temp(wholeSize, image.type()), masktemp;
+        Mat temp(wholeSize, image.type());
         mvImagePyramid[level] = temp(Rect(EDGE_THRESHOLD, EDGE_THRESHOLD, sz.width, sz.height));
 
-        if( !Mask.empty() )
-        {
-            masktemp = Mat(wholeSize, Mask.type());
-            mvMaskPyramid[level] = masktemp(Rect(EDGE_THRESHOLD, EDGE_THRESHOLD, sz.width, sz.height));
-        }
+//        Mat masktemp;
+//        if( !Mask.empty() )
+//        {
+//            masktemp = Mat(wholeSize, Mask.type());
+//            mvMaskPyramid[level] = masktemp(Rect(EDGE_THRESHOLD, EDGE_THRESHOLD, sz.width, sz.height));
+//        }
 
         // Compute the resized image
         if( level != 0 )
         {
             resize(mvImagePyramid[level-1], mvImagePyramid[level], sz, 0, 0, INTER_LINEAR);
-            if (!Mask.empty())
-            {
-                resize(mvMaskPyramid[level-1], mvMaskPyramid[level], sz, 0, 0, INTER_NEAREST);
-            }
+//            if (!Mask.empty())
+//            {
+//                resize(mvMaskPyramid[level-1], mvMaskPyramid[level], sz, 0, 0, INTER_NEAREST);
+//            }
 
             copyMakeBorder(mvImagePyramid[level], temp, EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD,
                            BORDER_REFLECT_101+BORDER_ISOLATED);
-            if (!Mask.empty())
-                copyMakeBorder(mvMaskPyramid[level], masktemp, EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD,
-                               BORDER_CONSTANT+BORDER_ISOLATED);
+//            if (!Mask.empty())
+//                copyMakeBorder(mvMaskPyramid[level], masktemp, EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD,
+//                               BORDER_CONSTANT+BORDER_ISOLATED);
         }
         else
         {
             copyMakeBorder(image, temp, EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD,
                            BORDER_REFLECT_101);
-            if( !Mask.empty() )
-                copyMakeBorder(Mask, masktemp, EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD,
-                               BORDER_CONSTANT+BORDER_ISOLATED);
+//            if( !Mask.empty() )
+//                copyMakeBorder(Mask, masktemp, EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD,
+//                               BORDER_CONSTANT+BORDER_ISOLATED);
+        }
+        // preprocess the resized image
+        mvBlurredImagePyramid[level] = mvImagePyramid[level].clone();
+        GaussianBlur(mvBlurredImagePyramid[level], mvBlurredImagePyramid[level],
+                     Size(7, 7), 2, 2, BORDER_REFLECT_101);
+
+    }  
+}
+void ORBextractor::ComputePyramid(const cv::Mat & image,   std::vector<cv::Mat>& vImagePyramid )
+{
+    vImagePyramid.resize(nlevels);
+    for (int level = 0; level < nlevels; ++level)
+    {
+        float scale = mvInvScaleFactor[level];
+        Size sz(cvRound((float)image.cols*scale), cvRound((float)image.rows*scale));
+        Size wholeSize(sz.width + EDGE_THRESHOLD*2, sz.height + EDGE_THRESHOLD*2);
+        Mat temp(wholeSize, image.type());
+        vImagePyramid[level] = temp(Rect(EDGE_THRESHOLD, EDGE_THRESHOLD, sz.width, sz.height));
+
+        // Compute the resized image
+        if( level != 0 )
+        {
+            resize(vImagePyramid[level-1], vImagePyramid[level], sz, 0, 0, INTER_LINEAR);
+            copyMakeBorder(vImagePyramid[level], temp, EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD,
+                           BORDER_REFLECT_101+BORDER_ISOLATED);
+        }
+        else
+        {
+            copyMakeBorder(image, temp, EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD,
+                           BORDER_REFLECT_101);
         }
     }
+}
+void ORBextractor::ComputeBlurredPyramid(const std::vector<cv::Mat> & vImagePyramid,
+                                         std::vector<cv::Mat> & vBlurredImagePyramid)
+{
+    //compute blurred image pyramid
+    assert(vImagePyramid.size()==nlevels);
 
+    vBlurredImagePyramid.resize(nlevels);
+    for (int level = 0; level < nlevels; ++level)
+    {
+        // preprocess the resized image
+        vBlurredImagePyramid[level] = vImagePyramid[level].clone();
+        GaussianBlur(vBlurredImagePyramid[level], vBlurredImagePyramid[level],
+                     Size(7, 7), 2, 2, BORDER_REFLECT_101);
+    }
 }
 
+/*! @brief suppress non-maximal values
+ *
+ * nonMaximaSuppression produces a mask (dst) such that every non-zero
+ * value of the mask corresponds to a local maxima of src. The criteria
+ * for local maxima is as follows:
+ *
+ * 	For every possible (sz x sz) region within src, an element is a
+ * 	local maxima of src iff it is strictly greater than all other elements
+ * 	of windows which intersect the given element
+ *
+ * Intuitively, this means that all maxima must be at least sz+1 pixels
+ * apart, though the spacing may be greater
+ *
+ * A gradient image or a constant image has no local maxima by the definition
+ * given above
+ *
+ * The method is derived from the following paper:
+ * A. Neubeck and L. Van Gool. "Efficient Non-Maximum Suppression," ICPR 2006
+ *
+ * Example:
+ * \code
+ * 	// create a random test image
+ * 	Mat random(Size(2000,2000), DataType<float>::type);
+ * 	randn(random, 1, 1);
+ *
+ * 	// only look for local maxima above the value of 1
+ * 	Mat mask = (random > 1);
+ *
+ * 	// find the local maxima with a window of 50
+ * 	Mat maxima;
+ * 	nonMaximaSuppression(random, 50, maxima, mask);
+ *
+ * 	// optionally set all non-maxima to zero
+ * 	random.setTo(0, maxima == 0);
+ * \endcode
+ *
+ * @param src the input image/matrix, of any valid cv type
+ * @param sz the size of the window
+ * @param dst the mask of type CV_8U, where non-zero elements correspond to
+ * local maxima of the src
+ * @param mask an input mask to skip particular elements
+ */
+void nonMaximaSuppression(const Mat& src, const int sz, Mat& dst, const Mat mask) {
+
+    // initialise the block mask and destination
+    const int M = src.rows;
+    const int N = src.cols;
+    const bool masked = !mask.empty();
+    Mat block = 255*Mat_<uint8_t>::ones(Size(2*sz+1,2*sz+1));
+    dst = Mat_<uint8_t>::zeros(src.size());
+
+    // iterate over image blocks
+    for (int m = 0; m < M; m+=sz+1) {
+        for (int n = 0; n < N; n+=sz+1) {
+            Point  ijmax;
+            double vcmax, vnmax;
+
+            // get the maximal candidate within the block
+            Range ic(m, min(m+sz+1,M));
+            Range jc(n, min(n+sz+1,N));
+            minMaxLoc(src(ic,jc), NULL, &vcmax, NULL, &ijmax, masked ? mask(ic,jc) : noArray());
+            Point cc = ijmax + Point(jc.start,ic.start);
+
+            // search the neighbours centered around the candidate for the true maxima
+            Range in(max(cc.y-sz,0), min(cc.y+sz+1,M));
+            Range jn(max(cc.x-sz,0), min(cc.x+sz+1,N));
+
+            // mask out the block whose maxima we already know
+            Mat_<uint8_t> blockmask;
+            block(Range(0,in.size()), Range(0,jn.size())).copyTo(blockmask);
+            Range iis(ic.start-in.start, min(ic.start-in.start+sz+1, in.size()));
+            Range jis(jc.start-jn.start, min(jc.start-jn.start+sz+1, jn.size()));
+            blockmask(iis, jis) = Mat_<uint8_t>::zeros(Size(jis.size(),iis.size()));
+
+            minMaxLoc(src(in,jn), NULL, &vnmax, NULL, &ijmax, masked ? mask(in,jn).mul(blockmask) : blockmask);
+//            Point cn = ijmax + Point(jn.start, in.start);
+
+            // if the block centre is also the neighbour centre, then it's a local maxima
+            if (vcmax > vnmax) {
+                dst.at<uint8_t>(cc.y, cc.x) = 255;
+            }
+        }
+    }
+}
 } //namespace ORB_SLAM

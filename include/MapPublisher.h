@@ -21,8 +21,8 @@
 #ifndef MAPPUBLISHER_H
 #define MAPPUBLISHER_H
 
-#include<ros/ros.h>
-#include <visualization_msgs/Marker.h>
+//#include<ros/ros.h>
+//#include <visualization_msgs/Marker.h>
 
 #include"Map.h"
 #include"MapPoint.h"
@@ -50,16 +50,16 @@ private:
     bool isCamUpdated();
     void ResetCamFlag();
 
-    ros::NodeHandle nh;
-    ros::Publisher publisher;
+//    ros::NodeHandle nh;
+//    ros::Publisher publisher;
 
-    visualization_msgs::Marker mPoints;
-    visualization_msgs::Marker mReferencePoints;
-    visualization_msgs::Marker mKeyFrames;
-    visualization_msgs::Marker mReferenceKeyFrames;
-    visualization_msgs::Marker mCovisibilityGraph;
-    visualization_msgs::Marker mMST;
-    visualization_msgs::Marker mCurrentCamera;
+//    visualization_msgs::Marker mPoints;
+//    visualization_msgs::Marker mReferencePoints;
+//    visualization_msgs::Marker mKeyFrames;
+//    visualization_msgs::Marker mReferenceKeyFrames;
+//    visualization_msgs::Marker mCovisibilityGraph;
+//    visualization_msgs::Marker mMST;
+//    visualization_msgs::Marker mCurrentCamera;
 
     float fCameraSize;
     float fPointSize;

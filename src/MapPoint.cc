@@ -20,7 +20,10 @@
 
 #include "MapPoint.h"
 #include "ORBmatcher.h"
-#include "ros/ros.h"
+#include "vikit/math_utils.h"
+#include "g2o_types/global.h" //EPS
+#include "config.h"
+//#include "ros/ros.h"
 
 namespace ORB_SLAM
 {
@@ -28,32 +31,36 @@ namespace ORB_SLAM
 long unsigned int MapPoint::nNextId=0;
 
 
-MapPoint::MapPoint(const cv::Mat &Pos, KeyFrame *pRefKF, Map* pMap):
-    mnFirstKFid(pRefKF->mnId), mnTrackReferenceForFrame(0), mnLastFrameSeen(0), mnBALocalForKF(0),
-    mnLoopPointForKF(0), mnCorrectedByKF(0),mnCorrectedReference(0), mpRefKF(pRefKF), mnVisible(1), mnFound(1),
-    mbBad(false), mfMinDistance(0), mfMaxDistance(0), mpMap(pMap)
+MapPoint::MapPoint(const Eigen::Vector3d &Pos, KeyFrame *pRefKF,const int nIDInKF, Map* pMap):
+    mnId(nNextId++),mnFirstKFid(pRefKF->mnFrameId), mnTrackReferenceForFrame(0), mnLastFrameSeen(0), mnBALocalForKF(0),
+    mnLoopPointForKF(0), mnCorrectedByKF(0),mnCorrectedReference(0),mbFixedLinearizationPoint(false),
+    mpRefKF(pRefKF), mnVisible(1), mnFound(1),v_pt_(NULL),mpMap(pMap),
+    mWorldPos(Pos), mNormalVector(0,0,0),mDescriptor(pRefKF->GetDescriptor(nIDInKF)),
+    mbBad(false), mfMinDistance(0), mfMaxDistance(0)
 {
-    Pos.copyTo(mWorldPos);
-    mnId=nNextId++;
-    mNormalVector = cv::Mat::zeros(3,1,CV_32F);
+    mObservations[pRefKF]= nIDInKF;
+#ifndef MONO
+    mRightObservations[pRefKF]= nIDInKF;
+#endif
 }
 
-void MapPoint::SetWorldPos(const cv::Mat &Pos)
+
+void MapPoint::SetWorldPos(const Eigen::Vector3d &Pos)
 {
     boost::mutex::scoped_lock lock(mMutexPos);
-    Pos.copyTo(mWorldPos);
+    mWorldPos=Pos;
 }
 
-cv::Mat MapPoint::GetWorldPos()
+Eigen::Vector3d MapPoint::GetWorldPos()
 {
     boost::mutex::scoped_lock lock(mMutexPos);
-    return mWorldPos.clone();
+    return mWorldPos;
 }
 
-cv::Mat MapPoint::GetNormal()
+Eigen::Vector3d MapPoint::GetNormal()
 {
     boost::mutex::scoped_lock lock(mMutexPos);
-    return mNormalVector.clone();
+    return mNormalVector;
 }
 
 KeyFrame* MapPoint::GetReferenceKeyFrame()
@@ -62,12 +69,15 @@ KeyFrame* MapPoint::GetReferenceKeyFrame()
      return mpRefKF;
 }
 
-void MapPoint::AddObservation(KeyFrame* pKF, size_t idx)
+void MapPoint::AddObservation(KeyFrame* pF, size_t idx, bool left)
 {
     boost::mutex::scoped_lock lock(mMutexFeatures);
-    mObservations[pKF]=idx;
+    if(left)
+        mObservations[pF]=idx;
+    else
+        mRightObservations[pF]=idx;
 }
-
+// local mapping and loop closing do not call this function directly
 void MapPoint::EraseObservation(KeyFrame* pKF)
 {
     bool bBad=false;
@@ -76,24 +86,29 @@ void MapPoint::EraseObservation(KeyFrame* pKF)
         if(mObservations.count(pKF))
         {
             mObservations.erase(pKF);
-
-            if(mpRefKF==pKF)
-                mpRefKF=mObservations.begin()->first;
-
-            // If only 2 observations or less, discard point
-            if(mObservations.size()<=2)
+            if(mpRefKF==pKF)            
+    			mpRefKF=mObservations.begin()->first;
+            
+            // If only 1 observations or less, discard point
+            if(mObservations.size()<=1) //set 1 to avoid that points used in tracking thread are marked bad,
+                // because if a point is used in tracking, it must be observed by at least two KEYframes in the double window
+                // and these frames are not allowed to be culled and cannot be this keyframe
                 bBad=true;
         }
+        mRightObservations.erase(pKF);
     }
 
     if(bBad)
         SetBadFlag();
 }
 
-map<KeyFrame*, size_t> MapPoint::GetObservations()
+map<KeyFrame*, size_t> MapPoint::GetObservations(bool left)
 {
     boost::mutex::scoped_lock lock(mMutexFeatures);
+    if(left)
     return mObservations;
+    else
+        return mRightObservations;
 }
 
 int MapPoint::Observations()
@@ -109,52 +124,60 @@ void MapPoint::SetBadFlag()
         boost::mutex::scoped_lock lock1(mMutexFeatures);
         boost::mutex::scoped_lock lock2(mMutexPos);
         mbBad=true;
+    
         obs = mObservations;
         mObservations.clear();
+        mRightObservations.clear();
     }
     for(map<KeyFrame*,size_t>::iterator mit=obs.begin(), mend=obs.end(); mit!=mend; mit++)
     {
         KeyFrame* pKF = mit->first;
         pKF->EraseMapPointMatch(mit->second);
     }
-
     mpMap->EraseMapPoint(this);
+	Release();
 }
 
 void MapPoint::Replace(MapPoint* pMP)
 {
     if(pMP->mnId==this->mnId)
         return;
+    assert(pMP->mpRefKF->isBad()==false);
 
     map<KeyFrame*,size_t> obs;
     {
         boost::mutex::scoped_lock lock1(mMutexFeatures);
         boost::mutex::scoped_lock lock2(mMutexPos);
-        obs=mObservations;
-        mObservations.clear();
+		obs=mObservations;
         mbBad=true;
+       //note this point may be observed in current frame and used in localoptimize,
+        // but we still delete its observations, so some isolated point may exist in localoptimize
+        mObservations.clear();
+        mRightObservations.clear();
     }
 
     for(map<KeyFrame*,size_t>::iterator mit=obs.begin(), mend=obs.end(); mit!=mend; mit++)
     {
-        // Replace measurement in keyframe
+        // Replace measurement in frame
         KeyFrame* pKF = mit->first;
-
-        if(!pMP->IsInKeyFrame(pKF))
+   
+        int nMPId=pMP->IdInKeyFrame(pKF);
+        if(nMPId==-1)
         {
             pKF->ReplaceMapPointMatch(mit->second, pMP);
             pMP->AddObservation(pKF,mit->second);
+#ifndef MONO
+            pMP->AddObservation(pKF,mit->second, false);
+#endif
         }
         else
         {
+            assert(nMPId!=mit->second);
             pKF->EraseMapPointMatch(mit->second);
         }
     }
-
     pMP->ComputeDistinctiveDescriptors();
-
     mpMap->EraseMapPoint(this);
-
 }
 
 bool MapPoint::isBad()
@@ -181,37 +204,40 @@ float MapPoint::GetFoundRatio()
     boost::mutex::scoped_lock lock(mMutexFeatures);
     return static_cast<float>(mnFound)/mnVisible;
 }
-
+// choose the distinctive descriptor from those of this MapPoint's observations
 void MapPoint::ComputeDistinctiveDescriptors()
 {
+    assert(mpRefKF->isBad()==false);
+    assert(!mbBad);
+
     // Retrieve all observed descriptors
     vector<cv::Mat> vDescriptors;
 
-    map<KeyFrame*,size_t> observations;
-
-    {
+    map<KeyFrame*,size_t> observations, right_observations;
+	{
         boost::mutex::scoped_lock lock1(mMutexFeatures);
-        if(mbBad)
-            return;
+    
         observations=mObservations;
+		right_observations=mRightObservations;
     }
-
-    if(observations.empty())
-        return;
-
-    vDescriptors.reserve(observations.size());
+   
+    vDescriptors.reserve(observations.size()+right_observations.size());
 
     for(map<KeyFrame*,size_t>::iterator mit=observations.begin(), mend=observations.end(); mit!=mend; mit++)
     {
         KeyFrame* pKF = mit->first;
-
+//        assert(pF->mvpMapPoints[mit->second]);
         if(!pKF->isBad())
             vDescriptors.push_back(pKF->GetDescriptor(mit->second));
     }
+    for(map<KeyFrame*,size_t>::iterator mit=right_observations.begin(), mend=right_observations.end(); mit!=mend; mit++)
+    {
+        KeyFrame* pKF = mit->first;
 
-    if(vDescriptors.empty())
-        return;
-
+        if(!pKF->isBad())
+            vDescriptors.push_back(pKF->GetDescriptor(mit->second, false));
+    }
+  	assert(!vDescriptors.empty());
     // Compute distances between them
     const size_t N = vDescriptors.size();
 
@@ -248,20 +274,31 @@ void MapPoint::ComputeDistinctiveDescriptors()
         mDescriptor = vDescriptors[BestIdx].clone();       
     }
 }
-
 cv::Mat MapPoint::GetDescriptor()
 {
     boost::mutex::scoped_lock lock(mMutexFeatures);
     return mDescriptor.clone();
 }
-
-int MapPoint::GetIndexInKeyFrame(KeyFrame *pKF)
+void MapPoint::SetDescriptor(const cv::Mat & descrip)
 {
     boost::mutex::scoped_lock lock(mMutexFeatures);
+    mDescriptor=descrip;
+}
+int MapPoint::GetIndexInKeyFrame(KeyFrame *pKF, bool left)
+{
+    boost::mutex::scoped_lock lock(mMutexFeatures);
+    if(left){
     if(mObservations.count(pKF))
         return mObservations[pKF];
     else
         return -1;
+    }
+    else{
+        if(mRightObservations.count(pKF))
+            return mRightObservations[pKF];
+        else
+            return -1;        
+    }
 }
 
 bool MapPoint::IsInKeyFrame(KeyFrame *pKF)
@@ -270,42 +307,67 @@ bool MapPoint::IsInKeyFrame(KeyFrame *pKF)
     return (mObservations.count(pKF));
 }
 
+int MapPoint::IdInKeyFrame(KeyFrame *pKF)
+{
+    boost::mutex::scoped_lock lock(mMutexFeatures);
+    map<KeyFrame*, size_t>::const_iterator it= mObservations.find(pKF);
+    if(it==mObservations.end())
+        return -1;
+    else
+        return it->second;
+}
+
 void MapPoint::UpdateNormalAndDepth()
 {
     map<KeyFrame*,size_t> observations;
+   
     KeyFrame* pRefKF;
-    cv::Mat Pos;
+    Eigen::Vector3d Pos;
     {
         boost::mutex::scoped_lock lock1(mMutexFeatures);
         boost::mutex::scoped_lock lock2(mMutexPos);
-        if(mbBad)
+   		if(mbBad)
             return;
         observations=mObservations;
         pRefKF=mpRefKF;
-        Pos = mWorldPos.clone();
+        assert(pRefKF->isBad()==false);
+        Pos = mWorldPos;
     }
 
-    cv::Mat normal = cv::Mat::zeros(3,1,CV_32F);
+    Eigen::Vector3d normal(0,0,0);
     int n=0;
-    for(map<KeyFrame*,size_t>::iterator mit=observations.begin(), mend=observations.end(); mit!=mend; mit++)
+    for(map<KeyFrame*,size_t>::iterator mit=observations.begin(),
+        mend=observations.end(); mit!=mend; ++mit)
     {
         KeyFrame* pKF = mit->first;
-        cv::Mat Owi = pKF->GetCameraCenter();
-        cv::Mat normali = mWorldPos - Owi;
-        normal = normal + normali/cv::norm(normali);
-        n++;
-    } 
+        if(pKF->isBad())
+            continue;
+        Eigen::Vector3d Owi = pKF->GetCameraCenter();
+        Eigen::Vector3d normali = Pos - Owi;
+        normal = normal + normali/normali.norm();
+        ++n;
+    }
+	assert(n);
+    Eigen::Vector3d PC = Pos - pRefKF->GetCameraCenter();
+    const float dist = PC.norm();
+    const int nLevels = pRefKF->GetScaleLevels();
+    if(nLevels==1)
+    {
+        boost::mutex::scoped_lock lock3(mMutexPos);
+        mfMinDistance = dist/4.0f;
+        mfMaxDistance = 4.0f*dist;
+        mNormalVector = normal/n;
+        return;
+    }
 
-    cv::Mat PC = Pos - pRefKF->GetCameraCenter();
-    const float dist = cv::norm(PC);
     const int level = pRefKF->GetKeyPointScaleLevel(observations[pRefKF]);
     const float scaleFactor = pRefKF->GetScaleFactor();
     const float levelScaleFactor =  pRefKF->GetScaleFactor(level);
-    const int nLevels = pRefKF->GetScaleLevels();
 
     {
         boost::mutex::scoped_lock lock3(mMutexPos);
         mfMinDistance = (1.0f/scaleFactor)*dist / levelScaleFactor;
+        // huai: $d_{min}=d/(1.2)^(k+1)$, $d_{max}=d*1.2^(8-k)$, $k \in [0, 7]$ by default
         mfMaxDistance = scaleFactor*dist * pRefKF->GetScaleFactor(nLevels-1-level);
         mNormalVector = normal/n;
     }
@@ -321,6 +383,88 @@ float MapPoint::GetMaxDistanceInvariance()
 {
     boost::mutex::scoped_lock lock(mMutexPos);
     return mfMaxDistance;
+}
+void MapPoint::SetFirstEstimate()
+{
+    if(!mbFixedLinearizationPoint){
+        mWorldPos_first_estimate=mWorldPos;
+        mbFixedLinearizationPoint=true;
+    }
+}
+void MapPoint::Release()
+{
+    mObservations.clear();
+    mRightObservations.clear();
+//    mNormalVector.release();
+//    mDescriptor.release();
+}
+// 4 obs, each is observations in image plane z=1, (\bar{x}, \bar{y}, 1), each of 4 frame_poses is Tw2c(i)
+// old_point stores initial position and optimized position, pdop is position dilution of precision
+void MapPoint::optimize(const std::vector< Eigen::Vector3d> & obs,
+                        const std::vector<Sophus::SE3d> & frame_poses,
+                        Eigen::Vector3d& old_point, double & pdop,
+                        vk::PinholeCamera* cam, size_t n_iter)
+{
+  Eigen::Vector3d pos = old_point;
+  double chi2 = 0.0;
+  Eigen::Matrix3d A;
+  Eigen::Vector3d b;
+    const double pixel_variance=1.0;
+  for(size_t i=0; i<n_iter; ++i)
+  {
+    A.setZero();
+    b.setZero();
+    double new_chi2 = 0.0;
+
+    // compute residuals
+    std::vector<Sophus::SE3d>::const_iterator it_poses= frame_poses.begin();
+    for(std::vector< Eigen::Vector3d>::const_iterator it=obs.begin();
+        it!=obs.end(); ++it, ++it_poses)
+    {
+      Matrix23d J;
+      const Eigen::Vector3d p_in_f( (*it_poses) * pos);
+      MapPoint::jacobian_xyz2uv(p_in_f, it_poses->rotationMatrix(), J);
+      const Eigen::Vector2d e(vk::project2d(*it) - vk::project2d(p_in_f));
+      new_chi2 += e.squaredNorm();
+      A.noalias() += J.transpose() * J;
+      b.noalias() -= J.transpose() * e;
+    }
+    pdop= pixel_variance*sqrt(A.inverse().trace())/cam->errorMultiplier2();
+    if(pdop> Config::PDOPThresh()) break;
+    // solve linear system
+    const Eigen::Vector3d dp(A.ldlt().solve(b));
+
+    // check if error increased
+    if((i > 0 && new_chi2 > chi2) || (bool) std::isnan((double)dp[0]))
+    {
+#ifdef POINT_OPTIMIZER_DEBUG
+      cout << "it " << i
+           << "\t FAILURE \t new_chi2 = " << new_chi2 << endl;
+#endif
+      pos = old_point; // roll-back
+      break;
+    }
+
+    // update the model
+    Eigen::Vector3d new_point = pos + dp;
+    old_point = pos;
+    pos = new_point;
+    chi2 = new_chi2;
+#ifdef POINT_OPTIMIZER_DEBUG
+    cout << "it " << i
+         << "\t Success \t new_chi2 = " << new_chi2
+         << "\t norm(b) = " << vk::norm_max(b)
+         << endl;
+#endif
+
+    // stop when converged
+    if(vk::norm_max(dp) <= ORB_SLAM::EPS)
+      break;
+  }
+  old_point =pos;
+#ifdef POINT_OPTIMIZER_DEBUG
+  cout << endl;
+#endif
 }
 
 } //namespace ORB_SLAM

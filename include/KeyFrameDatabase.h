@@ -35,9 +35,8 @@
 namespace ORB_SLAM
 {
 
-class KeyFrame;
 class Frame;
-
+class KeyFrame;
 
 class KeyFrameDatabase
 {

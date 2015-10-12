@@ -39,7 +39,7 @@ class Map
 {
 public:
     Map();
-
+ 	~Map();
     void AddKeyFrame(KeyFrame* pKF);
     void AddMapPoint(MapPoint* pMP);
     void EraseMapPoint(MapPoint* pMP);

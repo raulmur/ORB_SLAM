@@ -22,7 +22,7 @@
 
 #include "KeyFrame.h"
 #include "Thirdparty/DBoW2/DBoW2/BowVector.h"
-#include <ros/ros.h>
+//#include <ros/ros.h>
 
 using namespace std;
 
@@ -89,12 +89,12 @@ vector<KeyFrame*> KeyFrameDatabase::DetectLoopCandidates(KeyFrame* pKF, float mi
             for(list<KeyFrame*>::iterator lit=lKFs.begin(), lend= lKFs.end(); lit!=lend; lit++)
             {
                 KeyFrame* pKFi=*lit;
-                if(pKFi->mnLoopQuery!=pKF->mnId)
+                if(pKFi->mnLoopQuery!=pKF->mnFrameId)
                 {
                     pKFi->mnLoopWords=0;
                     if(!spConnectedKeyFrames.count(pKFi))
                     {
-                        pKFi->mnLoopQuery=pKF->mnId;
+                        pKFi->mnLoopQuery=pKF->mnFrameId;
                         lKFsSharingWords.push_back(pKFi);
                     }
                 }
@@ -155,7 +155,7 @@ vector<KeyFrame*> KeyFrameDatabase::DetectLoopCandidates(KeyFrame* pKF, float mi
         for(vector<KeyFrame*>::iterator vit=vpNeighs.begin(), vend=vpNeighs.end(); vit!=vend; vit++)
         {
             KeyFrame* pKF2 = *vit;
-            if(pKF2->mnLoopQuery==pKF->mnId && pKF2->mnLoopWords>minCommonWords)
+            if(pKF2->mnLoopQuery==pKF->mnFrameId && pKF2->mnLoopWords>minCommonWords)
             {
                 accScore+=pKF2->mLoopScore;
                 if(pKF2->mLoopScore>bestScore)

@@ -58,8 +58,8 @@ protected:
 
     void CheckInliers();
 
-    void Project(const std::vector<cv::Mat> &vP3Dw, std::vector<cv::Mat> &vP2D, cv::Mat Tcw, cv::Mat K);
-    void FromCameraToImage(const std::vector<cv::Mat> &vP3Dc, std::vector<cv::Mat> &vP2D, cv::Mat K);
+    void Project(const std::vector<cv::Mat> &vP3Dw, std::vector<cv::Mat> &vP2D, cv::Mat Tcw, Eigen::Matrix3d K);
+    void FromCameraToImage(const std::vector<cv::Mat> &vP3Dc, std::vector<cv::Mat> &vP2D, Eigen::Matrix3d K);
 
 
 protected:
@@ -126,8 +126,8 @@ protected:
     float mSigma2;
 
     // Calibration
-    cv::Mat mK1;
-    cv::Mat mK2;
+    Eigen::Matrix3d mK1;
+    Eigen::Matrix3d mK2;
 
 };
 

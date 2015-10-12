@@ -1,0 +1,26 @@
+cd bin
+./test_orbslam /home/jhuai/orbslam_dwo/Data/settingfiles/KITTIseq00.yaml
+./test_orbslam /home/jhuai/orbslam_dwo/Data/settingfiles/KITTIseq01.yaml
+./test_orbslam /home/jhuai/orbslam_dwo/Data/settingfiles/KITTIseq02.yaml
+./test_orbslam /home/jhuai/orbslam_dwo/Data/settingfiles/KITTIseq03.yaml
+./test_orbslam /home/jhuai/orbslam_dwo/Data/settingfiles/KITTIseq04.yaml
+./test_orbslam /home/jhuai/orbslam_dwo/Data/settingfiles/KITTIseq05.yaml
+./test_orbslam /home/jhuai/orbslam_dwo/Data/settingfiles/KITTIseq06.yaml
+./test_orbslam /home/jhuai/orbslam_dwo/Data/settingfiles/KITTIseq07.yaml
+./test_orbslam /home/jhuai/orbslam_dwo/Data/settingfiles/KITTIseq08.yaml
+./test_orbslam /home/jhuai/orbslam_dwo/Data/settingfiles/KITTIseq09.yaml
+./test_orbslam /home/jhuai/orbslam_dwo/Data/settingfiles/KITTIseq10.yaml
+./test_orbslam /home/jhuai/orbslam_dwo/Data/settingfiles/KITTIseq11.yaml
+./test_orbslam /home/jhuai/orbslam_dwo/Data/settingfiles/KITTIseq12.yaml
+./test_orbslam /home/jhuai/orbslam_dwo/Data/settingfiles/KITTIseq13.yaml
+./test_orbslam /home/jhuai/orbslam_dwo/Data/settingfiles/KITTIseq14.yaml
+./test_orbslam /home/jhuai/orbslam_dwo/Data/settingfiles/KITTIseq15.yaml
+./test_orbslam /home/jhuai/orbslam_dwo/Data/settingfiles/KITTIseq16.yaml
+./test_orbslam /home/jhuai/orbslam_dwo/Data/settingfiles/KITTIseq17.yaml
+./test_orbslam /home/jhuai/orbslam_dwo/Data/settingfiles/KITTIseq18.yaml
+./test_orbslam /home/jhuai/orbslam_dwo/Data/settingfiles/KITTIseq19.yaml
+./test_orbslam /home/jhuai/orbslam_dwo/Data/settingfiles/KITTIseq20.yaml
+./test_orbslam /home/jhuai/orbslam_dwo/Data/settingfiles/KITTIseq21.yaml
+./test_orbslam /home/jhuai/orbslam_dwo/Data/settingfileswithimu/KITTIseq00_imu.yaml
+./test_orbslam /home/jhuai/orbslam_dwo/Data/settingfileswithimu/Tsukuba_imu.yaml
+echo "Processed all sequences in test_orbslam_dwo.sh file"

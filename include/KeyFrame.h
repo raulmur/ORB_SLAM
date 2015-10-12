@@ -28,7 +28,7 @@
 #include "ORBVocabulary.h"
 #include "Frame.h"
 #include "KeyFrameDatabase.h"
-
+#include "FeatureGrid.h"
 #include<boost/thread.hpp>
 
 
@@ -36,31 +36,37 @@ namespace ORB_SLAM
 {
 
 class Map;
-class MapPoint;
-class Frame;
 class KeyFrameDatabase;
 class DatabaseResult;
-
-class KeyFrame
+const uchar DoubleWindowKF= 0x01;// if a keyframe is in double window, then its mbNotErase & DoubleWindowKF ==DoubleWindowKF
+const uchar LoopCandidateKF= 0x02;// if a keyframe is a loop candidate, then its mbNotErase & LoopCandidateKF ==LoopCandidateKF
+class KeyFrame: public Frame
 {
 public:
     KeyFrame(Frame &F, Map* pMap, KeyFrameDatabase* pKFDB);
+    ~KeyFrame(){Release();}
+    bool isKeyFrame() const {return true;}
+
+    void Release();
+    vector<MapPoint*> GetMapPointMatches();
 
     // Pose functions
-    void SetPose(const cv::Mat &Rcw,const cv::Mat &tcw);
-    void SetPose(const cv::Mat &Tcw);
-    cv::Mat GetPose();
-    cv::Mat GetPoseInverse();
-    cv::Mat GetCameraCenter();
-    cv::Mat GetRotation();
-    cv::Mat GetTranslation();
+    void SetPose(const Eigen::Matrix3d &Rcw,const Eigen::Vector3d &tcw);
+    void SetPose(const Sophus::SE3d &Tcw_);
+    Sophus::SE3d GetPose(bool left=true);
+    void EraseMapPointMatch(const size_t &idx);
+    Eigen::Vector3d GetCameraCenter();
+    void AddMapPoint(MapPoint* pMP, const size_t &idx);
+    bool isBad();
 
-    // Calibration
-    cv::Mat GetProjectionMatrix();
-    cv::Mat GetCalibrationMatrix() const;
+    Sophus::SE3d GetPoseInverse();
+    Eigen::Matrix3d GetRotation();
+    Eigen::Vector3d GetTranslation();
+
+    // Calibration 
+    Eigen::Matrix3d GetCalibrationMatrix() const;
 
     // Bag of Words Representation
-    void ComputeBoW();
     DBoW2::FeatureVector GetFeatureVector();
     DBoW2::BowVector GetBowVector();
 
@@ -88,65 +94,44 @@ public:
     std::set<KeyFrame*> GetLoopEdges();
 
     // MapPoint observation functions
-    void AddMapPoint(MapPoint* pMP, const size_t &idx);
-    void EraseMapPointMatch(const size_t &idx);
     void EraseMapPointMatch(MapPoint* pMP);
-    void ReplaceMapPointMatch(const size_t &idx, MapPoint* pMP);
-    std::set<MapPoint*> GetMapPoints();
-    std::vector<MapPoint*> GetMapPointMatches();
-    int TrackedMapPoints();
-    MapPoint* GetMapPoint(const size_t &idx);
 
+    std::set<MapPoint*> GetMapPoints();
+    int TrackedMapPoints();
+    MapPoint* GetMapPoint(const size_t &idx);   
+    MapPoint* GetFeaturePoint(const size_t &idx);
     // KeyPoint functions
-    cv::KeyPoint GetKeyPointUn(const size_t &idx) const;
-    cv::Mat GetDescriptor(const size_t &idx);
     int GetKeyPointScaleLevel(const size_t &idx) const;
-    std::vector<cv::KeyPoint> GetKeyPoints() const;
+
     std::vector<cv::KeyPoint> GetKeyPointsUn() const;
-    cv::Mat GetDescriptors();
+    cv::Mat GetDescriptors(bool left=true);
     std::vector<size_t> GetFeaturesInArea(const float &x, const float  &y, const float  &r) const;
 
     // Image
-    cv::Mat GetImage();
     bool IsInImage(const float &x, const float &y) const;
 
     // Activate/deactivate erasable flags
-    void SetNotErase();
-    void SetErase();
+    void SetNotErase(uchar enableWhichProtection);
+    uchar GetNotErase();
+    void SetErase(uchar disableWhichProtection);
 
     // Set/check erased
     void SetBadFlag();
-    bool isBad();
-
-    // Scale functions
-    float inline GetScaleFactor(int nLevel=1) const{
-        return mvScaleFactors[nLevel];}
-    std::vector<float> inline GetScaleFactors() const{
-        return mvScaleFactors;}
-    std::vector<float> inline GetVectorScaleSigma2() const{
-        return mvLevelSigma2;}
-    float inline GetSigma2(int nLevel=1) const{
-        return mvLevelSigma2[nLevel];}
-    float inline GetInvSigma2(int nLevel=1) const{
-        return mvInvLevelSigma2[nLevel];}
-    int inline GetScaleLevels() const{
-        return mnScaleLevels;}
 
     // Median MapPoint depth
     float ComputeSceneMedianDepth(int q = 2);
+    void setExistingFeatures(FeatureGrid &fg);
 
+  
 public:
-    static long unsigned int nNextId;
-    long unsigned int mnId;
+    static long unsigned int nNextKeyId;
+    // long unsigned int mnId; //inherit from Frame
     long unsigned int mnFrameId;
 
-    double mTimeStamp;
+//    double mTimeStamp;//inherit from Frame
 
-    // Grid (to speed up feature matching)
-    int mnGridCols;
-    int mnGridRows;
-    float mfGridElementWidthInv;
-    float mfGridElementHeightInv;
+//    float mfGridElementWidthInv;//inherit from Frame
+//    float mfGridElementHeightInv;//inherit from Frame
 
     // Variables used by the tracking
     long unsigned int mnTrackReferenceForFrame;
@@ -164,49 +149,53 @@ public:
     int mnRelocWords;
     float mRelocScore;
 
+    FeatureGrid * mpFG; //feature grid to control distribution of newly created features
     // Calibration parameters
-    float fx, fy, cx, cy;
+//    float fx, fy, cx, cy;//inherit from Frame
 
     //BoW
-    DBoW2::BowVector mBowVec;
+//    DBoW2::BowVector mBowVec;//inherit from Frame
 
     static bool weightComp( int a, int b){
         return a>b;
     }
 
     static bool lId(KeyFrame* pKF1, KeyFrame* pKF2){
-        return pKF1->mnId<pKF2->mnId;
+        return pKF1->mnFrameId<pKF2->mnFrameId;
     }
-
 
 protected:
 
     // SE3 Pose and camera center
-    cv::Mat Tcw;
-    cv::Mat Ow;
+//    cv::Mat mTcw; //transformation to camera from world frame, cvMat float //inherit from Frame
+//    cv::Mat mOw; // camera center in world frame, cvMat float //inherit from Frame
 
     // Original image, undistorted image bounds, and calibration matrix
-    cv::Mat im;
-    int mnMinX;
-    int mnMinY;
-    int mnMaxX;
-    int mnMaxY;
-    cv::Mat mK;
+//    cv::Mat im;//inherit from Frame
+//    int mnMinX;//inherit from Frame
+//    int mnMinY;//inherit from Frame
+//    int mnMaxX;//inherit from Frame
+//    int mnMaxY;//inherit from Frame
+//    cv::Mat mK;//inherit from Frame
 
     // KeyPoints, Descriptors, MapPoints vectors (all associated by an index)
-    std::vector<cv::KeyPoint> mvKeys;
-    std::vector<cv::KeyPoint> mvKeysUn;
-    cv::Mat mDescriptors;
-    std::vector<MapPoint*> mvpMapPoints;
+//    std::vector<cv::KeyPoint> mvKeys;//inherit from Frame
+//    std::vector<cv::KeyPoint> mvKeysUn;
+//    cv::Mat mDescriptors;
+//    std::vector<MapPoint*> mvpMapPoints;
+
+//    std::vector<cv::KeyPoint> mvRightKeys;
+//    std::vector<cv::KeyPoint> mvRightKeysUn;
+//    cv::Mat mRightDescriptors;
 
     // BoW
     KeyFrameDatabase* mpKeyFrameDB;
-    ORBVocabulary* mpORBvocabulary;
-    DBoW2::FeatureVector mFeatVec;
+//    ORBVocabulary* mpORBvocabulary;//inherit from Frame
+//    DBoW2::FeatureVector mFeatVec;//inherit from Frame
 
 
     // Grid over the image to speed up feature matching
-    std::vector< std::vector <std::vector<size_t> > > mGrid;
+//    std::vector< std::vector <std::vector<size_t> > > mGrid; //inherit from Frame
 
     std::map<KeyFrame*,int> mConnectedKeyFrameWeights;
     std::vector<KeyFrame*> mvpOrderedConnectedKeyFrames;
@@ -219,23 +208,20 @@ protected:
     std::set<KeyFrame*> mspLoopEdges;
 
     // Erase flags
-    bool mbNotErase;
+    uchar mbNotErase;
     bool mbToBeErased;
-    bool mbBad;
-
-    // Scale
-    int mnScaleLevels;
-    std::vector<float> mvScaleFactors;
-    std::vector<float> mvLevelSigma2;
-    std::vector<float> mvInvLevelSigma2;
 
     Map* mpMap;
-
     boost::mutex mMutexPose;
     boost::mutex mMutexConnections;
-    boost::mutex mMutexFeatures;
-    boost::mutex mMutexImage;
+    boost::mutex mMutexFeatures; // exclusive access to mvpMapPoints and fts_->point
+
+private:
+    KeyFrame();
+    KeyFrame(const KeyFrame&);
+    KeyFrame& operator= (const KeyFrame&);
 };
+Eigen::Matrix3d ComputeF12(KeyFrame *&pKF1, KeyFrame *&pKF2);
 
 } //namespace ORB_SLAM
 

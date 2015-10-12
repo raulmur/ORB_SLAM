@@ -26,11 +26,13 @@
 #include "Map.h"
 #include "ORBVocabulary.h"
 #include "Tracking.h"
+#include "sophus/sim3.hpp"
 #include <boost/thread.hpp>
 
 #include "KeyFrameDatabase.h"
 
-#include "Thirdparty/g2o/g2o/types/sim3/types_seven_dof_expmap.h"
+//#include "Thirdparty/g2o/g2o/types/sim3/types_seven_dof_expmap.h"
+#include <g2o/types/sim3/types_seven_dof_expmap.h>
 
 namespace ORB_SLAM
 {
@@ -47,7 +49,8 @@ public:
     typedef pair<set<KeyFrame*>,int> ConsistentGroup;    
     typedef map<KeyFrame*,g2o::Sim3,std::less<KeyFrame*>,
         Eigen::aligned_allocator<std::pair<const KeyFrame*, g2o::Sim3> > > KeyFrameAndPose;
-
+    typedef map<KeyFrame*,Sophus::SE3d,std::less<KeyFrame*>,
+        Eigen::aligned_allocator<std::pair<const KeyFrame*, Sophus::SE3d> > > KeyFrameAndSE3Pose;
 public:
 
     LoopClosing(Map* pMap, KeyFrameDatabase* pDB, ORBVocabulary* pVoc);
@@ -61,8 +64,22 @@ public:
     void InsertKeyFrame(KeyFrame *pKF);
 
     void RequestReset();
+    Sophus::SE3d GetTnew2old(){
+        boost::mutex::scoped_lock lock(mMutexTDelta);
+        mbTemporalFramesUpdated = true;
+        return mTneww2oldw;
+    }
+    bool UpdateTemporalWinPoses()
+    {
+        boost::mutex::scoped_lock lock(mMutexTDelta);
+        return mbTemporalFramesUpdated;
+    }
+    boost::mutex mMutexTDelta;
+    bool mbTemporalFramesUpdated;
+    Sophus::SE3d mTneww2oldw; // let $T_w^{c_{old}}$ and $T_w^{c_{new}}$ denote
+    // pose of the current keyframe before and after loop optimization, then mTneww2oldw is $(T_w^{c_{old}})^{-1}T_w^{c_{new}}$
 
-protected:
+public:
 
     bool CheckNewKeyFrames();
 
@@ -71,9 +88,9 @@ protected:
     bool ComputeSim3();
 
     void SearchAndFuse(KeyFrameAndPose &CorrectedPosesMap);
-
+    void SearchAndFuse(KeyFrameAndSE3Pose &CorrectedPosesMap);
     void CorrectLoop();
-
+    void CorrectLoopSE3();
     void ResetIfRequested();
     bool mbResetRequested;
     boost::mutex mMutexReset;
@@ -102,12 +119,12 @@ protected:
     std::vector<KeyFrame*> mvpEnoughConsistentCandidates;
     std::vector<KeyFrame*> mvpCurrentConnectedKFs;
     std::vector<MapPoint*> mvpCurrentMatchedPoints;
-    std::vector<MapPoint*> mvpLoopMapPoints;
-    cv::Mat mScw;
+    std::vector<MapPoint*> mvpLoopMapPoints; 
     g2o::Sim3 mg2oScw;
     double mScale_cw;
 
     long unsigned int mLastLoopKFid;
+
 };
 
 } //namespace ORB_SLAM

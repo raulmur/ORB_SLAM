@@ -19,11 +19,11 @@
 */
 
 #include "Sim3Solver.h"
-
+#include "Converter.h"
 #include <vector>
 #include <cmath>
 #include <opencv/cv.h>
-#include <ros/ros.h>
+//#include <ros/ros.h>
 
 #include "KeyFrame.h"
 #include "ORBmatcher.h"
@@ -51,10 +51,10 @@ Sim3Solver::Sim3Solver(KeyFrame *pKF1, KeyFrame *pKF2, const vector<MapPoint *> 
     mvX3Dc1.reserve(mN1);
     mvX3Dc2.reserve(mN1);
 
-    cv::Mat Rcw1 = pKF1->GetRotation();
-    cv::Mat tcw1 = pKF1->GetTranslation();
-    cv::Mat Rcw2 = pKF2->GetRotation();
-    cv::Mat tcw2 = pKF2->GetTranslation();
+    Eigen::Matrix3d Rcw1 = pKF1->GetRotation();
+    Eigen::Vector3d tcw1 = pKF1->GetTranslation();
+    Eigen::Matrix3d Rcw2 = pKF2->GetRotation();
+    Eigen::Vector3d tcw2 = pKF2->GetTranslation();
 
     mvAllIndices.reserve(mN1);
 
@@ -91,11 +91,13 @@ Sim3Solver::Sim3Solver(KeyFrame *pKF1, KeyFrame *pKF2, const vector<MapPoint *> 
             mvpMapPoints2.push_back(pMP2);
             mvnIndices1.push_back(i1);
 
-            cv::Mat X3D1w = pMP1->GetWorldPos();
-            mvX3Dc1.push_back(Rcw1*X3D1w+tcw1);
+            Eigen::Vector3d X3D1w = pMP1->GetWorldPos();
+            X3D1w=Rcw1*X3D1w+tcw1;
+            mvX3Dc1.push_back(Converter::toCvMat(X3D1w));
 
-            cv::Mat X3D2w = pMP2->GetWorldPos();
-            mvX3Dc2.push_back(Rcw2*X3D2w+tcw2);
+            Eigen::Vector3d X3D2w = pMP2->GetWorldPos();
+            X3D2w=Rcw2*X3D2w+tcw2;
+            mvX3Dc2.push_back(Converter::toCvMat(X3D2w));
 
             mvAllIndices.push_back(idx);
             idx++;
@@ -374,14 +376,14 @@ float Sim3Solver::GetEstimatedScale()
     return mBestScale;
 }
 
-void Sim3Solver::Project(const vector<cv::Mat> &vP3Dw, vector<cv::Mat> &vP2D, cv::Mat Tcw, cv::Mat K)
+void Sim3Solver::Project(const vector<cv::Mat> &vP3Dw, vector<cv::Mat> &vP2D, cv::Mat Tcw, Eigen::Matrix3d K)
 {
     cv::Mat Rcw = Tcw.rowRange(0,3).colRange(0,3);
     cv::Mat tcw = Tcw.rowRange(0,3).col(3);
-    float fx = K.at<float>(0,0);
-    float fy = K.at<float>(1,1);
-    float cx = K.at<float>(0,2);
-    float cy = K.at<float>(1,2);
+    float fx = K(0,0);
+    float fy = K(1,1);
+    float cx = K(0,2);
+    float cy = K(1,2);
 
     vP2D.clear();
     vP2D.reserve(vP3Dw.size());
@@ -397,12 +399,12 @@ void Sim3Solver::Project(const vector<cv::Mat> &vP3Dw, vector<cv::Mat> &vP2D, cv
     }
 }
 
-void Sim3Solver::FromCameraToImage(const vector<cv::Mat> &vP3Dc, vector<cv::Mat> &vP2D, cv::Mat K)
+void Sim3Solver::FromCameraToImage(const vector<cv::Mat> &vP3Dc, vector<cv::Mat> &vP2D, Eigen::Matrix3d K)
 {
-    float fx = K.at<float>(0,0);
-    float fy = K.at<float>(1,1);
-    float cx = K.at<float>(0,2);
-    float cy = K.at<float>(1,2);
+    float fx = K(0,0);
+    float fy = K(1,1);
+    float cx = K(0,2);
+    float cy = K(1,2);
 
     vP2D.clear();
     vP2D.reserve(vP3Dc.size());

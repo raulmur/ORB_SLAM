@@ -27,7 +27,8 @@
 #include "LoopClosing.h"
 #include "Frame.h"
 
-#include "Thirdparty/g2o/g2o/types/sim3/types_seven_dof_expmap.h"
+//#include "Thirdparty/g2o/g2o/types/sim3/types_seven_dof_expmap.h"
+#include <g2o/types/sim3/types_seven_dof_expmap.h>
 
 namespace ORB_SLAM
 {
@@ -47,6 +48,10 @@ public:
                                        LoopClosing::KeyFrameAndPose &CorrectedSim3,
                                        std::map<KeyFrame*, set<KeyFrame*> > &LoopConnections);
 
+    void static OptimizeEssentialGraphSE3(Map* pMap, KeyFrame* pLoopKF, KeyFrame* pCurKF, Sophus::SE3d &Tcurw,
+                                           LoopClosing::KeyFrameAndSE3Pose &NonCorrectedSE3,
+                                           LoopClosing::KeyFrameAndSE3Pose &CorrectedSE3,
+                                           map<KeyFrame *, set<KeyFrame *> > &LoopConnections);
 
     static int OptimizeSim3(KeyFrame* pKF1, KeyFrame* pKF2, std::vector<MapPoint *> &vpMatches1, g2o::Sim3 &g2oS12, float th2 = 10);
 };

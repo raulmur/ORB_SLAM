@@ -20,107 +20,115 @@
 
 #include "KeyFrame.h"
 #include "Converter.h"
-#include <ros/ros.h>
+#include "g2o_types/eigen_utils.h"
+#include "g2o_types/global.h" //for debugging output
+#include <vikit/math_utils.h>
+//#include <ros/ros.h>
 
 namespace ORB_SLAM
 {
 
-long unsigned int KeyFrame::nNextId=0;
+long unsigned int KeyFrame::nNextKeyId=0;
 
-KeyFrame::KeyFrame(Frame &F, Map *pMap, KeyFrameDatabase *pKFDB):
-    mnFrameId(F.mnId),  mTimeStamp(F.mTimeStamp), mfGridElementWidthInv(F.mfGridElementWidthInv),
-    mfGridElementHeightInv(F.mfGridElementHeightInv), mnTrackReferenceForFrame(0),mnBALocalForKF(0), mnBAFixedForKF(0),
-    mnLoopQuery(0), mnRelocQuery(0),fx(F.fx), fy(F.fy), cx(F.cx), cy(F.cy), mBowVec(F.mBowVec),
-    im(F.im), mnMinX(F.mnMinX), mnMinY(F.mnMinY), mnMaxX(F.mnMaxX), mnMaxY(F.mnMaxY), mK(F.mK),
-    mvKeys(F.mvKeys), mvKeysUn(F.mvKeysUn), mDescriptors(F.mDescriptors.clone()),
-    mvpMapPoints(F.mvpMapPoints), mpKeyFrameDB(pKFDB), mpORBvocabulary(F.mpORBvocabulary), mFeatVec(F.mFeatVec),
-    mbFirstConnection(true), mpParent(NULL), mbNotErase(false), mbToBeErased(false), mbBad(false),
-    mnScaleLevels(F.mnScaleLevels), mvScaleFactors(F.mvScaleFactors), mvLevelSigma2(F.mvLevelSigma2),
-    mvInvLevelSigma2(F.mvInvLevelSigma2), mpMap(pMap)
+KeyFrame::KeyFrame(Frame &F, Map *pMap, KeyFrameDatabase *pKFDB):Frame(F),  mnFrameId(nNextKeyId++),
+    mnTrackReferenceForFrame(0),mnBALocalForKF(0), mnBAFixedForKF(0),
+    mnLoopQuery(0), mnRelocQuery(0),mpFG(NULL),    mpKeyFrameDB(pKFDB),
+    mbFirstConnection(true), mpParent(NULL), mbNotErase(0), mbToBeErased(false),
+    mpMap(pMap)
 {
-    mnId=nNextId++;
-
-    mnGridCols=FRAME_GRID_COLS;
-    mnGridRows=FRAME_GRID_ROWS;
-    mGrid.resize(mnGridCols);
+    // mGrids is taken care in copying base Frame
+    /*mGrid.resize(mnGridCols);
     for(int i=0; i<mnGridCols;i++)
     {
         mGrid[i].resize(mnGridRows);
         for(int j=0; j<mnGridRows; j++)
             mGrid[i][j] = F.mGrid[i][j];
+    }*/
+//    SetPose(F.mTcw);
+}
+void KeyFrame::Release()
+{    
+    // the following commented member variables may be referred to by another thread when this keyframe is setbad
+//    mTcw;
+//    mOw;  
+
+//    imu_observ.clear();//TODO: somehow a keyframe in the temporal window may get released
+    mvKeys.clear();
+//    mvKeysUn.clear();
+    mvRightKeys.clear();
+    mvRightKeysUn.clear();
+    mBowVec.clear();
+    mFeatVec.clear();
+//    mDescriptors.release();
+    mRightDescriptors.release();
+
+//    mvpMapPoints.clear();
+    mvbOutlier.clear();
+//    for(int i=0;i<FRAME_GRID_COLS;i++)
+//        for(int j=0; j<FRAME_GRID_ROWS; j++)
+//            mGrid[i][j].clear();
+
+    viso2LeftId2StereoId.clear();
+    viso2RightId2StereoId.clear();
+
+    mConnectedKeyFrameWeights.clear();
+    mvpOrderedConnectedKeyFrames.clear();
+    mvOrderedWeights.clear();
+    mspChildrens.clear();
+    mspLoopEdges.clear();
+    if(mpFG)
+        delete mpFG;
+    mpFG=NULL;
+}
+
+
+void KeyFrame::SetPose(const Eigen::Matrix3d &Rcw,const Eigen::Vector3d &tcw)
+{
+    boost::mutex::scoped_lock lock(mMutexPose);
+    mTcw=Sophus::SE3d(Rcw, tcw);
+    mOw=-Rcw.transpose()*tcw;
+}
+
+void KeyFrame::SetPose(const Sophus::SE3d &Tcw_)
+{
+    boost::mutex::scoped_lock lock(mMutexPose);
+    mTcw=Tcw_;
+    mOw = mTcw.inverse().translation();
+}
+
+Sophus::SE3d KeyFrame::GetPose(bool left)
+{
+    if(left){
+    boost::mutex::scoped_lock lock(mMutexPose);
+    return mTcw;
     }
+    else
+        return (mTl2r*mTcw);
 
-    SetPose(F.mTcw);    
 }
 
-void KeyFrame::ComputeBoW()
-{
-    if(mBowVec.empty() || mFeatVec.empty())
-    {
-        vector<cv::Mat> vCurrentDesc = Converter::toDescriptorVector(mDescriptors);
-        // Feature vector associate features with nodes in the 4th level (from leaves up)
-        // We assume the vocabulary tree has 6 levels, change the 4 otherwise
-        mpORBvocabulary->transform(vCurrentDesc,mBowVec,mFeatVec,4);
-    }
-}
-
-void KeyFrame::SetPose(const cv::Mat &Rcw,const cv::Mat &tcw)
+Sophus::SE3d KeyFrame::GetPoseInverse()
 {
     boost::mutex::scoped_lock lock(mMutexPose);
-    Rcw.copyTo(Tcw.rowRange(0,3).colRange(0,3));
-    tcw.copyTo(Tcw.col(3).rowRange(0,3));
-
-    Ow=-Rcw.t()*tcw;
+    return mTcw.inverse();
 }
 
-void KeyFrame::SetPose(const cv::Mat &Tcw_)
+Eigen::Vector3d KeyFrame::GetCameraCenter()
 {
     boost::mutex::scoped_lock lock(mMutexPose);
-    Tcw_.copyTo(Tcw);
-    cv::Mat Rcw = Tcw.rowRange(0,3).colRange(0,3);
-    cv::Mat tcw = Tcw.rowRange(0,3).col(3);
-    Ow = -Rcw.t()*tcw;
+    return mOw;
 }
 
-cv::Mat KeyFrame::GetPose()
+Eigen::Matrix3d KeyFrame::GetRotation()
 {
     boost::mutex::scoped_lock lock(mMutexPose);
-    return Tcw.clone();
+    return mTcw.rotationMatrix();
 }
 
-cv::Mat KeyFrame::GetPoseInverse()
+Eigen::Vector3d KeyFrame::GetTranslation()
 {
     boost::mutex::scoped_lock lock(mMutexPose);
-    cv::Mat Twc = cv::Mat::eye(4,4,Tcw.type());
-    cv::Mat Rwc = (Tcw.rowRange(0,3).colRange(0,3)).t();
-    cv::Mat twc = -Rwc*Tcw.rowRange(0,3).col(3);
-    Rwc.copyTo(Twc.rowRange(0,3).colRange(0,3));
-    twc.copyTo(Twc.rowRange(0,3).col(3));
-    return Twc.clone();
-}
-
-cv::Mat KeyFrame::GetProjectionMatrix()
-{
-    boost::mutex::scoped_lock lock(mMutexPose);
-    return mK*Tcw.rowRange(0,3);
-}
-
-cv::Mat KeyFrame::GetCameraCenter()
-{
-    boost::mutex::scoped_lock lock(mMutexPose);
-    return Ow.clone();
-}
-
-cv::Mat KeyFrame::GetRotation()
-{
-    boost::mutex::scoped_lock lock(mMutexPose);
-    return Tcw.rowRange(0,3).colRange(0,3).clone();
-}
-
-cv::Mat KeyFrame::GetTranslation()
-{
-    boost::mutex::scoped_lock lock(mMutexPose);
-    return Tcw.rowRange(0,3).col(3).clone();
+    return mTcw.translation();
 }
 
 void KeyFrame::AddConnection(KeyFrame *pKF, const int &weight)
@@ -213,26 +221,25 @@ int KeyFrame::GetWeight(KeyFrame *pKF)
 void KeyFrame::AddMapPoint(MapPoint *pMP, const size_t &idx)
 {
     boost::mutex::scoped_lock lock(mMutexFeatures);
+    assert((pMP && mvpMapPoints[idx]==NULL));
+  
     mvpMapPoints[idx]=pMP;
 }
 
 void KeyFrame::EraseMapPointMatch(const size_t &idx)
 {
     boost::mutex::scoped_lock lock(mMutexFeatures);
+    assert(mvpMapPoints[idx]);
     mvpMapPoints[idx]=NULL;
+ 
 }
 
 void KeyFrame::EraseMapPointMatch(MapPoint* pMP)
 {
     int idx = pMP->GetIndexInKeyFrame(this);
-    if(idx>=0)
-        mvpMapPoints[idx]=NULL;
-}
+   	assert(idx>=0 && mvpMapPoints[idx]);
+    mvpMapPoints[idx]=NULL;
 
-
-void KeyFrame::ReplaceMapPointMatch(const size_t &idx, MapPoint* pMP)
-{
-    mvpMapPoints[idx]=pMP;
 }
 
 set<MapPoint*> KeyFrame::GetMapPoints()
@@ -249,18 +256,18 @@ set<MapPoint*> KeyFrame::GetMapPoints()
     }
     return s;
 }
-
+// how many map points are found in this keyframe
 int KeyFrame::TrackedMapPoints()
 {
     boost::mutex::scoped_lock lock(mMutexFeatures);
 
     int nPoints=0;
-    for(size_t i=0, iend=mvpMapPoints.size(); i<iend; i++)
+
+    for(size_t i=0, iend=mvpMapPoints.size(); i<iend; ++i)
     {
         if(mvpMapPoints[i])
-            nPoints++;
+            ++nPoints;
     }
-
     return nPoints;
 }
 
@@ -270,35 +277,27 @@ vector<MapPoint*> KeyFrame::GetMapPointMatches()
     return mvpMapPoints;
 }
 
+
 MapPoint* KeyFrame::GetMapPoint(const size_t &idx)
 {
     boost::mutex::scoped_lock lock(mMutexFeatures);
     return mvpMapPoints[idx];
 }
 
-cv::KeyPoint KeyFrame::GetKeyPointUn(const size_t &idx) const
-{
-    return mvKeysUn[idx];
-}
 
 int KeyFrame::GetKeyPointScaleLevel(const size_t &idx) const
 {
+    assert(idx< mvKeysUn.size());
     return mvKeysUn[idx].octave;
+
 }
 
-cv::Mat KeyFrame::GetDescriptor(const size_t &idx)
+cv::Mat KeyFrame::GetDescriptors(bool left)
 {
-    return mDescriptors.row(idx).clone();
-}
-
-cv::Mat KeyFrame::GetDescriptors()
-{
+    if(left)
     return mDescriptors.clone();
-}
-
-vector<cv::KeyPoint> KeyFrame::GetKeyPoints() const
-{
-    return mvKeys;
+    else
+        return mRightDescriptors.clone();
 }
 
 vector<cv::KeyPoint> KeyFrame::GetKeyPointsUn() const
@@ -306,9 +305,9 @@ vector<cv::KeyPoint> KeyFrame::GetKeyPointsUn() const
     return mvKeysUn;
 }
 
-cv::Mat KeyFrame::GetCalibrationMatrix() const
+Eigen::Matrix3d KeyFrame::GetCalibrationMatrix() const
 {
-    return mK.clone();
+    return cam_->K();
 }
 
 DBoW2::FeatureVector KeyFrame::GetFeatureVector()
@@ -323,11 +322,6 @@ DBoW2::BowVector KeyFrame::GetBowVector()
     return mBowVec;
 }
 
-cv::Mat KeyFrame::GetImage()
-{
-    boost::mutex::scoped_lock lock(mMutexImage);
-    return im.clone();
-}
 
 void KeyFrame::UpdateConnections()
 {
@@ -356,7 +350,7 @@ void KeyFrame::UpdateConnections()
 
         for(map<KeyFrame*,size_t>::iterator mit=observations.begin(), mend=observations.end(); mit!=mend; mit++)
         {
-            if(mit->first->mnId==mnId)
+            if((mit->first)->mnFrameId==mnFrameId)
                 continue;
             KFcounter[mit->first]++;
         }
@@ -409,14 +403,13 @@ void KeyFrame::UpdateConnections()
         mConnectedKeyFrameWeights = KFcounter;
         mvpOrderedConnectedKeyFrames = vector<KeyFrame*>(lKFs.begin(),lKFs.end());
         mvOrderedWeights = vector<int>(lWs.begin(), lWs.end());
-
-        if(mbFirstConnection && mnId!=0)
+//huai: FAQ: do we need to update mvpOrderedConnectedKeyFrames of connected keyframes?
+        if(mbFirstConnection && mnFrameId!=0)
         {
             mpParent = mvpOrderedConnectedKeyFrames.front();
             mpParent->AddChild(this);
             mbFirstConnection = false;
         }
-
     }
 }
 
@@ -461,7 +454,7 @@ bool KeyFrame::hasChild(KeyFrame *pKF)
 void KeyFrame::AddLoopEdge(KeyFrame *pKF)
 {
     boost::mutex::scoped_lock lockCon(mMutexConnections);
-    mbNotErase = true;
+    mbNotErase |= LoopCandidateKF;
     mspLoopEdges.insert(pKF);
 }
 
@@ -471,51 +464,64 @@ set<KeyFrame*> KeyFrame::GetLoopEdges()
     return mspLoopEdges;
 }
 
-void KeyFrame::SetNotErase()
+void KeyFrame::SetNotErase(uchar enableWhichProtection)
 {
     boost::mutex::scoped_lock lock(mMutexConnections);
-    mbNotErase = true;
+    mbNotErase |=enableWhichProtection;
 }
-
-void KeyFrame::SetErase()
+uchar KeyFrame::GetNotErase()
+{
+    boost::mutex::scoped_lock lock(mMutexConnections);
+    return mbNotErase;
+}
+void KeyFrame::SetErase(uchar disableWhichProtection)
 {
     {
         boost::mutex::scoped_lock lock(mMutexConnections);
-        if(mspLoopEdges.empty())
-        {
-            mbNotErase = false;
+        if( disableWhichProtection == DoubleWindowKF)
+            mbNotErase &= (~DoubleWindowKF);
+        else{
+            if(mspLoopEdges.empty())
+            {
+                mbNotErase &= (~LoopCandidateKF);
+            }
         }
     }
 
-    if(mbToBeErased)
-    {
+    if(mbNotErase==0 && mbToBeErased)
+    {// set bad flag must have been called once for *this
         SetBadFlag();
+#ifdef SLAM_DEBUG_OUTPUT
+        N+=1000000;
+#endif
     }
 }
 
-
 void KeyFrame::SetBadFlag()
-{   
+{
     {
         boost::mutex::scoped_lock lock(mMutexConnections);
-        if(mnId==0)
+        if(mnFrameId==0 || mbBad)
             return;
-        else if(mbNotErase)
+        if(mbNotErase)
         {
             mbToBeErased = true;
             return;
         }
     }
 
-    for(map<KeyFrame*,int>::iterator mit = mConnectedKeyFrameWeights.begin(), mend=mConnectedKeyFrameWeights.end(); mit!=mend; mit++)
-        mit->first->EraseConnection(this);
+    {
+        boost::mutex::scoped_lock lock1(mMutexFeatures);
+        for(vector<MapPoint*>::const_iterator it=mvpMapPoints.begin(); it!=mvpMapPoints.end(); ++it){
+            if((*it) && (!(*it)->isBad()))
+                (*it)->EraseObservation(this);
+        }
+    }
 
-    for(size_t i=0; i<mvpMapPoints.size(); i++)
-        if(mvpMapPoints[i])
-            mvpMapPoints[i]->EraseObservation(this);
     {
         boost::mutex::scoped_lock lock(mMutexConnections);
-        boost::mutex::scoped_lock lock1(mMutexFeatures);
+        for(map<KeyFrame*,int>::iterator mit = mConnectedKeyFrameWeights.begin(), mend=mConnectedKeyFrameWeights.end(); mit!=mend; mit++)
+            mit->first->EraseConnection(this);
 
         mConnectedKeyFrameWeights.clear();
         mvpOrderedConnectedKeyFrames.clear();
@@ -582,9 +588,9 @@ void KeyFrame::SetBadFlag()
         mbBad = true;
     }
 
-
     mpMap->EraseKeyFrame(this);
     mpKeyFrameDB->erase(this);
+    Release();//Huai
 }
 
 bool KeyFrame::isBad()
@@ -616,21 +622,21 @@ vector<size_t> KeyFrame::GetFeaturesInArea(const float &x, const float &y, const
 
     int nMinCellX = floor((x-mnMinX-r)*mfGridElementWidthInv);
     nMinCellX = max(0,nMinCellX);
-    if(nMinCellX>=mnGridCols)
+    if(nMinCellX>=FRAME_GRID_COLS)
         return vIndices;
 
     int nMaxCellX = ceil((x-mnMinX+r)*mfGridElementWidthInv);
-    nMaxCellX = min(mnGridCols-1,nMaxCellX);
+    nMaxCellX = min(FRAME_GRID_COLS-1,nMaxCellX);
     if(nMaxCellX<0)
         return vIndices;
 
     int nMinCellY = floor((y-mnMinY-r)*mfGridElementHeightInv);
     nMinCellY = max(0,nMinCellY);
-    if(nMinCellY>=mnGridRows)
+    if(nMinCellY>=FRAME_GRID_ROWS)
         return vIndices;
 
     int nMaxCellY = ceil((y-mnMinY+r)*mfGridElementHeightInv);
-    nMaxCellY = min(mnGridRows-1,nMaxCellY);
+    nMaxCellY = min(FRAME_GRID_ROWS-1,nMaxCellY);
     if(nMaxCellY<0)
         return vIndices;
 
@@ -638,7 +644,7 @@ vector<size_t> KeyFrame::GetFeaturesInArea(const float &x, const float &y, const
     {
         for(int iy = nMinCellY; iy<=nMaxCellY; iy++)
         {
-            vector<size_t> vCell = mGrid[ix][iy];
+            const vector<size_t>& vCell = mGrid[ix][iy];
             for(size_t j=0, jend=vCell.size(); j<jend; j++)
             {
                 const cv::KeyPoint &kpUn = mvKeysUn[vCell[j]];
@@ -659,33 +665,68 @@ bool KeyFrame::IsInImage(const float &x, const float &y) const
 float KeyFrame::ComputeSceneMedianDepth(int q)
 {
     vector<MapPoint*> vpMapPoints;
-    cv::Mat Tcw_;
+    Sophus::SE3d Tcw_;
     {
     boost::mutex::scoped_lock lock(mMutexFeatures);
     boost::mutex::scoped_lock lock2(mMutexPose);
     vpMapPoints = mvpMapPoints;
-    Tcw_ = Tcw.clone();
+    Tcw_ = mTcw;
     }
 
     vector<float> vDepths;
     vDepths.reserve(mvpMapPoints.size());
-    cv::Mat Rcw2 = Tcw_.row(2).colRange(0,3);
-    Rcw2 = Rcw2.t();
-    float zcw = Tcw_.at<float>(2,3);
+    Eigen::Matrix<double,1,3> Rcw2 = Tcw_.rotationMatrix().row(2);
+    float zcw = Tcw_.translation()[2];
     for(size_t i=0; i<mvpMapPoints.size(); i++)
     {
         if(mvpMapPoints[i])
         {
             MapPoint* pMP = mvpMapPoints[i];
-            cv::Mat x3Dw = pMP->GetWorldPos();
-            float z = Rcw2.dot(x3Dw)+zcw;
+            Eigen::Vector3d x3Dw = pMP->GetWorldPos();
+            float z = Rcw2*x3Dw+zcw;
             vDepths.push_back(z);
         }
     }
-
+    if(vDepths.size()==0)
+        return 2.f;
     sort(vDepths.begin(),vDepths.end());
 
-    return vDepths[(vDepths.size()-1)/q];
+    return vDepths[(vDepths.size()-1)/q];    
 }
+void KeyFrame::setExistingFeatures(FeatureGrid &fg) // this frame is not processed by local mapping thread yet
+{
+ // put map points in grid
+    int jim=0;
+    for(vector<MapPoint*>::iterator vit=mvpMapPoints.begin(), vend=mvpMapPoints.end();
+        vit!=vend; ++vit, ++jim)
+    {
+        MapPoint* pMP = *vit;
+        if(pMP)
+        {
+            if(pMP->isBad())
+            {
+                *vit = NULL;
+            }
+            else
+            {
+                cv::KeyPoint kpUn=mvKeysUn[jim];
+                int posX = round((kpUn.pt.x-mnMinX)*fg.mfGridElementWidthInv);
+                int posY = round((kpUn.pt.y-mnMinY)*fg.mfGridElementHeightInv);
+                //cout<< "posX,Y "<< kpUn.pt.x<<" "<<kpUn.pt.y<<endl;
+                assert(!(posX<0 || posX>=fg.mnGridCols || posY<0 || posY>=fg.mnGridRows));
+                fg.AddMapPoint(posX,posY,jim);
+            }
+        }
+    }
+}
+Eigen::Matrix3d ComputeF12(KeyFrame *&pKF1, KeyFrame *&pKF2)
+{
+    Sophus::SE3d T12= pKF1->GetPose()*(pKF2->GetPose().inverse());
+    Eigen::Matrix3d R12 = T12.rotationMatrix();
+    Eigen::Vector3d t12 = T12.translation();
+    Eigen::Matrix3d t12x = skew(t12);
+    return (pKF1->cam_->K_inv().transpose())*t12x*R12*(pKF2->cam_->K_inv());
+}
+
 
 } //namespace ORB_SLAM

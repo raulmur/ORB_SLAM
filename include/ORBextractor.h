@@ -24,18 +24,21 @@
 #include <vector>
 #include <list>
 #include <opencv/cv.h>
-
+#include <Eigen/Dense>
 
 namespace ORB_SLAM
 {
-
+class ORBmatcher;
+class Frame;
 class ORBextractor
 {
+    friend class ORBmatcher;
 public:
     
     enum {HARRIS_SCORE=0, FAST_SCORE=1 };
 
-    ORBextractor(int nfeatures = 1000, float scaleFactor = 1.2f, int nlevels = 8, int scoreType=FAST_SCORE, int fastTh = 20);
+    ORBextractor(int nfeatures = 1000, float scaleFactor = 1.2f, int nlevels = 8,
+                 int scoreType=FAST_SCORE, int fastTh = 20);
 
     ~ORBextractor(){}
 
@@ -43,24 +46,59 @@ public:
     void operator()( cv::InputArray image, cv::InputArray mask,
       std::vector<cv::KeyPoint>& keypoints,
       cv::OutputArray descriptors);
-
-    int inline GetLevels(){
+    // compute evenly distributed ORB features on an image
+    void operator()(std::vector<cv::KeyPoint>& keypoints,  const std::vector<cv::Mat> & vImagePyramid,
+                    const std::vector<cv::Mat> & vBlurredImagePyramid,
+    cv::OutputArray descriptors,  const float detection_threshold=0.f);
+    // Compute gravity aligned ORB features and descriptors on an image
+    void operator()(cv::InputArray image, cv::InputArray mask,
+                    std::vector<cv::KeyPoint>& keypoints,  cv::OutputArray descriptors,
+                    std::vector<cv::KeyPoint>& _keypointsUn,
+                    const cv::Mat & K, const cv::Mat & distCoef, const Eigen::Vector3d& ginc);
+    // comptue ORB features on level 0 given keypoints,
+    // bGAFD true means keypoints' angle is already determined by gravity direction
+    void operator()( cv::InputArray image,
+      std::vector<cv::KeyPoint>& keypoints,
+      cv::OutputArray descriptors, bool bGAFD=false);
+    void operator()(std::vector<cv::KeyPoint>& keypoints,cv::OutputArray _descriptors,
+                    const float detection_threshold);
+ 	int inline GetLevels(){
         return nlevels;}
 
-    float inline GetScaleFactor(){
-        return scaleFactor;}
+    float inline GetScaleFactor(int level=1)const{
+        return mvScaleFactor[level];
+    }
+   
+    void ComputePyramid(cv::Mat image);
+    void ClonePyramid(std::vector<cv::Mat> & vImagePyramid);
+    void ComputePyramid(const cv::Mat & image,   std::vector<cv::Mat>& vImagePyramid );
+    void ComputeBlurredPyramid(const std::vector<cv::Mat> & vImagePyramid,
+                                             std::vector<cv::Mat> & vBlurredImagePyramid);
 
+ 
+    void MakeKeyPoints_Rest(std::vector<cv::KeyPoint> & vKeys,
+                            const std::vector<cv::Mat>& vImagePyramid,
+                              const std::vector<cv::Mat>& vBlurredImagePyramid,
+                                          cv::OutputArray _descriptors);
 
+    int nlevels;
+    std::vector<float> mvScaleFactor; //scaleFactor^i, i is index of mvScaleFactors based 0, e.g., 1, 1.2, 1.2^2
+    std::vector<float> mvInvScaleFactor;
+
+    std::vector<float> mvLevelSigma2; // e.g, 1, 1.2^2, 1.2^4 ...
+    std::vector<float> mvInvLevelSigma2; //e.g., 1, 1/1.2^2, 1/1.2^4
 protected:
 
-    void ComputePyramid(cv::Mat image, cv::Mat Mask=cv::Mat());
-    void ComputeKeyPoints(std::vector<std::vector<cv::KeyPoint> >& allKeypoints);
+// brutal force compute keypoints without adaptive thresholding
+    void ComputeKeyPointsBF(std::vector<std::vector<cv::KeyPoint> >& allKeypoints,
+                            const std::vector<cv::Mat>& vImagePyramid);
+    void ComputeKeyPoints(std::vector<std::vector<cv::KeyPoint> >& allKeypoints, bool bGAFD=false);
 
     std::vector<cv::Point> pattern;
 
     int nfeatures;
     double scaleFactor;
-    int nlevels;
+
     int scoreType;
     int fastTh;
 
@@ -68,14 +106,24 @@ protected:
 
     std::vector<int> umax;
 
-    std::vector<float> mvScaleFactor;
-    std::vector<float> mvInvScaleFactor;
+
 
     std::vector<cv::Mat> mvImagePyramid;
-    std::vector<cv::Mat> mvMaskPyramid;
-
+    std::vector<cv::Mat> mvBlurredImagePyramid;
 };
 
+void computeOrbDescriptor(const cv::KeyPoint& kpt,
+                                 const cv::Mat& img, const cv::Point* pattern,
+                                 uchar* desc);
+void computeOrientation(const cv::Mat& image, std::vector<cv::KeyPoint>& keypoints, const std::vector<int>& umax);
+void computeDescriptors(const cv::Mat& image, const std::vector<cv::KeyPoint>& keypoints, cv::Mat& descriptors,
+const std::vector<cv::Point>& pattern);
+void UndistortKeyPoints(const std::vector<cv::KeyPoint>& vKeys, std::vector<cv::KeyPoint>& vKeysUn,
+                         const cv::Mat & K, const cv::Mat & distCoef);
+
+void computeKeyPointGAO(std::vector< cv::KeyPoint>& vKeys, std::vector< cv::KeyPoint>& vKeysUn,
+                        const cv::Mat& K, const cv::Mat& distCoef, Eigen::Vector3d ginc);
+void nonMaximaSuppression(const cv::Mat& src, const int sz, cv::Mat& dst, const cv::Mat mask= cv::Mat());
 } //namespace ORB_SLAM
 
 #endif

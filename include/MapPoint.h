@@ -21,42 +21,48 @@
 #ifndef MAPPOINT_H
 #define MAPPOINT_H
 
-#include<opencv2/core/core.hpp>
-#include"KeyFrame.h"
+#include"Frame.h"
 #include"Map.h"
-
+#include "g2o/types/sba/types_sba.h"
+#include<opencv2/core/core.hpp>
 #include<boost/thread.hpp>
 
-
+namespace ScaViSLAM
+{
+class G2oVertexPointXYZ;
+}
 namespace ORB_SLAM
 {
 
 class ImageFeature;
 class KeyFrame;
 class Map;
-
+typedef Eigen::Matrix<double, 2, 3> Matrix23d;
 
 class MapPoint
 {
+
 public:
-    MapPoint(const cv::Mat &Pos, KeyFrame* pRefKF, Map* pMap);
+ 
+    MapPoint(const Eigen::Vector3d &Pos, KeyFrame* pRefKF, const int nIDInKF, Map* pMap);
+    void SetWorldPos(const Eigen::Vector3d &Pos);
+    Eigen::Vector3d GetWorldPos();
 
-    void SetWorldPos(const cv::Mat &Pos);
-    cv::Mat GetWorldPos();
-
-    cv::Mat GetNormal();
+    Eigen::Vector3d GetNormal();
     KeyFrame* GetReferenceKeyFrame();
 
-    std::map<KeyFrame*,size_t> GetObservations();
+    std::map<KeyFrame*,size_t> GetObservations(bool left=true);
     int Observations();
 
-    void AddObservation(KeyFrame* pKF,size_t idx);
+    /// Add a reference to a frame.
+    void AddObservation(KeyFrame* pKF,size_t idx, bool left=true);
     void EraseObservation(KeyFrame* pKF);
 
-    int GetIndexInKeyFrame(KeyFrame* pKF);
-    bool IsInKeyFrame(KeyFrame* pKF);
-
+    int GetIndexInKeyFrame(KeyFrame* pKF, bool left=true);
+    bool IsInKeyFrame(KeyFrame* pF);
+    int IdInKeyFrame(KeyFrame *pF);
     void SetBadFlag();
+   
     bool isBad();
 
     void Replace(MapPoint* pMP);
@@ -68,25 +74,65 @@ public:
     void ComputeDistinctiveDescriptors();
 
     cv::Mat GetDescriptor();
-
+    void SetDescriptor(const cv::Mat &);
     void UpdateNormalAndDepth();
 
     float GetMinDistanceInvariance();
     float GetMaxDistanceInvariance();
+    void SetFirstEstimate();
+    void Release();
+
+
+    /// Remove reference to a frame.
+    bool deleteFrameRef(KeyFrame* frame);
+
+
+
+    /// Get number of observations.
+    inline size_t nRefs() const { return mObservations.size(); }
+
+    /// Optimize point position through minimizing the reprojection error.
+    static void optimize(const std::vector< Eigen::Vector3d> & obs,
+                            const std::vector<Sophus::SE3d> & frame_poses,
+                            Eigen::Vector3d& old_point, double & pdop,
+                            vk::PinholeCamera* cam, size_t n_iter=5);
+
+    /// Jacobian of point projection on unit plane (focal length = 1) in frame (f).
+    inline static void jacobian_xyz2uv(
+        const Eigen::Vector3d& p_in_f,
+        const Eigen::Matrix3d& R_f_w,
+        Matrix23d& point_jac)
+    {
+      const double z_inv = 1.0/p_in_f[2];
+      const double z_inv_sq = z_inv*z_inv;
+      point_jac(0, 0) = z_inv;
+      point_jac(0, 1) = 0.0;
+      point_jac(0, 2) = -p_in_f[0] * z_inv_sq;
+      point_jac(1, 0) = 0.0;
+      point_jac(1, 1) = z_inv;
+      point_jac(1, 2) = -p_in_f[1] * z_inv_sq;
+      point_jac = - point_jac * R_f_w;
+    }
 
 public:
+
     long unsigned int mnId;
     static long unsigned int nNextId;
-    long int mnFirstKFid;
+    long unsigned int mnFirstKFid; // id of the first kf that observes this point, remain constant once initialized
 
-    // Variables used by the tracking
+    // Variables used by TrackLocalMap()
     float mTrackProjX;
     float mTrackProjY;
-    bool mbTrackInView;
+    bool mbTrackInView; //do we need to track this mappoint in the current frame
     int mnTrackScaleLevel;
     float mTrackViewCos;
     long unsigned int mnTrackReferenceForFrame;
     long unsigned int mnLastFrameSeen;
+    unsigned int mnObservationsInDoubleWindow;
+    // how many observations of this map point exist in KEYframes of the double window
+    // it is to be used in the local optimizer of the tracking thread. N.B. (1) the double window
+    // does not include the current frame for current implementation, (2) TODO: a map point's observation in a frame
+    // is selectively used for optimization based on a quad tree to ensure uniform distribution
 
     // Variables used by local mapping
     long unsigned int mnBALocalForKF;
@@ -96,27 +142,34 @@ public:
     long unsigned int mnLoopPointForKF;
     long unsigned int mnCorrectedByKF;
     long unsigned int mnCorrectedReference;
+    bool mbFixedLinearizationPoint; //for first estimate Jacobians
+
+    Eigen::Vector3d mWorldPos_first_estimate;
+    // Reference KeyFrame
+    KeyFrame* mpRefKF;  
+    int                         last_structure_optim_;    //!< Timestamp of last point optimization
+    // Keyframes observing the point and associated index in keyframe
+    std::map<KeyFrame*,size_t> mObservations;
+    std::map<KeyFrame*,size_t> mRightObservations;
+
+    // Tracking counters
+    int mnVisible;
+    int mnFound;
+    ScaViSLAM::G2oVertexPointXYZ *                   v_pt_;                    //!< Temporary pointer to the point-vertex in g2o during bundle adjustment.
+    Map* mpMap;
 
 protected:    
-
      // Position in absolute coordinates
-     cv::Mat mWorldPos;
+     Eigen::Vector3d mWorldPos;
 
-     // Keyframes observing the point and associated index in keyframe
-     std::map<KeyFrame*,size_t> mObservations;
+     //because we match a map point to left frame, to right frame, and match left frame to right frame,
+     // mObservations.size()==mRightObservations.size()
 
      // Mean viewing direction
-     cv::Mat mNormalVector;
+     Eigen::Vector3d mNormalVector;
 
      // Best descriptor to fast matching
      cv::Mat mDescriptor;
-
-     // Reference KeyFrame
-     KeyFrame* mpRefKF;
-
-     // Tracking counters
-     int mnVisible;
-     int mnFound;
 
      // Bad flag (we do not currently erase MapPoint from memory)
      bool mbBad;
@@ -125,10 +178,14 @@ protected:
      float mfMinDistance;
      float mfMaxDistance;
 
-     Map* mpMap;
 
      boost::mutex mMutexPos;
      boost::mutex mMutexFeatures;
+
+private:
+     MapPoint & operator=(const MapPoint&);
+     MapPoint(const MapPoint&);
+
 };
 
 } //namespace ORB_SLAM

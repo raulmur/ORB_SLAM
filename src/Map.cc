@@ -28,13 +28,17 @@ Map::Map()
     mbMapUpdated= false;
     mnMaxKFid = 0;
 }
+Map::~Map()
+{
+    clear();
+}
 
 void Map::AddKeyFrame(KeyFrame *pKF)
 {
     boost::mutex::scoped_lock lock(mMutexMap);
     mspKeyFrames.insert(pKF);
-    if(pKF->mnId>mnMaxKFid)
-        mnMaxKFid=pKF->mnId;
+    if(pKF->mnFrameId>mnMaxKFid)
+        mnMaxKFid=pKF->mnFrameId;
     mbMapUpdated=true;
 }
 

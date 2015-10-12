@@ -65,21 +65,18 @@ public:
     void SetAcceptKeyFrames(bool flag);
 
     void InterruptBA();
-
+    void ProcessNewKeyFrame();
 protected:
 
     bool CheckNewKeyFrames();
-    void ProcessNewKeyFrame();
+
     void CreateNewMapPoints();
+    void CreateNewMapPointsStereo();
 
     void MapPointCulling();
     void SearchInNeighbors();
 
     void KeyFrameCulling();
-
-    cv::Mat ComputeF12(KeyFrame* &pKF1, KeyFrame* &pKF2);
-
-    cv::Mat SkewSymmetricMatrix(const cv::Mat &v);
 
     void ResetIfRequested();
     bool mbResetRequested;

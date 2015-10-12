@@ -20,56 +20,185 @@
 
 #ifndef FRAME_H
 #define FRAME_H
+#include <Eigen/Dense>
+#include <viso2/p_match.h> //for matches adopted from libviso2
 
-#include "MapPoint.h"
 #include "Thirdparty/DBoW2/DBoW2/BowVector.h"
 #include "Thirdparty/DBoW2/DBoW2/FeatureVector.h"
 #include "ORBVocabulary.h"
-#include "KeyFrame.h"
 #include "ORBextractor.h"
-
+#include "sophus/se3.hpp"
+#include "boost/shared_ptr.hpp"
+#include "g2o/types/sba/types_six_dof_expmap.h"
+#include <vikit/pinhole_camera.h>
 #include <opencv2/opencv.hpp>
-
+namespace ScaViSLAM{
+class G2oVertexSE3;
+class G2oVertexSpeedBias;
+}
 namespace ORB_SLAM
 {
 #define FRAME_GRID_ROWS 48
 #define FRAME_GRID_COLS 64
 
-class tracking;
 class MapPoint;
 class KeyFrame;
 class KeyFrameDatabase;
 
+
+typedef std::vector<cv::Mat> ImgPyr;
+
 class Frame
 {
 public:
-    Frame();
     Frame(const Frame &frame);
-    Frame(cv::Mat &im, const double &timeStamp, ORBextractor* extractor, ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef);
+
+    //monocular
+    Frame(cv::Mat &im, const double &timeStamp, ORBextractor* extractor, ORBVocabulary* voc,
+          vk::PinholeCamera* cam,  const Eigen::Vector3d ginc=Eigen::Vector3d::Zero());
+    // stereo and viso2 stereo matches
+    Frame(cv::Mat &im , const double &timeStamp, const int num_features_left,
+          cv::Mat &right_img, const int num_features_right,
+          const std::vector<p_match> & vStereoMatches, ORBextractor* extractor, ORBVocabulary* voc,
+          vk::PinholeCamera* cam, vk::PinholeCamera* right_cam,
+          const Sophus::SE3d& Tl2r, const Eigen::Vector3d &ginc, const Eigen::Matrix<double, 9,1> sb);
+    // stereo and viso2 quad matches
+    Frame(cv::Mat &im , const double &timeStamp, const int num_features_left,
+          cv::Mat &right_img, const int num_features_right,
+           ORBextractor* extractor, ORBVocabulary* voc, vk::PinholeCamera* cam, vk::PinholeCamera* right_cam,
+          std::vector<p_match> & vQuadMatches,
+          const Sophus::SE3d& Tl2r, const Eigen::Vector3d &ginc, const Eigen::Matrix<double, 9,1> sb);
+    // for svo
+    Frame(cv::Mat &im , const double &timeStamp, int cam_id,
+          ORBextractor* extractor, ORBVocabulary* voc,
+          vk::PinholeCamera* cam, const Eigen::Vector3d & ginc, const Eigen::Matrix<double, 9,1> sb);
+    void RefillKeyPoints(const cv::Mat & im_, const cv::Mat & right_img,
+             std::vector<p_match> &vQuadMatches, const  Eigen::Vector3d & ginc);
+    virtual ~Frame();
+    virtual bool isKeyFrame() const {return false;}
+    virtual void Release();
+    virtual vector<MapPoint*> GetMapPointMatches();
+
+    virtual void SetPose(const Sophus::SE3d &Tcw_);
+    virtual void SetPose(const Eigen::Matrix3d &Rcw,const Eigen::Vector3d &tcw);
+    virtual Sophus::SE3d GetPose(bool left=true);
+    virtual Eigen::Matrix3d GetRotation();
+    virtual void EraseMapPointMatch(const size_t &idx);
+    virtual Eigen::Vector3d GetCameraCenter();
+    virtual void AddMapPoint(MapPoint* pMP, const size_t &idx);
+  
+    virtual MapPoint* GetMapPoint(const size_t &idx);
+ 
+    virtual float ComputeSceneMedianDepth(int q = 2);
+    /// Projects Point from unit sphere (f) in camera pixels (c).
+    inline Eigen::Vector2d f2c(const Eigen::Vector3d& f) const { return cam_->world2cam( f ); }
+    /// Transforms point coordinates in world-frame (w) to camera pixel coordinates (c).
+    inline Eigen::Vector2d w2c(const Eigen::Vector3d& xyz_w) const { return cam_->world2cam( mTcw * xyz_w ); }
+
+    /// Frame jacobian for projection of 3D point in (f)rame coordinate to
+    /// unit plane coordinates uv (focal length = 1).
+    /// $\frac{\partial (z-exp(\epsilon)\mathbf{X})}{\partial \epsilon(\upsilon, \omega)}$
+    inline static void jacobian_xyz2uv(
+        const Eigen::Vector3d& xyz_in_f,
+        Eigen::Matrix<double,2,6>& J)
+    {
+      const double x = xyz_in_f[0];
+      const double y = xyz_in_f[1];
+      const double z_inv = 1./xyz_in_f[2];
+      const double z_inv_2 = z_inv*z_inv;
+
+      J(0,0) = -z_inv;              // -1/z
+      J(0,1) = 0.0;                 // 0
+      J(0,2) = x*z_inv_2;           // x/z^2
+      J(0,3) = y*J(0,2);            // x*y/z^2
+      J(0,4) = -(1.0 + x*J(0,2));   // -(1.0 + x^2/z^2)
+      J(0,5) = y*z_inv;             // y/z
+
+      J(1,0) = 0.0;                 // 0
+      J(1,1) = -z_inv;              // -1/z
+      J(1,2) = y*z_inv_2;           // y/z^2
+      J(1,3) = 1.0 + y*J(1,2);      // 1.0 + y^2/z^2
+      J(1,4) = -J(0,3);             // -x*y/z^2
+      J(1,5) = -x*z_inv;            // x/z
+    }
+
+
+    Eigen::Matrix3d ComputeFlr(Frame* pRightF, const Sophus::SE3d & Tl2r);
+    void SetIMUObservations(const std::vector<Eigen::Matrix<double, 7, 1> >&  );
+    void SetPrevNextFrame(Frame* last_frame);
+
+    void ReplaceMapPointMatch(const size_t &idx, MapPoint* pMP);
+    cv::KeyPoint GetKeyPointUn(const size_t &idx, bool left=true) const;
+    cv::Mat GetDescriptor(const size_t &idx, bool left=true);
+
+    // Scale functions
+    float inline GetSigma2(int nLevel=1) const{
+        if( nLevel==1 && mpORBextractor->nlevels ==1)
+            return 1.44f;
+        return mpORBextractor->mvLevelSigma2[nLevel];}
+
+    float inline GetScaleFactor(int nLevel=1) const{
+        if( nLevel==1 && mpORBextractor->nlevels ==1)
+            return 1.2f;
+        return mpORBextractor->mvScaleFactor[nLevel];
+    }
+    std::vector<float> inline GetScaleFactors() const{        
+        return mpORBextractor->mvScaleFactor;}
+    std::vector<float> inline GetVectorScaleSigma2() const{
+        return mpORBextractor->mvLevelSigma2;}
+
+    float inline GetInvSigma2(int nLevel) const{
+        return mpORBextractor->mvInvLevelSigma2[nLevel];}
+    int inline GetScaleLevels() const{
+        return mpORBextractor->GetLevels();}
+
+    void ComputeBoW();
+    void UpdatePoseMatrices();
+
+    // Check if a MapPoint is in the frustum of the camera and also fills variables of the MapPoint to be used by the tracking
+    bool isInFrustum(MapPoint* pMP, float viewingCosLimit);
+    bool isInFrustumStereo(MapPoint* pMP, float viewingCosLimit);
+    // Compute the cell of a keypoint (return false if outside the grid)
+    bool PosInGrid(const cv::KeyPoint &kp, int &posX, int &posY);
+
+    vector<size_t> GetFeaturesInArea(const float &x, const float  &y, const float  &r,
+                                     const int minLevel=-1, const int maxLevel=-1) const;
+    void SetFirstEstimate();
 
     ORBVocabulary* mpORBvocabulary;
     ORBextractor* mpORBextractor;
 
-    // Frame image
-    cv::Mat im;
-
     // Frame timestamp
     double mTimeStamp;
+    // Camera Pose
+    Sophus::SE3d mTcw;
+    Eigen::Vector3d mOw;
+    Frame* prev_frame;// the previous frame (k-1) linked to this frame (k) by imu measurements, both frame having same cam_id_
+    Frame* next_frame; //next frame (k+1) connected to this frame (k) by imu measurements, both frame having same cam_id_
+    Eigen::Matrix<double, 9,1> speed_bias; //IMU states, vel_imu in world frame, accelerometer bias and gyro bias, at the epoch of this frame( of index k)
+    std::vector<Eigen::Matrix<double, 7,1> > imu_observ;// IMU readings from t(p(k-1)-1) to t(p(k)-1) where k is this image index in stream
+    // t(p(k)-1)<=t(k) and t(p(k)+1) must>t(k)
+    // members for first estimate Jacoabians
+    bool mbFixedLinearizationPoint;
+    Eigen::Matrix<double, 9,1> speed_bias_first_estimate;
+    Sophus::SE3d mTcw_first_estimate;
 
     // Calibration Matrix and k1,k2,p1,p2 Distortion Parameters
-    cv::Mat mK;
-    static float fx;
-    static float fy;
-    static float cx;
-    static float cy;
-    cv::Mat mDistCoef;
-
+    vk::PinholeCamera*           cam_;                   //!< Camera model.
+    vk::PinholeCamera*           right_cam_;                   //!< Camera model.
+    Sophus::SE3d mTl2r; // transform from left to right camera
+    std::vector<cv::Mat>            img_pyr_;                //!< image pyramid.
+    std::vector<cv::Mat>            blurred_img_pyr_;                //!< Blurred image pyramid, only used for extracting descriptors for features in keyframes
     // Number of KeyPoints
     int N;
-
+    // huai: mvKeys, mvKeysUn,mvRightKeys, mvRightKeysUn, mDescriptors,mRightDescriptors, mvpMapPoints, mvbOutliers
+    // have the same length N, because we only create keys from stereo matches detected by libviso2
     // Vector of keypoints (original for visualization) and undistorted (actually used by the system)
     std::vector<cv::KeyPoint> mvKeys;
     std::vector<cv::KeyPoint> mvKeysUn;
+
+    std::vector<cv::KeyPoint> mvRightKeys;
+    std::vector<cv::KeyPoint> mvRightKeysUn;
 
     // Bag of Words Vector structures
     DBoW2::BowVector mBowVec;
@@ -77,45 +206,22 @@ public:
 
     // ORB descriptor, each row associated to a keypoint
     cv::Mat mDescriptors;
+    cv::Mat mRightDescriptors;
 
-    // MapPoints associated to keypoints, NULL pointer if not association
+    // MapPoints(not candidate or deleted) associated to keypoints, NULL pointer if not associated
     std::vector<MapPoint*> mvpMapPoints;
 
     // Flag to identify outlier associations
     std::vector<bool> mvbOutlier;
 
     // Keypoints are assigned to cells in a grid to reduce matching complexity when projecting MapPoints
-    float mfGridElementWidthInv;
-    float mfGridElementHeightInv;
-    std::vector<std::size_t> mGrid[FRAME_GRID_COLS][FRAME_GRID_ROWS];
-
-    // Camera Pose
-    cv::Mat mTcw;
+    static float mfGridElementWidthInv;
+    static float mfGridElementHeightInv;
+    std::vector<std::size_t> mGrid[FRAME_GRID_COLS][FRAME_GRID_ROWS]; //used by GetFeaturesInArea()
 
     // Current and Next Frame id
     static long unsigned int nNextId;
-    long unsigned int mnId;
-
-    KeyFrame* mpReferenceKF;
-
-    void ComputeBoW();
-
-    void UpdatePoseMatrices();
-
-    // Check if a MapPoint is in the frustum of the camera and also fills variables of the MapPoint to be used by the tracking
-    bool isInFrustum(MapPoint* pMP, float viewingCosLimit);
-
-    // Compute the cell of a keypoint (return false if outside the grid)
-    bool PosInGrid(cv::KeyPoint &kp, int &posX, int &posY);
-
-    vector<size_t> GetFeaturesInArea(const float &x, const float  &y, const float  &r, const int minLevel=-1, const int maxLevel=-1) const;
-
-    // Scale Pyramid Info
-    int mnScaleLevels;
-    float mfScaleFactor;
-    vector<float> mvScaleFactors;
-    vector<float> mvLevelSigma2;
-    vector<float> mvInvLevelSigma2;
+    long unsigned int mnId; //mnId has the same meaning in derived KeyFrame class and in base Frame class, it is supposed to be continuous for frames
 
     // Undistorted Image Bounds (computed once)
     static int mnMinX;
@@ -124,19 +230,126 @@ public:
     static int mnMaxY;
 
     static bool mbInitialComputations;
+    vector<int> viso2LeftId2StereoId;
+    vector<int> viso2RightId2StereoId; // this two members convert the id of a feature indexed by viso2 to that used in ORB_SLAM
+    bool mbBad;
+    // Call UpdatePoseMatrices(), before using the following
+    Eigen::Matrix3d mRcw;
+    Eigen::Vector3d mtcw;
+    Eigen::Matrix<double, 6, 6>          Cov_;                   //!< Covariance.
 
-
+    ScaViSLAM::G2oVertexSE3*                   v_kf_;                  //!< Temporary pointer to the g2o node object of the keyframe.
+    ScaViSLAM::G2oVertexSpeedBias*        v_sb_; //!< temporary pointer to g2o speed bias vertex
 private:
-
-    void UndistortKeyPoints();
     void ComputeImageBounds();
-
-    // Call UpdatePoseMatrices(), before using
-    cv::Mat mOw;
-    cv::Mat mRcw;
-    cv::Mat mtcw;
+    Frame& operator= (const Frame&);
 };
+// given matched features between F1 and F2, put them into p_match structure
+void CreatePMatch(const Frame &F1, const Frame &F2, const vector<int>& vMatches, vector<p_match>& p_matched);
 
+void remapQuadMatches(std::vector<p_match>& vQuadMatches, const std::vector<int> & currLeftId2StereoId, const std::vector<int> & currRightId2StereoId,
+                      const std::vector<int> & prevLeftId2StereoId, const std::vector<int> & prevRightId2StereoId);
+void createImgPyramid(const cv::Mat& img_level_0, int n_levels, ImgPyr& pyr);
+bool getSceneDepth(Frame& frame, double& depth_mean, double& depth_min);
+typedef boost::shared_ptr<Frame> FramePtr;
+struct PointStatistics
+{
+  PointStatistics(int USE_N_LEVELS_FOR_MATCHING=0)
+    : num_matched_points(USE_N_LEVELS_FOR_MATCHING)
+  {
+    num_points_grid2x2.setZero();
+    num_points_grid3x3.setZero();
+
+    for (int l=0; l<USE_N_LEVELS_FOR_MATCHING; ++l)
+    {
+      num_matched_points[l]=0;
+    }
+  }
+  PointStatistics(const PointStatistics & other)
+  {
+      num_matched_points=other.num_matched_points;
+      num_points_grid2x2=other.num_points_grid2x2;
+      num_points_grid3x3=other.num_points_grid3x3;
+  }
+  PointStatistics & operator=(const PointStatistics & other)
+  {
+      if(this==&other)
+          return *this;
+      num_matched_points=other.num_matched_points;
+      num_points_grid2x2=other.num_points_grid2x2;
+      num_points_grid3x3=other.num_points_grid3x3;
+      return *this;
+  }
+  ~PointStatistics()
+  {
+     num_matched_points.clear();
+  }
+  bool isWellDistributed()
+  {
+      double deviation=0;
+      for(int i=0; i<2; ++i)
+          for(int j=0; j<2; ++j)
+              deviation+=abs(num_points_grid3x3(i,j)/num_matched_points[0]-1/9.0);
+      return deviation<3/9.0;
+  }
+  void updatePointStatistics(Frame* frame){
+      num_points_grid2x2.setZero();
+      num_points_grid3x3.setZero();
+      int half_width = Frame::mnMaxX*0.5;
+      int half_height = Frame::mnMaxY*0.5;
+
+      float third = 1./3.;
+      int third_width = frame->cam_->width()*third;
+      int third_height =frame->cam_->height()*third;
+      int twothird_width = frame->cam_->width()*2*third;
+      int twothird_height = frame->cam_->height()*2*third;
+      size_t jack=0;
+      for (auto it=frame->mvpMapPoints.begin(), ite= frame->mvpMapPoints.end();
+           it!=ite; ++it, ++jack)
+      {
+          if((*it)==NULL) continue;
+          const cv::Point2f & uv = frame->mvKeysUn[jack].pt;
+          int i = 1;
+          int j = 1;
+          if (uv.x<half_width)
+              i = 0;
+          if (uv.y<half_height)
+              j = 0;
+          ++(num_points_grid2x2(i,j));
+
+          i = 2;
+          j = 2;
+          if (uv.x<third_width)
+              i = 0;
+          else if (uv.x<twothird_width)
+              i = 1;
+          if (uv.y<third_height)
+              j = 0;
+          else if (uv.y<twothird_height)
+              j = 1;
+          ++(num_points_grid3x3(i,j));
+      }
+  }
+  int numFeatureLessCorners3x3(int n_featureless_cell_thr=10){
+      int num_featuerless_corners=0;
+      for (int i=0; i<3; ++i)
+          for (int j=0; j<3; ++j)
+              if (num_points_grid3x3(i,j)<n_featureless_cell_thr)
+                  ++num_featuerless_corners;
+      return num_featuerless_corners;
+  }
+  int numFeatureLessCorners2x2(int n_featureless_cell_thr=15){
+      int num_featuerless_corners=0;
+      for (int i=0; i<2; ++i)
+          for (int j=0; j<2; ++j)
+              if (num_points_grid2x2(i,j)<n_featureless_cell_thr)
+                  ++num_featuerless_corners;
+      return num_featuerless_corners;
+  }
+  std::vector<int> num_matched_points; //number of matched points at each pyramid level
+  Eigen::Matrix2i num_points_grid2x2;
+  Eigen::Matrix3i num_points_grid3x3;//number of points in each cell of the 3x3 grid at level 0
+};
 }// namespace ORB_SLAM
 
 #endif // FRAME_H

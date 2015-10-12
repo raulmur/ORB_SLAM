@@ -27,7 +27,7 @@
 #include <cmath>
 #include <opencv/cv.h>
 #include "Thirdparty/DBoW2/DUtils/Random.h"
-#include <ros/ros.h>
+//#include <ros/ros.h>
 #include <algorithm>
 
 using namespace std;
@@ -59,10 +59,10 @@ PnPsolver::PnPsolver(const Frame &F, const vector<MapPoint*> &vpMapPointMatches)
                 const cv::KeyPoint &kp = F.mvKeysUn[i];
 
                 mvP2D.push_back(kp.pt);
-                mvSigma2.push_back(F.mvLevelSigma2[kp.octave]);
+                mvSigma2.push_back(F.GetSigma2(kp.octave));
 
-                cv::Mat Pos = pMP->GetWorldPos();
-                mvP3Dw.push_back(cv::Point3f(Pos.at<float>(0),Pos.at<float>(1), Pos.at<float>(2)));
+                Eigen::Vector3d Pos = pMP->GetWorldPos();
+                mvP3Dw.push_back(cv::Point3f(Pos(0),Pos(1), Pos(2)));
 
                 mvKeyPointIndices.push_back(i);
                 mvAllIndices.push_back(idx);               
@@ -73,10 +73,10 @@ PnPsolver::PnPsolver(const Frame &F, const vector<MapPoint*> &vpMapPointMatches)
     }
 
     // Set camera calibration parameters
-    fu = F.fx;
-    fv = F.fy;
-    uc = F.cx;
-    vc = F.cy;
+    fu = F.cam_->fx();
+    fv = F.cam_->fy();
+    uc = F.cam_->cx();
+    vc = F.cam_->cy();
 
     SetRansacParameters();
 }
