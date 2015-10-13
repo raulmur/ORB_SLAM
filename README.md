@@ -24,7 +24,7 @@ If you use ORB-SLAM in an academic work, please cite:
     @article{murAcceptedTRO2015,
       title={{ORB-SLAM}: a Versatile and Accurate Monocular {SLAM} System},
       author={Mur-Artal, Ra\'ul, Montiel, J. M. M. and Tard\'os, Juan D.},
-      journal={IEEE Transaction on Robotics},
+      journal={IEEE Transactions on Robotics},
       volume={31},
       number={5},
       pages={1147--1163},
