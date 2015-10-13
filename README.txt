@@ -3,7 +3,7 @@ ORB-SLAM is a versatile and accurate Monocular SLAM solution able to compute in 
 
 Related Publications:
 
-[1] Raúl Mur-Artal, J. M. M. Montiel and Juan D. Tardós. ORB-SLAM: A Versatile and Accurate Monocular SLAM System. IEEE Transactions on Robotics (accepted), 2015. 
+[1] Raúl Mur-Artal, J. M. M. Montiel and Juan D. Tardós. ORB-SLAM: A Versatile and Accurate Monocular SLAM System. IEEE Transactions on Robotics, vol. 31, no. 5, pp 1147-1163,  2015. 
 Link to pdf: http://webdiis.unizar.es/~raulmur/MurMontielTardosTRO15.pdf
 
 
@@ -18,7 +18,11 @@ If you use ORB-SLAM in an academic work, please cite:
 @article{murSubTro2015,
   title={{ORB-SLAM}: a Versatile and Accurate Monocular {SLAM} System},
   author={Mur-Artal, Ra\'ul, Montiel, J. M. M. and Tard\'os, Juan D.},
-  journal={IEEE Transaction on Robotics (to appear). arXiv preprint arXiv:1502.00956},
+  journal={IEEE Transactions on Robotics},
+  volume={31},
+  number={5},
+  pages={1147--1163},
+  doi = {10.1109/TRO.2015.2463671},
   year={2015}
 }
 
