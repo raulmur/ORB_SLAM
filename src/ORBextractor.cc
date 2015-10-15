@@ -558,7 +558,6 @@ void ORBextractor::ComputeKeyPoints(vector<vector<KeyPoint> >& allKeypoints)
 
 
         float hY = cellH + 6;
-        float hX = cellW + 6;
 
         for(int i=0; i<levelRows; i++)
         {
@@ -571,6 +570,8 @@ void ORBextractor::ComputeKeyPoints(vector<vector<KeyPoint> >& allKeypoints)
                 if(hY<=0)
                     continue;
             }
+            
+            float hX = cellW + 6;
 
             for(int j=0; j<levelCols; j++)
             {
