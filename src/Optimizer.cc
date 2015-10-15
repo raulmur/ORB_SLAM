@@ -225,6 +225,8 @@ int Optimizer::PoseOptimization(Frame *pFrame)
             e->cx = pFrame->cx;
             e->cy = pFrame->cy;
 
+            e->setLevel(0);
+
             optimizer.addEdge(e);
 
             vpEdges.push_back(e);
@@ -243,7 +245,7 @@ int Optimizer::PoseOptimization(Frame *pFrame)
     int nBad=0;
     for(size_t it=0; it<4; it++)
     {
-        optimizer.initializeOptimization();
+        optimizer.initializeOptimization(0);
         optimizer.optimize(its[it]);
 
         nBad=0;
@@ -254,20 +256,18 @@ int Optimizer::PoseOptimization(Frame *pFrame)
             const size_t idx = vnIndexEdge[i];
 
             if(pFrame->mvbOutlier[idx])
-            {
-                e->setInformation(Eigen::Matrix2d::Identity()*vInvSigmas2[i]);
                 e->computeError();
-            }
 
             if(e->chi2()>chi2[it])
             {                
                 pFrame->mvbOutlier[idx]=true;
-                e->setInformation(Eigen::Matrix2d::Identity()*1e-10);
+                e->setLevel(1);
                 nBad++;
             }
             else if(e->chi2()<=chi2[it])
             {
                 pFrame->mvbOutlier[idx]=false;
+                e->setLevel(0);
             }
         }
 
