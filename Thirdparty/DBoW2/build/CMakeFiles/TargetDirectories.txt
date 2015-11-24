@@ -1,1 +1,0 @@
-/home/jhuai/catkin_ws/src/orbslam_dwo/Thirdparty/DBoW2/build/CMakeFiles/DBoW2.dir
