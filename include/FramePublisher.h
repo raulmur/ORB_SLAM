@@ -25,7 +25,9 @@
 #include "MapPoint.h"
 #include "Map.h"
 
-//#include "ros/ros.h"
+#ifdef SLAM_USE_ROS
+#include "ros/ros.h"
+#endif
 
 #include<opencv2/core/core.hpp>
 #include<opencv2/features2d/features2d.hpp>
@@ -66,10 +68,10 @@ protected:
     int mnTracked;
     vector<cv::KeyPoint> mvIniKeys;
     vector<int> mvIniMatches;
-
-//    ros::NodeHandle mNH;
-//    ros::Publisher mImagePub;
-
+#ifdef SLAM_USE_ROS
+    ros::NodeHandle mNH;
+    ros::Publisher mImagePub;
+#endif
     int mState;
 
     bool mbUpdated;

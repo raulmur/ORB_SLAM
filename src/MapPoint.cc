@@ -88,12 +88,16 @@ void MapPoint::EraseObservation(KeyFrame* pKF)
             mObservations.erase(pKF);
             if(mpRefKF==pKF)            
     			mpRefKF=mObservations.begin()->first;
-            
-            // If only 1 observations or less, discard point
+#ifdef MONO
+            // If only 1 or 2 observations or less, discard point
+            if(mObservations.size()<=2)
+                bBad=true;
+#else
             if(mObservations.size()<=1) //set 1 to avoid that points used in tracking thread are marked bad,
                 // because if a point is used in tracking, it must be observed by at least two KEYframes in the double window
                 // and these frames are not allowed to be culled and cannot be this keyframe
                 bBad=true;
+#endif
         }
         mRightObservations.erase(pKF);
     }

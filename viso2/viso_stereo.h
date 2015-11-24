@@ -23,6 +23,7 @@ Street, Fifth Floor, Boston, MA 02110-1301, USA
 #define VISO_STEREO_H
 
 #include "viso.h"
+#include <opencv2/core/core.hpp> //cv::Mat
 namespace libviso2{
 class VisualOdometryStereo : public VisualOdometry {
 
@@ -70,7 +71,8 @@ public:
 public:
   std::vector<double>  estimateMotion(const std::vector<p_match> & p_matched,
                                        const std::vector<double> tr_delta= std::vector<double>(6,0));
-  std::vector<double> estimateMotionBadino (const std::vector<p_match>& p_matched);
+  bool estimateMotion5Point (const std::vector<p_match>& p_matched,
+                             const std::vector<double> tr_delta_init= std::vector<double>(3,0));
   bool estimateMotionKlein (const std::vector<p_match>& p_matched, const std::vector<std::vector<float> >&mean_features);
   void getAllInlier(const std::vector<p_match> &p_matched,const Matrix & tr, std::vector<bool>& vInliers);
   std::vector<double>  unprojectPoint(double u1, double v1, double u2)
@@ -86,10 +88,14 @@ public:
 
 private:
   enum                 result { UPDATED, FAILED, CONVERGED };
-  result               updateParameters(const std::vector<p_match> &p_matched,std::vector<int32_t> &active,std::vector<double> &tr,double step_size,double eps);
-  void                 computeObservations(const std::vector<p_match> &p_matched,std::vector<int32_t> &active);
-  void                 computeResidualsAndJacobian(std::vector<double> &tr,std::vector<int32_t> &active);
-  std::vector<int32_t> getInlier(const std::vector<p_match> &p_matched,std::vector<double> &tr);
+  result               updateParameters(const std::vector<p_match> &p_matched,const std::vector<int32_t> &active,std::vector<double> &tr,double step_size,double eps);
+  result               updateParameters2(const std::vector<p_match> &p_matched,const std::vector<int32_t> &active,
+                                         const cv::Mat Rf2s, std::vector<double> &tr,double step_size,double eps);
+  void                 computeObservations(const std::vector<p_match> &p_matched,const std::vector<int32_t> &active);
+  void                 computeResidualsAndJacobian(const std::vector<double> &tr,const std::vector<int32_t> &active);
+  void                 computeResidualsAndJacobian2(const std::vector<double> &tr,const std::vector<int32_t> &active, const cv::Mat Rf2s);
+  std::vector<int32_t> getInlier(const std::vector<p_match> &p_matched, const std::vector<double> &tr);
+  std::vector<int32_t> getInlier2(const std::vector<p_match> &p_matched,const std::vector<double> &tr, const cv::Mat Rf2s);
 
   double *X,*Y,*Z;    // 3d points
   double *p_residual; // residuals (p_residual=p_observe-p_predict)

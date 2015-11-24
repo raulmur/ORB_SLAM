@@ -47,9 +47,9 @@ public:
       std::vector<cv::KeyPoint>& keypoints,
       cv::OutputArray descriptors);
     // compute evenly distributed ORB features on an image
-    void operator()(std::vector<cv::KeyPoint>& keypoints,  const std::vector<cv::Mat> & vImagePyramid,
+    /*void operator()(std::vector<cv::KeyPoint>& keypoints,  const std::vector<cv::Mat> & vImagePyramid,
                     const std::vector<cv::Mat> & vBlurredImagePyramid,
-    cv::OutputArray descriptors,  const float detection_threshold=0.f);
+    cv::OutputArray descriptors,  const float detection_threshold=0.f);*/
     // Compute gravity aligned ORB features and descriptors on an image
     void operator()(cv::InputArray image, cv::InputArray mask,
                     std::vector<cv::KeyPoint>& keypoints,  cv::OutputArray descriptors,

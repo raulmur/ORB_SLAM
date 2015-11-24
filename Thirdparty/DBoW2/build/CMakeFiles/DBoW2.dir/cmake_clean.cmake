@@ -1,4 +1,4 @@
-FILE(REMOVE_RECURSE
+file(REMOVE_RECURSE
   "CMakeFiles/DBoW2.dir/DBoW2/BowVector.cpp.o"
   "CMakeFiles/DBoW2.dir/DBoW2/FORB.cpp.o"
   "CMakeFiles/DBoW2.dir/DBoW2/FeatureVector.cpp.o"
@@ -10,6 +10,6 @@ FILE(REMOVE_RECURSE
 )
 
 # Per-language clean rules from dependency scanning.
-FOREACH(lang CXX)
-  INCLUDE(CMakeFiles/DBoW2.dir/cmake_clean_${lang}.cmake OPTIONAL)
-ENDFOREACH(lang)
+foreach(lang CXX)
+  include(CMakeFiles/DBoW2.dir/cmake_clean_${lang}.cmake OPTIONAL)
+endforeach()

@@ -25,11 +25,12 @@
 #include "Optimizer.h"
 
 #include <opencv2/core/eigen.hpp>
-//#include <ros/ros.h>
+#ifdef SLAM_USE_ROS
+#include <ros/ros.h>
+#endif
 
 namespace ORB_SLAM
 {
-
 LocalMapping::LocalMapping(Map *pMap):
     mbResetRequested(false), mpMap(pMap),  mbAbortBA(false), mbStopped(false), mbStopRequested(false), mbAcceptKeyFrames(true)
 {
@@ -50,8 +51,12 @@ void LocalMapping::SetTracker(Tracking *pTracker)
 // the waitlist, i.e., mlNewKeyFrames, they will be deleted once loop closing release the hold on local mapping
 void LocalMapping::Run()
 {
-//    ros::Rate r(500);
-    while(1)//ros::ok())
+#ifdef SLAM_USE_ROS
+    ros::Rate r(300);
+    while(ros::ok())
+#else
+    while(1)
+#endif
     {
         // Check if there are keyframes in the queue
         if(CheckNewKeyFrames())
@@ -67,7 +72,7 @@ void LocalMapping::Run()
             MapPointCulling();
 
             // Triangulate new MapPoints between neighboring keyframes and this new keyframe
-            if(mpCurrentKeyFrame->mnId>1){
+            if(mpCurrentKeyFrame->mnFrameId>1){
 #ifdef MONO
             CreateNewMapPoints();
 #else
@@ -103,19 +108,27 @@ void LocalMapping::Run()
         if(stopRequested())
         {
             Stop();
-//            ros::Rate r2(1000);
-            while(isStopped() )//&& ros::ok())
-            {
-                  boost::this_thread::sleep(boost::posix_time::milliseconds(5));
-//                r2.sleep();
+#ifdef SLAM_USE_ROS
+            ros::Rate r2(1000);
+            while(isStopped() && ros::ok())
+            {                
+                r2.sleep();
             }
-
+#else
+            while(isStopped())
+            {
+                boost::this_thread::sleep(boost::posix_time::milliseconds(5));
+            }
+#endif
             SetAcceptKeyFrames(true);
         }
 
         ResetIfRequested();
+#ifdef SLAM_USE_ROS
+        r.sleep();
+#else
         boost::this_thread::sleep(boost::posix_time::milliseconds(2));
-//        r.sleep();
+#endif
     }
 }
 
@@ -149,7 +162,9 @@ void LocalMapping::ProcessNewKeyFrame()
     vector<MapPoint*> vpMapPointMatches = mpCurrentKeyFrame->GetMapPointMatches();
     if(mpCurrentKeyFrame->mnFrameId>1) //This operations are already done in the tracking for the first two keyframes and their newly created points
     {
+#ifndef MONO
         mpCurrentKeyFrame->ComputeBoW();
+#endif
         for(size_t i=0; i<vpMapPointMatches.size(); ++i)
         {
             MapPoint* pMP = vpMapPointMatches[i];
@@ -195,7 +210,11 @@ void LocalMapping::MapPointCulling()
             pMP->SetBadFlag();
             lit = mlpRecentAddedMapPoints.erase(lit);
         }
+#ifdef MONO
+        else if((nCurrentKFid-pMP->mnFirstKFid)>=2 && pMP->Observations()<=2)
+#else
         else if((nCurrentKFid-pMP->mnFirstKFid)>=2 && pMP->Observations()<=1)// Huai changed from 2 to 1
+#endif
         {
             pMP->SetBadFlag();
             lit = mlpRecentAddedMapPoints.erase(lit);
@@ -235,8 +254,8 @@ void LocalMapping::CreateNewMapPoints()
     for(size_t i=0; i<vpNeighKFs.size(); i++)
     {
         KeyFrame* pKF2 = vpNeighKFs[i];
-//        if(pKF2->mnFrameId+1==mpCurrentKeyFrame->mnFrameId)
-//            continue;
+        if(pKF2->mnFrameId+1==mpCurrentKeyFrame->mnFrameId)
+            continue;
         // Check first that baseline is not too short
         // Small translation errors for short baseline keyframes make scale to diverge
         Eigen::Vector3d Ow2 = pKF2->GetCameraCenter();
@@ -279,6 +298,8 @@ void LocalMapping::CreateNewMapPoints()
 
             const cv::KeyPoint &kp1 = vMatchedKeysUn1[ikp];
             const cv::KeyPoint &kp2 = vMatchedKeysUn2[ikp];
+            int posX, posY;
+            if(!mpCurrentKeyFrame->mpFG->IsPointEligible(kp1, posX, posY)) continue;
 
             // Check parallax between rays
             Eigen::Vector3d xn1((kp1.pt.x-cx1)*invfx1, (kp1.pt.y-cy1)*invfy1, 1.0 );
@@ -364,6 +385,7 @@ void LocalMapping::CreateNewMapPoints()
             pMP->AddObservation(pKF2,idx2);
          
             mpCurrentKeyFrame->AddMapPoint(pMP,idx1);
+            mpCurrentKeyFrame->mpFG->AddMapPoint(posX, posY, idx1);
             pKF2->AddMapPoint(pMP,idx2);
 
             pMP->ComputeDistinctiveDescriptors();
@@ -374,9 +396,11 @@ void LocalMapping::CreateNewMapPoints()
             mlpRecentAddedMapPoints.push_back(pMP);
         }
     }
+    delete mpCurrentKeyFrame->mpFG;
+    mpCurrentKeyFrame->mpFG=NULL;
 }
 // for now, we only check left image to get matches
-//TODO: use a grid to control distribution of map points in current keyframe
+// a grid is used to control distribution of map points in current keyframe
 void LocalMapping::CreateNewMapPointsStereo()
 {
     // Take neighbor keyframes in covisibility graph
@@ -796,17 +820,23 @@ void LocalMapping::RequestReset()
         boost::mutex::scoped_lock lock(mMutexReset);
         mbResetRequested = true;
     }
-
-//    ros::Rate r(500);
-    while(1)//ros::ok())
+#ifdef SLAM_USE_ROS
+    ros::Rate r(500);
+    while(ros::ok())
+#else
+    while(1)
+#endif
     {
         {
         boost::mutex::scoped_lock lock2(mMutexReset);
         if(!mbResetRequested)
             break;
         }
-     boost::this_thread::sleep(boost::posix_time::milliseconds(1));
-//        r.sleep();
+#ifdef SLAM_USE_ROS
+        r.sleep();
+#else
+        boost::this_thread::sleep(boost::posix_time::milliseconds(1));
+#endif
     }
 }
 

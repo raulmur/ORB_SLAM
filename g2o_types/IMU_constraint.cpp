@@ -23,16 +23,29 @@ using namespace Eigen;
 using namespace Sophus;
 using namespace std;
 bool G2oVertexSpeedBias::read(std::istream& is) {
-Matrix<double, 9,1> est;
-for (int i=0; i<9; i++)
-is >> est[i];
-setEstimate(est);
-return true;
+    Matrix<double, 9,1> est;
+    for (int i=0; i<9; i++)
+        is >> est[i];
+    setEstimate(est);
+    return true;
 }
 bool G2oVertexSpeedBias::write(std::ostream& os) const {
-for (int i=0; i<9; i++)
-os << estimate()[i] << " ";
-return os.good();
+    for (int i=0; i<9; i++)
+        os << estimate()[i] << " ";
+    return os.good();
+}
+
+bool G2oVertexSpeedBiasEx::read(std::istream& is) {
+    Matrix<double, 36,1> est;
+    for (int i=0; i<36; i++)
+        is >> est[i];
+    setEstimate(est);
+    return true;
+}
+bool G2oVertexSpeedBiasEx::write(std::ostream& os) const {
+    for (int i=0; i<36; i++)
+        os << estimate()[i] << " ";
+    return os.good();
 }
 
 bool G2oEdgeIMUConstraint
@@ -157,21 +170,21 @@ void G2oEdgeIMUConstraint
 
 struct LogDeltaSE3Vee
 {
-template<typename T>
-bool operator()(const T* predTskp12w, const T* pDeltaxpsi, const T* pTw2skp1, T* value) const
-{
-    Eigen::Map<const Sophus::SE3Group<T> > se3Tskp12wConst(predTskp12w); //qxyzw txyz
-    Sophus::SE3Group<T> se3Tskp12w=se3Tskp12wConst;
-    typename Eigen::Matrix<T, 6, 1, Eigen::ColMajor>::ConstMapType deltaxpsi(pDeltaxpsi);
-    se3Tskp12w.translation() =se3Tskp12wConst.translation() - deltaxpsi.head(3);
-    Matrix<T,3,1> rvec= deltaxpsi.tail(3);
-    se3Tskp12w.setQuaternion(quaternionFromSmallAngle(rvec)*se3Tskp12wConst.unit_quaternion());
+    template<typename T>
+    bool operator()(const T* predTskp12w, const T* pDeltaxpsi, const T* pTw2skp1, T* value) const
+    {
+        Eigen::Map<const Sophus::SE3Group<T> > se3Tskp12wConst(predTskp12w); //qxyzw txyz
+        Sophus::SE3Group<T> se3Tskp12w=se3Tskp12wConst;
+        typename Eigen::Matrix<T, 6, 1, Eigen::ColMajor>::ConstMapType deltaxpsi(pDeltaxpsi);
+        se3Tskp12w.translation() =se3Tskp12wConst.translation() - deltaxpsi.head(3);
+        Matrix<T,3,1> rvec= deltaxpsi.tail(3);
+        se3Tskp12w.setQuaternion(quaternionFromSmallAngle(rvec)*se3Tskp12wConst.unit_quaternion());
 
-    const Eigen::Map<const Sophus::SE3Group<T> > se3Tw2skp1(pTw2skp1); //qxyzw txyz
-    Eigen::Map<Eigen::Matrix<T,6,1> > tang(value);
-    tang= (se3Tskp12w*se3Tw2skp1).log();
-    return true;
-}
+        const Eigen::Map<const Sophus::SE3Group<T> > se3Tw2skp1(pTw2skp1); //qxyzw txyz
+        Eigen::Map<Eigen::Matrix<T,6,1> > tang(value);
+        tang= (se3Tskp12w*se3Tw2skp1).log();
+        return true;
+    }
 };
 // compute information matrix
 void G2oEdgeIMUConstraint
@@ -232,7 +245,7 @@ void G2oEdgeIMUConstraint
     double value[num_outputs];
     Matrix<double, num_outputs, kLocalSize, Eigen::RowMajor> dTinv_de_AD;
     const double *parameters[3] = { pred_T_s2_to_w.data(), zero_delta.data(),
-                                  (params_imu.T_imu_from_cam*T_c2_from_world->estimate()).data()};
+                                    (params_imu.T_imu_from_cam*T_c2_from_world->estimate()).data()};
     double *jacobians[3] = {NULL, dTinv_de_AD.data(), NULL };
     LogDeltaSE3Vee deltaTvee;
     ceres::internal::AutoDiff<LogDeltaSE3Vee, double, kGlobalSize, kLocalSize, kGlobalSize>
@@ -247,8 +260,8 @@ void G2oEdgeIMUConstraint
     //TODO: verify that numerical Jacobian satisfy $J_pred\approx diag(third(_error.head(6), SE3d()),I)$
     _information=(J_pred*P*J_pred.transpose()).inverse();
 
-//    cout<<"new P(9,9)"<<P.topLeftCorner(9,9)<<endl;
-//    cout<<_information.diagonal().transpose()<<endl;
+    //    cout<<"new P(9,9)"<<P.topLeftCorner(9,9)<<endl;
+    //    cout<<_information.diagonal().transpose()<<endl;
 }
 
 //following $g^2o$: A general framework for graph optimization
@@ -337,8 +350,8 @@ void G2oEdgeIMUConstraint::linearizeOplus()
     } else {
         assert(0 && "Error while AD differentiating");
     }
-//    cout<<"AD Jac dError_dTw2ck:"<<endl<< dError_dTw2ck <<endl;
-//    cout<<"AD Jac dError_dsb:"<<endl<< dError_dsb <<endl;
+    //    cout<<"AD Jac dError_dTw2ck:"<<endl<< dError_dTw2ck <<endl;
+    //    cout<<"AD Jac dError_dsb:"<<endl<< dError_dsb <<endl;
 #endif
     _jacobianOplus[1].bottomRightCorner(6,6).setIdentity();
 
@@ -351,7 +364,7 @@ void G2oEdgeIMUConstraint::linearizeOplus()
     predictStates(Ts1tow, sb_1, time_frames,
                   _measurement, params_imu->gwomegaw, params_imu->q_n_aw_babw,
                   &pred_T_s2_to_w, &pred_speed_2, holder);
-    SE3d predTckp12w=  pred_T_s2_to_w*params_imu->T_imu_from_cam;   
+    SE3d predTckp12w=  pred_T_s2_to_w*params_imu->T_imu_from_cam;
     Eigen::Matrix<double, 6,1> error_fe= SE3d::log(predTckp12w*T_2w);
     _jacobianOplus[2]=Matrix<double, 15, 6>::Zero(); //15x6
     _jacobianOplus[2].topLeftCorner(6,6)= third(predTckp12w,  error_fe);
@@ -377,7 +390,7 @@ linearizeOplus()
     G2oVertexSpeedBias * v_sb = static_cast<G2oVertexSpeedBias *>(_vertices[1]);
     Matrix<double, 9,1> v9sb = v_sb->estimate();
     const G2oIMUParameters * params_imu
-              = static_cast<const G2oIMUParameters *>(parameter(0));
+            = static_cast<const G2oIMUParameters *>(parameter(0));
     const Eigen::Quaterniond qw2s=(params_imu->T_imu_from_cam*Tw2c).unit_quaternion();
     _jacobianOplusXi.setZero(); // 3x6
 #if 0
@@ -401,47 +414,77 @@ linearizeOplus()
 
 void GPSObservationPosition3DEdge::linearizeOplus()
 {
-  const G2oVertexSE3* v = static_cast<const G2oVertexSE3*>(_vertices[0]);
-  SE3d Tw2c= v->estimate();
+    const G2oVertexSE3* v = static_cast<const G2oVertexSE3*>(_vertices[0]);
+    SE3d Tw2c= v->estimate();
 #if 0
-  //numerical differentiation
-  const double h=1e-8;
-  for (unsigned int i=0; i<6; ++i) //eps=[trans, rot]
-  {
-      Matrix<double,6,1> eps
-              = Matrix<double,6,1>::Zero();
-      eps[i] = h;
-      SE3d temp_T=SE3d::exp(eps)*Tw2c;
-      _jacobianOplusXi.col(i)= (temp_T.inverse().translation()-_measurement - _error)/h;
-  }
+    //numerical differentiation
+    const double h=1e-8;
+    for (unsigned int i=0; i<6; ++i) //eps=[trans, rot]
+    {
+        Matrix<double,6,1> eps
+                = Matrix<double,6,1>::Zero();
+        eps[i] = h;
+        SE3d temp_T=SE3d::exp(eps)*Tw2c;
+        _jacobianOplusXi.col(i)= (temp_T.inverse().translation()-_measurement - _error)/h;
+    }
 #else
-  _jacobianOplusXi.block(0,0,3,3)=Eigen::Matrix3d::Identity();
-  _jacobianOplusXi.block(0,3,3,3)=Eigen::Matrix3d::Zero();
-  _jacobianOplusXi= - Tw2c.rotationMatrix().transpose()*_jacobianOplusXi;
+    _jacobianOplusXi.block(0,0,3,3)=Eigen::Matrix3d::Identity();
+    _jacobianOplusXi.block(0,3,3,3)=Eigen::Matrix3d::Zero();
+    _jacobianOplusXi= - Tw2c.rotationMatrix().transpose()*_jacobianOplusXi;
 #endif
 }
 void G2oEdgeGPSObservation::linearizeOplus()
 {
-  const G2oVertexSE3* v = static_cast<const G2oVertexSE3*>(_vertices[0]);
-  const G2oVertexLeverArm* vl = static_cast<const G2oVertexLeverArm*>(_vertices[1]);
-  SE3d Tw2c= v->estimate();
-#if 0
-  const double h=1e-8;
-  //numerical differentiation
-  for (unsigned int i=0; i<6; ++i) //eps=[trans, rot]
+    const G2oVertexSE3* v = static_cast<const G2oVertexSE3*>(_vertices[0]);
+    const G2oVertexLeverArm* vl = static_cast<const G2oVertexLeverArm*>(_vertices[1]);
+    SE3d Tw2c= v->estimate();
+    _jacobianOplusXi.block(0,0,3,3)=Eigen::Matrix3d::Identity();
+    _jacobianOplusXi.block(0,3,3,3)= -skew(Tw2c* _measurement);
+    _jacobianOplusXj= - Eigen::Matrix3d::Identity();
+}
+bool G2oVertexGSCamera
+::write (std::ostream & os) const
+{
+  const Eigen::Matrix<double, 8,1> & lv = estimate();
+  for (int i=0; i<8; ++i)
   {
-      Matrix<double,6,1> eps
-              = Matrix<double,6,1>::Zero();
-      eps[i] = h;
-      SE3d temp_T=SE3d::exp(eps)*Tw2c;
-      _jacobianOplusXi.col(i)= (temp_T.inverse().translation()-_measurement - _error)/h;
+    os << lv[i] << " ";
   }
-#else
-  _jacobianOplusXi.block(0,0,3,3)=Eigen::Matrix3d::Identity();
-  _jacobianOplusXi.block(0,3,3,3)= skew(-vl->estimate());
-  _jacobianOplusXi= - Tw2c.rotationMatrix().transpose()*_jacobianOplusXi;
-#endif
-  _jacobianOplusXj= Tw2c.rotationMatrix().transpose();
+  return true;
 }
 
+bool G2oVertexGSCamera
+::read(std::istream& is)
+{
+  Eigen::Matrix<double, 8,1> lv;
+  for (int i=0; i<8; ++i)
+  {
+    is >> lv[i];
+  }
+  setEstimate(lv);
+  return true;
+}
+void testG2OVertexGSCamera()
+{
+    ScaViSLAM::G2oVertexGSCamera gscam;
+    gscam.setToOriginImpl();
+    gscam.write(std::cout);
+    cout<<endl;
+    double update[7]= {1,2,3,4,5,6, 7};
+    gscam.oplusImpl(update);
+    gscam.write(std::cout);
+    cout<<endl;
+    double update2[7]= {8,9,10,11,12,13, 14};
+    gscam.oplusImpl(update2);
+    gscam.write(std::cout);
+    cout<<endl;
+    Eigen::Matrix<double, 6,1> x;
+    x<< update[0],update[1],update[2],update[3],update[4],update[5];
+    Eigen::Matrix<double, 6,1> x2;
+    x2<< update2[0],update2[1],update2[2],update2[3],update2[4],update2[5];
+    Sophus::SE3d truth = Sophus::SE3d::exp(x2)*Sophus::SE3d::exp(x);
+    for(int jack=0; jack<7;++jack)
+    cout<<truth.data()[jack]<<" ";
+    cout<<endl;
+}
 }

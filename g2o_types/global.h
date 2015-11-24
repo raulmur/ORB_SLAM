@@ -19,7 +19,9 @@
 #define GLOBAL_H
 
 #include <Eigen/Core>
+#ifdef SLAM_TRACE
 #include <vikit/performance_monitor.h>
+#endif
 //#include <Eigen/StdVector>
 
 /*#include <opencv2/core/core.hpp>
@@ -136,7 +138,7 @@ struct ALIGNED
 
 typedef std::tr1::unordered_map<int,int> IntTable;*/
 }
-#ifdef SLAM_USE_ROS
+#if 0//SLAM_USE_ROS
   #include <ros/console.h>
   #define SLAM_DEBUG_STREAM(x) ROS_DEBUG_STREAM(x)
   #define SLAM_INFO_STREAM(x) ROS_INFO_STREAM(x)

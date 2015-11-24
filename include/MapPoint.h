@@ -130,9 +130,7 @@ public:
     long unsigned int mnLastFrameSeen;
     unsigned int mnObservationsInDoubleWindow;
     // how many observations of this map point exist in KEYframes of the double window
-    // it is to be used in the local optimizer of the tracking thread. N.B. (1) the double window
-    // does not include the current frame for current implementation, (2) TODO: a map point's observation in a frame
-    // is selectively used for optimization based on a quad tree to ensure uniform distribution
+    // it is to be used in the local optimizer of the tracking thread.
 
     // Variables used by local mapping
     long unsigned int mnBALocalForKF;

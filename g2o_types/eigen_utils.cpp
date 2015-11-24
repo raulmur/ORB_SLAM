@@ -46,3 +46,29 @@
       Ce2n<< -sL * cl, -sL * sl, cL ,  -sl, cl, 0 , -cL * cl, -cL * sl, -sL;
       return Ce2n;
   }
+
+void TestEigenQuaternion()
+{
+using namespace std;
+using namespace Eigen;
+    vector<int> meas;
+    for(int i=0; i<9; ++i)
+        meas.push_back(i+1);
+    meas.front()=meas.back();
+    meas.resize(1);
+    cout<<meas[0]<<endl;
+    Quaterniond quat(0.2,0.5,-0.7,1.5);
+    quat.normalize();
+    cout<<"quat=["<<quat.coeffs()<<"];"<<endl;
+    Vector3d rotvec(3,-2,1);
+
+    //    cout<<quat._transformVector(rotvec)<<endl;
+    Quaterniond quat2(3,-2,5,0.7);
+    quat2.normalize();
+    cout<<"quat2=["<<quat2.coeffs()<<"]"<<endl;
+    //cout<<(quat*quat2).coeffs()<<endl;
+    cout<<"quat2 rot:"<<endl<<quat2.toRotationMatrix()<<endl;
+    Vector3d euler=rotro2eu(quat2.toRotationMatrix());
+    cout<<"rot eu:"<<endl<< euler<<endl;
+    cout<< "rot"<< endl<< roteu2ro(euler)<<endl;
+}

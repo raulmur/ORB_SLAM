@@ -528,12 +528,12 @@ void computeOrientation(const Mat& image, vector<KeyPoint>& keypoints, const vec
 
 // used for initializing evenly distributed binned seed keypoints
 // however we choose the scale factor, this function does not totally prevent spawning very close keypoints accross levels
-void ORBextractor::operator()( std::vector<cv::KeyPoint>& _keypoints,
+/*void ORBextractor::operator()( std::vector<cv::KeyPoint>& _keypoints,
                                const std::vector<cv::Mat> & vImagePyramid,
                                const std::vector<cv::Mat> & vBlurredImagePyramid,
 OutputArray _descriptors,  const float detection_threshold)
 {
- /*   std::vector<cv::KeyPoint> corners(grid_n_cols_*grid_n_rows_, cv::KeyPoint());
+    std::vector<cv::KeyPoint> corners(grid_n_cols_*grid_n_rows_, cv::KeyPoint());
     vector<vector<KeyPoint> > allKeypoints;
 #if 1
     ComputeKeyPointsBF(allKeypoints, vImagePyramid);// this generates more points than ComputeKeyPoints
@@ -606,8 +606,8 @@ OutputArray _descriptors,  const float detection_threshold)
         }
         // And add the keypoints to the output
         _keypoints.insert(_keypoints.end(), keypoints.begin(), keypoints.end());
-    }*/
-}
+    }
+}*/
 
 void ORBextractor::ComputeKeyPointsBF(vector<vector<KeyPoint> >& allKeypoints,
                                       const std::vector<cv::Mat>& vImagePyramid)

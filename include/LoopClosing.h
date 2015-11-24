@@ -64,20 +64,10 @@ public:
     void InsertKeyFrame(KeyFrame *pKF);
 
     void RequestReset();
-    Sophus::SE3d GetTnew2old(){
-        boost::mutex::scoped_lock lock(mMutexTDelta);
-        mbTemporalFramesUpdated = true;
-        return mTneww2oldw;
-    }
-    bool UpdateTemporalWinPoses()
-    {
-        boost::mutex::scoped_lock lock(mMutexTDelta);
-        return mbTemporalFramesUpdated;
-    }
-    boost::mutex mMutexTDelta;
-    bool mbTemporalFramesUpdated;
-    Sophus::SE3d mTneww2oldw; // let $T_w^{c_{old}}$ and $T_w^{c_{new}}$ denote
-    // pose of the current keyframe before and after loop optimization, then mTneww2oldw is $(T_w^{c_{old}})^{-1}T_w^{c_{new}}$
+
+    Sophus::Sim3d GetSnew2old();
+    Sophus::SE3d GetTnew2old();
+
 
 public:
 
@@ -120,7 +110,7 @@ public:
     std::vector<KeyFrame*> mvpCurrentConnectedKFs;
     std::vector<MapPoint*> mvpCurrentMatchedPoints;
     std::vector<MapPoint*> mvpLoopMapPoints; 
-    g2o::Sim3 mg2oScw;
+    g2o::Sim3 mg2oScw; //transform from new world frame to current keyframe
     double mScale_cw;
 
     long unsigned int mLastLoopKFid;

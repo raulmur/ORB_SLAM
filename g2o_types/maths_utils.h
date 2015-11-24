@@ -21,13 +21,7 @@
 #define GL_GLEXT_PROTOTYPES 1
 
 #include <set>
-
-#include "global.h"
-
-//namespace Sophus
-//{
-//class SE3d;
-//}
+#include <Eigen/Core>
 
 namespace ScaViSLAM
 {

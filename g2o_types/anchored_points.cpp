@@ -21,6 +21,15 @@
 using namespace Eigen;
 using namespace g2o;
 namespace ScaViSLAM{
+
+g2o::OptimizableGraph::Vertex*  GET_MAP_ELEM(const int & key,
+                          const g2o::OptimizableGraph::VertexIDMap & m)
+{
+  g2o::OptimizableGraph::VertexIDMap::const_iterator it = m.find(key);
+  assert(it!=m.end());
+  return dynamic_cast<g2o::OptimizableGraph::Vertex*>(it->second);
+}
+
 G2oCameraParameters
 ::G2oCameraParameters()
   : principle_point_(Eigen::Vector2d(0., 0.)),

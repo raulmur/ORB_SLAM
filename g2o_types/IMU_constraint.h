@@ -41,120 +41,155 @@ public:
         gwomegaw[3]=9.81;
     }
 
-  G2oIMUParameters        (const Eigen::Matrix<double, 3,1> & q_noise_acc,const Eigen::Matrix<double, 3,1> &q_noise_gyr,
-              const Eigen::Matrix<double, 3,1> & q_noise_accbias,const Eigen::Matrix<double, 3,1> &q_noise_gyrbias,
-                           const Sophus::SE3Group<double> & T_c_to_s, const Eigen::Matrix<double, 6,1> &gomegaw)
-    : T_imu_from_cam(T_c_to_s), gwomegaw(gomegaw)
+    G2oIMUParameters        (const Eigen::Matrix<double, 3,1> & q_noise_acc,const Eigen::Matrix<double, 3,1> &q_noise_gyr,
+                             const Eigen::Matrix<double, 3,1> & q_noise_accbias,const Eigen::Matrix<double, 3,1> &q_noise_gyrbias,
+                             const Sophus::SE3Group<double> & T_c_to_s, const Eigen::Matrix<double, 6,1> &gomegaw)
+        : T_imu_from_cam(T_c_to_s), gwomegaw(gomegaw)
     {
-      q_n_aw_babw.head(3)=q_noise_acc;
-      q_n_aw_babw.segment(3,3)=q_noise_gyr;
-      q_n_aw_babw.segment(6,3)=q_noise_accbias;
-      q_n_aw_babw.tail(3)=q_noise_gyrbias;
-  }
-  G2oIMUParameters        (const G2oIMUParameters& other)
-    : q_n_aw_babw(other.q_n_aw_babw), T_imu_from_cam(other.T_imu_from_cam),
-      gwomegaw(other.gwomegaw)
-  {
-  }
-  G2oIMUParameters & operator= (const G2oIMUParameters& other)
-  {
-      if(this==&other)
-          return *this;
-      q_n_aw_babw=other.q_n_aw_babw;
-      T_imu_from_cam=other.T_imu_from_cam;
-      gwomegaw=other.gwomegaw;
+        q_n_aw_babw.head(3)=q_noise_acc;
+        q_n_aw_babw.segment(3,3)=q_noise_gyr;
+        q_n_aw_babw.segment(6,3)=q_noise_accbias;
+        q_n_aw_babw.tail(3)=q_noise_gyrbias;
+    }
+    G2oIMUParameters        (const G2oIMUParameters& other)
+        : q_n_aw_babw(other.q_n_aw_babw), T_imu_from_cam(other.T_imu_from_cam),
+          gwomegaw(other.gwomegaw)
+    {
+    }
+    G2oIMUParameters & operator= (const G2oIMUParameters& other)
+    {
+        if(this==&other)
+            return *this;
+        q_n_aw_babw=other.q_n_aw_babw;
+        T_imu_from_cam=other.T_imu_from_cam;
+        gwomegaw=other.gwomegaw;
 
-      return *this;
-  }
+        return *this;
+    }
 
-  virtual bool
-  read                       (std::istream& is)
-  {
-      for(int i=0; i<12;++i)
-      is >> q_n_aw_babw[i];
-      return true;
-  }
+    virtual bool
+    read                       (std::istream& is)
+    {
+        for(int i=0; i<12;++i)
+            is >> q_n_aw_babw[i];
+        return true;
+    }
 
-  virtual bool
-  write                      (std::ostream& os) const
-  {
-     for(int i=0; i<12;++i)
-     os << q_n_aw_babw[i]<<" ";
-     return true;
-  }
-  Eigen::Matrix<double,12,1> q_n_aw_babw; //squared noise density of VRW, ARW, noise of random walk of accelerometer bias and gyro bias
-  Sophus::SE3Group<double> T_imu_from_cam; // the transformation from camera to IMU sensor frame
-  Eigen::Matrix<double, 6,1> gwomegaw;// gravity in local world frame in m/s^2, and earth rotation rate in world frame in rad/sec
+    virtual bool
+    write                      (std::ostream& os) const
+    {
+        for(int i=0; i<12;++i)
+            os << q_n_aw_babw[i]<<" ";
+        return true;
+    }
+    Eigen::Matrix<double,12,1> q_n_aw_babw; //squared noise density of VRW, ARW, noise of random walk of accelerometer bias and gyro bias
+    Sophus::SE3Group<double> T_imu_from_cam; // the transformation from camera to IMU sensor frame
+    Eigen::Matrix<double, 6,1> gwomegaw;// gravity in local world frame in m/s^2, and earth rotation rate in world frame in rad/sec
 
 };
 // time varying lever arm vertex can represent the antenna position in the reference sensor frame
 class G2oVertexLeverArm : public g2o::BaseVertex<3, Eigen::Vector3d >
 {
 public:
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-  G2oVertexLeverArm               (){}
+    G2oVertexLeverArm               (){}
 
-  virtual bool
-  read                       (std::istream& is)
-  {
-      return false;
-  }
+    virtual bool
+    read                       (std::istream& is)
+    {
+        return false;
+    }
 
-  virtual bool
-  write                      (std::ostream& os) const
-  {return false;}
+    virtual bool
+    write                      (std::ostream& os) const
+    {return false;}
 
-  // assume $\delta x= x \boxplus \hat{x}^{-1}$
-  virtual void
-  oplusImpl                  (const double * update_p)
-  {
-      Eigen::Map<const Eigen::Vector3d > update(update_p);
-      setEstimate(update+estimate());
-  }
+    // assume $\delta x= x \boxplus \hat{x}^{-1}$
+    virtual void
+    oplusImpl                  (const double * update_p)
+    {
+        Eigen::Map<const Eigen::Vector3d > update(update_p);
+        setEstimate(update+estimate());
+    }
 
-  virtual void
-  setToOriginImpl            () {
-      _estimate.setZero();
-  }
+    virtual void
+    setToOriginImpl            () {
+        _estimate.setZero();
+    }
 };
 
 
 class G2oVertexSpeedBias : public g2o::BaseVertex<9, Eigen::Matrix<double,9,1> >
 {
 public:
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-  G2oVertexSpeedBias               ():first_estimate(NULL){}
-  ~G2oVertexSpeedBias               (){
-      if(first_estimate)
-          delete first_estimate;
-      first_estimate=NULL;
-  }
-  virtual bool
-  read                       (std::istream& is);
+    G2oVertexSpeedBias               ():first_estimate(NULL){}
+    ~G2oVertexSpeedBias               (){
+        if(first_estimate)
+            delete first_estimate;
+        first_estimate=NULL;
+    }
+    virtual bool
+    read                       (std::istream& is);
 
-  virtual bool
-  write                      (std::ostream& os) const;
+    virtual bool
+    write                      (std::ostream& os) const;
 
-  // assume $\delta x= x \boxplus \hat{x}^{-1}$
-  virtual void
-  oplusImpl                  (const double * update_p)
-  {
-      Eigen::Map<const Eigen::Matrix<double, 9,1> > update(update_p);
-      setEstimate(update+estimate());
-  }
+    // assume $\delta x= x \boxplus \hat{x}^{-1}$
+    virtual void
+    oplusImpl                  (const double * update_p)
+    {
+        Eigen::Map<const Eigen::Matrix<double, 9,1> > update(update_p);
+        setEstimate(update+estimate());
+    }
 
-  virtual void
-  setToOriginImpl            () {
-      _estimate.setZero();
-  }
-void setFirstEstimate(const Eigen::Matrix<double,9,1>& fe){
-    first_estimate=new Eigen::Matrix<double,9,1>(fe);
-}
-  Eigen::Matrix<double,9,1>* first_estimate;
+    virtual void
+    setToOriginImpl            () {
+        _estimate.setZero();
+    }
+    void setFirstEstimate(const Eigen::Matrix<double,9,1>& fe){
+        first_estimate=new Eigen::Matrix<double,9,1>(fe);
+    }
+    Eigen::Matrix<double,9,1>* first_estimate;
 };
+// extended speed bias vertex, including speed of the reference sensor in world frame, accelerometer bias, gyro bias,
+// elements of S_a, S_g, T_s in row major order following IMUErrorModel's definition
+class G2oVertexSpeedBiasEx : public g2o::BaseVertex<36, Eigen::Matrix<double,36,1> >
+{
+public:
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
+    G2oVertexSpeedBiasEx               ():first_estimate(NULL){}
+    ~G2oVertexSpeedBiasEx               (){
+        if(first_estimate)
+            delete first_estimate;
+        first_estimate=NULL;
+    }
+    virtual bool
+    read                       (std::istream& is);
+
+    virtual bool
+    write                      (std::ostream& os) const;
+
+    // assume $\delta x= x \boxplus \hat{x}^{-1}$
+    virtual void
+    oplusImpl                  (const double * update_p)
+    {
+        Eigen::Map<const Eigen::Matrix<double, 36,1> > update(update_p);
+        setEstimate(update+estimate());
+    }
+
+    virtual void
+    setToOriginImpl            () {
+        _estimate.setZero();
+    }
+    void setFirstEstimate(const Eigen::Matrix<double,36,1>& fe){
+        first_estimate=new Eigen::Matrix<double,36,1>(fe);
+    }
+    Eigen::Matrix<double,36,1>* first_estimate;
+};
 //s0 can be any local world frame
 // acc, m/s^2, estimated acc from imu in s frame with bias removed, gyro, rad/s, estimated angular rate by imu with bias removed
 template<typename Scalar>
@@ -183,7 +218,7 @@ void strapdown_local_quat_bias(const Eigen::Matrix<Scalar,3,1>& rs0, const Eigen
 
     //// better velocity and position integration than first order rectanglar rule
     //Update Velocity
-//    Vector3d vel_inc1=(quatrot(qs0_2_s,a*dt,1)+quatrot(*qs0_2_s_new,a*dt,1))/2;
+    //    Vector3d vel_inc1=(quatrot(qs0_2_s,a*dt,1)+quatrot(*qs0_2_s_new,a*dt,1))/2;
     Eigen::Matrix<Scalar,3,1> vel_inc1=(qs0_2_s.conjugate()._transformVector(a*dt)+(*qs0_2_s_new).conjugate()._transformVector(a*dt))*Scalar(0.5);
 
     Eigen::Matrix<Scalar,3,1> vel_inc2=(gomegas0.head(3)-Scalar(2)*wie2s0.cross(vs0))*dt;
@@ -281,12 +316,12 @@ void predictStates(const Sophus::SE3Group<Scalar> &T_sk_to_w, const Eigen::Matri
     const Eigen::Matrix<Scalar, 3,1> qna=q_n_aw_babw.head(3), qnw=q_n_aw_babw.segment(3,3),
             qnba=q_n_aw_babw.segment(6,3),qnbw=q_n_aw_babw.tail(3);
     strapdown_local_quat_bias( r_old, v_old, q_old, est_accel, est_gyro,
-            dt, gwomegaw, &r_new, &v_new, &q_new);
+                               dt, gwomegaw, &r_new, &v_new, &q_new);
 
     if(predict_cov)
     {
         sys_local_dcm_bias(r_old, v_old, q_old, est_accel,est_gyro,
-                measurements[1][0]-covupt_time,qna, qnw, qnba, qnbw,P);
+                           measurements[1][0]-covupt_time,qna, qnw, qnba, qnbw,P);
         //for more precise covariance update, we can use average estimated accel and angular rate over n(every_n_reading) IMU readings
         covupt_time=measurements[1][0];
     }
@@ -318,11 +353,11 @@ void predictStates(const Sophus::SE3Group<Scalar> &T_sk_to_w, const Eigen::Matri
     est_accel=est_measurement.head(3);
     est_gyro=est_measurement.tail(3);
     strapdown_local_quat_bias( r_old, v_old, q_old, est_accel, est_gyro,
-            dt, gwomegaw, &r_new, &v_new, &q_new);
+                               dt, gwomegaw, &r_new, &v_new, &q_new);
     if(predict_cov)
     {
         sys_local_dcm_bias(r_old, v_old, q_old, est_accel, est_gyro,
-                time_pair[1]-covupt_time,qna, qnw, qnba, qnbw,P);
+                           time_pair[1]-covupt_time,qna, qnw, qnba, qnbw,P);
         covupt_time=time_pair[1];
     }
     pred_T_skp1_to_w->setQuaternion(q_new.conjugate());
@@ -338,35 +373,35 @@ class G2oEdgeIMUConstraint : public  g2o::BaseMultiEdge<15, std::vector<Eigen::M
     //the measurements goes from $t(p^k-1)$ which is the closest epoch less than or equal to $t(k)$, up to
     // $t(p^(k+1)-1)$ which is the closest epoch less than or equal to $t(k+1)$.
 public:
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-  G2oEdgeIMUConstraint()
-  {
-    g2o_IMU=0;    
-    resizeParameters(1);
-    installParameter(g2o_IMU, 0);
-  }
+    G2oEdgeIMUConstraint()
+    {
+        g2o_IMU=0;
+        resizeParameters(1);
+        installParameter(g2o_IMU, 0);
+    }
 
-  virtual bool
-  read                       (std::istream& is);
-  virtual bool
-  write                      (std::ostream& os) const;
+    virtual bool
+    read                       (std::istream& is);
+    virtual bool
+    write                      (std::ostream& os) const;
 
-  void
-  computeError               ();
-  template<typename T>
-  bool operator ()( const  T* pTw2ck, const T* epsilonk, const T* pXsbk, const T* pTw2ckp1, const T* pXsbkp1, T* error) const;
+    void
+    computeError               ();
+    template<typename T>
+    bool operator ()( const  T* pTw2ck, const T* epsilonk, const T* pXsbk, const T* pTw2ckp1, const T* pXsbkp1, T* error) const;
 
-  void linearizeOplus        ();
-  void calcAndSetInformation(const G2oIMUParameters &);
-  void SetFrameEpoch(const double timestamp, const int index){
-      time_frames[index]=timestamp;
-  }
-  G2oIMUParameters * g2o_IMU;
-  double time_frames[2]; //timestamps for the two frames connected by this multi-edge, $t(k)$ and $t(k+1)$
-  //first element corresponds to first vertex which has a smaller timestamp, $t(k)$
-  //_measurement[0][0],i.e., $t(p^k-1)$,is less than or equal to $t(k)$, but _measurement[1][0] must be greater than $t(k)$
-  //Sophus::SE3d pred_T_ckp1_2_w; // $\tilde{\mathbf{T}}_{c(k+1)}^w$ predicted from $\hat{\mathbf{T}}_w^{c(k)}$ and IMU measurements, updated in computeError
+    void linearizeOplus        ();
+    void calcAndSetInformation(const G2oIMUParameters &);
+    void SetFrameEpoch(const double timestamp, const int index){
+        time_frames[index]=timestamp;
+    }
+    G2oIMUParameters * g2o_IMU;
+    double time_frames[2]; //timestamps for the two frames connected by this multi-edge, $t(k)$ and $t(k+1)$
+    //first element corresponds to first vertex which has a smaller timestamp, $t(k)$
+    //_measurement[0][0],i.e., $t(p^k-1)$,is less than or equal to $t(k)$, but _measurement[1][0] must be greater than $t(k)$
+
 };
 //gravity in world frame=$-R_s^w(\tilde{a}^s-b_a)+n_g$, $\tilde{a}^s$ is pseudo measurement, $b_a$ comes from G2oVertexSpeedBias,
 // $R_s^w$ inertial sensor to world rotation comes from G2oVertexSE3, i.e., transform from world to camera frame
@@ -398,54 +433,56 @@ public:
 class GPSObservationPosition3DEdge : public g2o::BaseUnaryEdge<3, Eigen::Vector3d, G2oVertexSE3>
 {
 public:
-  GPSObservationPosition3DEdge()
-  {
-  }
+    GPSObservationPosition3DEdge()
+    {
+    }
 
-  void computeError()
-  {
-    const G2oVertexSE3* v = static_cast<const G2oVertexSE3*>(_vertices[0]);
-    _error = v->estimate().inverse().translation() - _measurement;
-  }
-  void linearizeOplus();
+    void computeError()
+    {
+        const G2oVertexSE3* v = static_cast<const G2oVertexSE3*>(_vertices[0]);
+        _error = v->estimate().inverse().translation() - _measurement;
+    }
+    void linearizeOplus();
 
-  virtual bool read(std::istream& /*is*/)
-  {
-    return false;
-  }
+    virtual bool read(std::istream& /*is*/)
+    {
+        return false;
+    }
 
-  virtual bool write(std::ostream& /*os*/) const
-  {
-    return false;
-  }
+    virtual bool write(std::ostream& /*os*/) const
+    {
+        return false;
+    }
 };
 // The GPS measurement of antenna position in the world frame; this is 3D and linear, adapted from g2o/examples/targetTypes3D.hpp
-// here I used G2oVertexSE3 to represent transform from world frame to the reference camera frame,
-// G2oVertexLeverArm to represent antenna position in the reference camera frame
+// here I used G2oVertexSE3 to represent transform from world frame to the reference sensor frame,
+// G2oVertexLeverArm to represent antenna position in the reference sensor frame
+// often the world frame is defined as a frame anchored to the earth which is convenient for navigation,
+// e.g., the N frame anchored at the nominal ECEF point close to the position of the sensor assembly at the start of experiment
 class G2oEdgeGPSObservation : public g2o::BaseBinaryEdge<3, Eigen::Vector3d, G2oVertexSE3, G2oVertexLeverArm>
 {
 public:
-  G2oEdgeGPSObservation()
-  {
-  }
+    G2oEdgeGPSObservation()
+    {
+    }
 
-  void computeError()
-  {
-    const G2oVertexSE3* v = static_cast<const G2oVertexSE3*>(_vertices[0]);
-    const G2oVertexLeverArm* vl = static_cast<const G2oVertexLeverArm*>(_vertices[1]);
-    _error = v->estimate().inverse()*vl->estimate() - _measurement;
-  }
-  void linearizeOplus();
+    void computeError()
+    {
+        const G2oVertexSE3* v = static_cast<const G2oVertexSE3*>(_vertices[0]);
+        const G2oVertexLeverArm* vl = static_cast<const G2oVertexLeverArm*>(_vertices[1]);
+        _error = v->estimate()*_measurement-vl->estimate();
+    }
+    void linearizeOplus();
 
-  virtual bool read(std::istream& /*is*/)
-  {
-    return false;
-  }
+    virtual bool read(std::istream& /*is*/)
+    {
+        return false;
+    }
 
-  virtual bool write(std::ostream& /*os*/) const
-  {
-    return false;
-  }
+    virtual bool write(std::ostream& /*os*/) const
+    {
+        return false;
+    }
 };
 
 // The lever arm should not change much between two vertices separated by a short interval
@@ -454,31 +491,31 @@ public:
 class G2oEdgeLeverArm: public g2o::BaseBinaryEdge<3, Eigen::Vector3d, G2oVertexLeverArm, G2oVertexLeverArm>
 {
 public:
-  G2oEdgeLeverArm()
-  {
-  }
+    G2oEdgeLeverArm()
+    {
+    }
 
-  void computeError()
-  {
-    const G2oVertexLeverArm* v = static_cast<const G2oVertexLeverArm*>(_vertices[0]);
-    const G2oVertexLeverArm* vl = static_cast<const G2oVertexLeverArm*>(_vertices[1]);
-    _error = v->estimate()-vl->estimate();
-  }
-  void linearizeOplus()
-  {
-    _jacobianOplusXi= Eigen::Matrix3d::Identity();
-    _jacobianOplusXj= -Eigen::Matrix3d::Identity();
-  }
+    void computeError()
+    {
+        const G2oVertexLeverArm* v = static_cast<const G2oVertexLeverArm*>(_vertices[0]);
+        const G2oVertexLeverArm* vl = static_cast<const G2oVertexLeverArm*>(_vertices[1]);
+        _error = v->estimate()-vl->estimate();
+    }
+    void linearizeOplus()
+    {
+        _jacobianOplusXi= Eigen::Matrix3d::Identity();
+        _jacobianOplusXj= -Eigen::Matrix3d::Identity();
+    }
 
-  virtual bool read(std::istream& /*is*/)
-  {
-    return false;
-  }
+    virtual bool read(std::istream& /*is*/)
+    {
+        return false;
+    }
 
-  virtual bool write(std::ostream& /*os*/) const
-  {
-    return false;
-  }
+    virtual bool write(std::ostream& /*os*/) const
+    {
+        return false;
+    }
 };
 
 
@@ -486,57 +523,57 @@ public:
 class G2oSE3Observation6DEdge : public g2o::BaseUnaryEdge<6, Sophus::SE3d, G2oVertexSE3>
 {
 public:
-  G2oSE3Observation6DEdge()
-  {
-  }
+    G2oSE3Observation6DEdge()
+    {
+    }
 
-  void computeError()
-  {
-    const G2oVertexSE3* v = static_cast<const G2oVertexSE3*>(_vertices[0]);
-    _error= Sophus::SE3d::log(_measurement*v->estimate());
-  }
-  void linearizeOplus()
-  {
-      _jacobianOplusXi.topLeftCorner(6,6)= third(_measurement,  _error);
-  }
+    void computeError()
+    {
+        const G2oVertexSE3* v = static_cast<const G2oVertexSE3*>(_vertices[0]);
+        _error= Sophus::SE3d::log(_measurement*v->estimate());
+    }
+    void linearizeOplus()
+    {
+        _jacobianOplusXi.topLeftCorner(6,6)= third(_measurement,  _error);
+    }
 
-  virtual bool read(std::istream& /*is*/)
-  {
-    return false;
-  }
+    virtual bool read(std::istream& /*is*/)
+    {
+        return false;
+    }
 
-  virtual bool write(std::ostream& /*os*/) const
-  {
-    return false;
-  }
+    virtual bool write(std::ostream& /*os*/) const
+    {
+        return false;
+    }
 };
 // prior of speed in world frame, accelerometer biases and gyro biases
 class G2oSpeedBiasObs9DEdge : public g2o::BaseUnaryEdge<9, Eigen::Matrix<double ,9,1>, G2oVertexSpeedBias>
 {
 public:
-  G2oSpeedBiasObs9DEdge()
-  {
-  }
+    G2oSpeedBiasObs9DEdge()
+    {
+    }
 
-  void computeError()
-  {
-    const G2oVertexSpeedBias* v = static_cast<const G2oVertexSpeedBias*>(_vertices[0]);
-    _error =_measurement- v->estimate();
-  }
-  void linearizeOplus()
-  {
-    _jacobianOplusXi= -Eigen::Matrix<double, 9,9>::Identity();
-  }
+    void computeError()
+    {
+        const G2oVertexSpeedBias* v = static_cast<const G2oVertexSpeedBias*>(_vertices[0]);
+        _error =_measurement- v->estimate();
+    }
+    void linearizeOplus()
+    {
+        _jacobianOplusXi= -Eigen::Matrix<double, 9,9>::Identity();
+    }
 
-  virtual bool read(std::istream& /*is*/)
-  {
-    return false;
-  }
+    virtual bool read(std::istream& /*is*/)
+    {
+        return false;
+    }
 
-  virtual bool write(std::ostream& /*os*/) const
-  {
-    return false;
-  }
+    virtual bool write(std::ostream& /*os*/) const
+    {
+        return false;
+    }
 };
 class IMUProcessor
 {
@@ -548,7 +585,7 @@ public:
         time_pair[0]=-1;
         time_pair[1]=-1;
     }
-// output the transformation from previous to current camera frame
+    // output the transformation from previous to current camera frame
     Sophus::SE3d propagate(const double time_frame)
     {
         bool is_meas_good=ig.getObservation(time_frame);
@@ -605,5 +642,212 @@ public:
     G2oIMUParameters imu_;
     bool bStatesInitialized;
 };
+
+//extended IMU constraints with vertices of G2oVertexSpeedBiasEx
+//observations are the difference between predicted states at k+1 and the states at k+1
+// states at k or k+1 include two components: one is a G2oVertexSE3 that represents
+// the SE3 transform from the world frame to the reference sensor frame, the other is an G2oVertexSpeedBiasEx
+class G2oEdgeIMUConstraintEx : public  g2o::BaseMultiEdge<42, std::vector<Eigen::Matrix<double, 7,1> > >
+{
+    //IMU measurements are stored in a std::vector<Matrix<double, 7,1> > structure, each entry: timestamp in seconds,
+    //acceleration measurements in m/s^2, gyro measurements in radian/sec
+    //the measurements goes from $t(p^k-1)$ which is the closest epoch less than or equal to $t(k)$, up to
+    // $t(p^(k+1)-1)$ which is the closest epoch less than or equal to $t(k+1)$.
+public:
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
+    G2oEdgeIMUConstraintEx()
+    {
+        g2o_IMU=0;
+        resizeParameters(1);
+        installParameter(g2o_IMU, 0);
+    }
+
+    virtual bool
+    read                       (std::istream& is);
+    virtual bool
+    write                      (std::ostream& os) const;
+
+    void
+    computeError               ();
+    template<typename T>
+    bool operator ()( const  T* pTw2ck, const T* epsilonk, const T* pXsbk, const T* pTw2ckp1, const T* pXsbkp1, T* error) const;
+
+    void linearizeOplus        ();
+    void calcAndSetInformation(const G2oIMUParameters &);
+    void SetFrameEpoch(const double timestamp, const int index){
+        time_frames[index]=timestamp;
+    }
+    G2oIMUParameters * g2o_IMU;
+    double time_frames[2]; //timestamps for the two frames connected by this multi-edge, $t(k)$ and $t(k+1)$
+    //first element corresponds to first vertex which has a smaller timestamp, $t(k)$
+    //_measurement[0][0],i.e., $t(p^k-1)$,is less than or equal to $t(k)$, but _measurement[1][0] must be greater than $t(k)$
+
+};
+// camera related parameters in visual inertial navigation, following Li et al ICRA 2014 eq (10)
+// 14 dimensions are position of the reference sensor frame in the camera frame, c_x, c_y, f_x, f_y,
+// k_1, k_2, k_3, t_1, t_2, t_r, t_d
+class G2oVertexCamParams : public g2o::BaseVertex< 14, Eigen::Matrix<double,14,1> >
+{
+public:
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
+    G2oVertexCamParams               ():first_estimate(NULL){}
+    ~G2oVertexCamParams               (){
+        if(first_estimate)
+            delete first_estimate;
+        first_estimate=NULL;
+    }
+    virtual bool
+    read                       (std::istream& is);
+
+    virtual bool
+    write                      (std::ostream& os) const;
+
+    // assume $\delta x= x \boxplus \hat{x}^{-1}$
+    virtual void
+    oplusImpl                  (const double * update_p)
+    {
+        Eigen::Map<const Eigen::Matrix<double, 14,1> > update(update_p);
+        setEstimate(update+estimate());
+    }
+
+    virtual void
+    setToOriginImpl            () {
+        _estimate.setZero();
+    }
+    void setFirstEstimate(const Eigen::Matrix<double,14,1>& fe){
+        first_estimate=new Eigen::Matrix<double,14,1>(fe);
+    }
+    Eigen::Matrix<double,14,1>* first_estimate;
+};
+// 10 dimensional rolling shutter camera vertex, f_x, f_y, c_x, c_y, k_1, k_2, k_3, t_1, t_2, t_r
+// focal length in pixel units, principal points in pixel units, radial distortion,
+// tangential distortion, read out time for each frame
+class G2oVertexRSCamera : public g2o::BaseVertex<10, Eigen::Matrix<double,10,1> >
+{
+public:
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
+    G2oVertexRSCamera               ():first_estimate(NULL){}
+    ~G2oVertexRSCamera               (){
+        if(first_estimate)
+            delete first_estimate;
+        first_estimate=NULL;
+    }
+    virtual bool
+    read                       (std::istream& is);
+
+    virtual bool
+    write                      (std::ostream& os) const;
+
+    // assume $\delta x= x \boxplus \hat{x}^{-1}$
+    virtual void
+    oplusImpl                  (const double * update_p)
+    {
+        Eigen::Map<const Eigen::Matrix<double, 10,1> > update(update_p);
+        setEstimate(update+estimate());
+    }
+
+    virtual void
+    setToOriginImpl            () {
+        _estimate.setZero();
+    }
+    void setFirstEstimate(const Eigen::Matrix<double,10,1>& fe){
+        first_estimate=new Eigen::Matrix<double,10,1>(fe);
+    }
+    Eigen::Matrix<double,10,1>* first_estimate;
+};
+// extended rolling shutter camera vertex, besides the rolling shutter 10 dimensional parameters,
+// also appends $p_s^c, t_d$ to its end which makes a 14 dimensional vector
+// $p_s^c$ is the reference sensor in the camera frame, t_d is the offset
+// between the reference sensor time and the camera timestamp, i.e., time of image in reference sensor time = time of image + t_d
+// according to Li ICRA 2013 and 2014: if  the IMU  has  a  longer  latency  than  the  camera,  then t_d will
+// be  positive,  while  in  the  opposite  case t_d will  be  negative.
+class G2oVertexRSCameraEx : public g2o::BaseVertex<36, Eigen::Matrix<double,14,1> >
+{
+public:
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
+    G2oVertexRSCameraEx               ():first_estimate(NULL){}
+    ~G2oVertexRSCameraEx               (){
+        if(first_estimate)
+            delete first_estimate;
+        first_estimate=NULL;
+    }
+    virtual bool
+    read                       (std::istream& is);
+
+    virtual bool
+    write                      (std::ostream& os) const;
+
+    // assume $\delta x= x \boxplus \hat{x}^{-1}$
+    virtual void
+    oplusImpl                  (const double * update_p)
+    {
+        Eigen::Map<const Eigen::Matrix<double, 14,1> > update(update_p);
+        setEstimate(update+estimate());
+    }
+
+    virtual void
+    setToOriginImpl            () {
+        _estimate.setZero();
+    }
+    void setFirstEstimate(const Eigen::Matrix<double,14,1>& fe){
+        first_estimate=new Eigen::Matrix<double,14,1>(fe);
+    }
+    Eigen::Matrix<double,14,1>* first_estimate;
+};
+// global shutter camera vertex following Li ICRA 2013, 3-D Motion Estimation and Online Temporal Calibration
+// $T_s^c, t_d$, transform from reference sensor frame to the camera frame, t_d is the time delay
+// between the reference sensor time and the camera timestamp, i.e., time of image in reference sensor time = time of image + t_d
+// according to Li ICRA 2013
+// the arrangement of data is qxyzw, txyz, t_d, and the 7 dimensional minimal representation is [\upsilon, \omega, \delta t_d]
+class G2oVertexGSCamera : public g2o::BaseVertex<7, Eigen::Matrix<double,8,1> >
+{
+public:
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
+    G2oVertexGSCamera               ():first_estimate(NULL){}
+    ~G2oVertexGSCamera               (){
+        if(first_estimate)
+            delete first_estimate;
+        first_estimate=NULL;
+    }
+    virtual bool
+    read                       (std::istream& is);
+
+    virtual bool
+    write                      (std::ostream& os) const;
+
+    // assume $\delta x= x \boxplus \hat{x}^{-1}$
+    virtual void
+    oplusImpl                  (const double * update_p)
+    {
+        double updatetd(update_p[6]);
+        _estimate[7]=updatetd+_estimate[7];
+
+        Eigen::Map<const Vector6d> update(update_p);
+        double temp_estimate[7]= {0};
+        for(int jack=0; jack<7 ;++jack)
+            temp_estimate[jack]= _estimate[jack];
+        const Eigen::Map<const Sophus::SE3d > se3Ts2c(temp_estimate); //qxyzw txyz
+        Sophus::SE3d se3Ts2c_updated= Sophus::SE3d::exp(update)*se3Ts2c;
+        double* dataPtr= se3Ts2c_updated.data();
+        for(int jack=0; jack<7 ;++jack)
+            _estimate[jack]= dataPtr[jack];
+    }
+
+    virtual void
+    setToOriginImpl            () {
+        _estimate.setZero();
+        _estimate[3]=1.0;
+    }
+    void setFirstEstimate(const Eigen::Matrix<double,8,1>& fe){
+        first_estimate=new Eigen::Matrix<double,8,1>(fe);
+    }
+    Eigen::Matrix<double,8,1>* first_estimate;
+};
+void testG2OVertexGSCamera();
 }
 #endif

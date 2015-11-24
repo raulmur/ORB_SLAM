@@ -27,7 +27,9 @@
 
 #include <vikit/vision.h>
 #include <vikit/math_utils.h>
+
 //#include <ros/ros.h>
+
 
 namespace ORB_SLAM
 {
@@ -75,10 +77,10 @@ Frame::Frame(const Frame &frame)
 
 Frame::Frame(cv::Mat &im_, const double &timeStamp, ORBextractor* extractor,
              ORBVocabulary* voc, vk::PinholeCamera* cam,
-             const Eigen::Vector3d ginc)
+             const Eigen::Vector3d ginc, const Eigen::Matrix<double, 9,1> sb)
     :mpORBvocabulary(voc),mpORBextractor(extractor), mTimeStamp(timeStamp),
-      prev_frame(NULL), next_frame(NULL), mbFixedLinearizationPoint(false), cam_(cam),
-       mnId(nNextId++), mbBad(false)
+      prev_frame(NULL), next_frame(NULL), speed_bias(sb), mbFixedLinearizationPoint(false), cam_(cam),
+       mnId(nNextId++), mbBad(false),v_kf_(NULL), v_sb_(NULL)
 {
     cv::Mat fK=Converter::toCvMat(cam_->K());
     cv::Mat fDistCoef=(cv::Mat_<float>(4,1)<< cam_->d0(),cam_->d1(), cam_->d2(), cam_->d3());
@@ -150,7 +152,7 @@ Frame::Frame(cv::Mat &im , const double & timeStamp, int cam_id,
         mbInitialComputations=false;
     }
 }
-
+/*
 Frame::Frame(cv::Mat &im_ , const double & timeStamp, const int num_features_left,
              cv::Mat &right_img, const int num_features_right,
                       ORBextractor* extractor, ORBVocabulary* voc,
@@ -234,7 +236,7 @@ Frame::Frame(cv::Mat &im_ , const double & timeStamp, const int num_features_lef
             mGrid[nGridPosX][nGridPosY].push_back(i);
     }
     mvbOutlier = vector<bool>(N,false);
-}
+}*/
 
 Frame::Frame(cv::Mat &im_ , const double & timeStamp, const int num_features_left, cv::Mat &right_img, const int num_features_right,
                       const std::vector<p_match> & vStereoMatches, ORBextractor* extractor, ORBVocabulary* voc,

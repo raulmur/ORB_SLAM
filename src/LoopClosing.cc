@@ -28,14 +28,16 @@
 
 #include "ORBmatcher.h"
 
-//#include <ros/ros.h>
+#ifdef SLAM_USE_ROS
+#include <ros/ros.h>
+#endif
 
 //#include "Thirdparty/g2o/g2o/types/sim3/types_seven_dof_expmap.h"
 #include "g2o/types/sim3/types_seven_dof_expmap.h"
 namespace ORB_SLAM
 {
 
-LoopClosing::LoopClosing(Map *pMap, KeyFrameDatabase *pDB, ORBVocabulary *pVoc):mbTemporalFramesUpdated(true),
+LoopClosing::LoopClosing(Map *pMap, KeyFrameDatabase *pDB, ORBVocabulary *pVoc):
     mbResetRequested(false), mpMap(pMap), mpKeyFrameDB(pDB), mpORBVocabulary(pVoc), mLastLoopKFid(0)
 
 {
@@ -56,10 +58,12 @@ void LoopClosing::SetLocalMapper(LocalMapping *pLocalMapper)
 
 void LoopClosing::Run()
 {
-
-//    ros::Rate r(200);
-
-    while(1)//ros::ok())
+#ifdef SLAM_USE_ROS
+    ros::Rate r(120);
+    while(ros::ok())
+#else
+    while(1)
+#endif
     {
         // Check if there are keyframes in the queue
         if(CheckNewKeyFrames())
@@ -72,15 +76,22 @@ void LoopClosing::Run()
                if(ComputeSim3()) // this work also for stereo case
                {
                    // Perform loop fusion and pose graph optimization
-                   CorrectLoopSE3();// both correctloop and correctloopse3 should work here
+#ifdef MONO
+                    CorrectLoop();
+#else
+                    CorrectLoopSE3();// both correctloop and correctloopse3 should work for stereo case
+#endif
                }
             }
             SLAM_STOP_TIMER("loop_closer");
         }
 
         ResetIfRequested();
-            boost::this_thread::sleep(boost::posix_time::milliseconds(4));
-//        r.sleep();
+#ifdef SLAM_USE_ROS
+        r.sleep();
+#else
+        boost::this_thread::sleep(boost::posix_time::milliseconds(4));
+#endif
     }
 }
 
@@ -403,15 +414,20 @@ void LoopClosing::CorrectLoop()
     // Send a stop signal to Local Mapping
     // Avoid new keyframes are inserted while correcting the loop
     mpLocalMapper->RequestStop();
-
+#ifdef SLAM_USE_ROS
     // Wait until Local Mapping has effectively stopped
-//    ros::Rate r(1e4);
+    ros::Rate r(1e4);
+    while(ros::ok() && !mpLocalMapper->isStopped())
+    {
+        r.sleep();
+    }
+#else
     while( !mpLocalMapper->isStopped())
     {
-            boost::this_thread::sleep(boost::posix_time::milliseconds(1));
-//        r.sleep();
+        boost::this_thread::sleep(boost::posix_time::milliseconds(1));
     }
-
+#endif
+    cout<<("Loop closure starts!");
     // Ensure current keyframe is updated
     mpCurrentKF->UpdateConnections();
 
@@ -545,9 +561,12 @@ void LoopClosing::CorrectLoop()
 
     // Loop closed. Release Local Mapping.
     mpLocalMapper->Release();
-    mpTracker->ForceRelocalisation();
-    mpMap->SetFlagAfterBA();
 
+    g2o::Sim3 oldTwi=NonCorrectedSim3[mpCurrentKF].inverse();
+
+    mpTracker->ForceRelocalisation( oldTwi*mg2oScw);
+
+    mpMap->SetFlagAfterBA();
     mLastLoopKFid = mpCurrentKF->mnFrameId;
 }
 void LoopClosing::CorrectLoopSE3()
@@ -556,14 +575,20 @@ void LoopClosing::CorrectLoopSE3()
     // Avoid new keyframes are inserted while correcting the loop
     mpLocalMapper->RequestStop();
 
+#ifdef SLAM_USE_ROS
     // Wait until Local Mapping has effectively stopped
-//    ros::Rate r(1e4);
+    ros::Rate r(1e4);
+    while(ros::ok() && !mpLocalMapper->isStopped())
+    {
+        r.sleep();
+    }
+#else
     while( !mpLocalMapper->isStopped())
     {
-            boost::this_thread::sleep(boost::posix_time::milliseconds(1));
-//        r.sleep();
+        boost::this_thread::sleep(boost::posix_time::milliseconds(1));
     }
-    cout<<("Loop Closure starts!");
+#endif
+    cout<<("Loop closure starts!");
     // Ensure current keyframe is updated
     mpCurrentKF->UpdateConnections();
 
@@ -572,7 +597,7 @@ void LoopClosing::CorrectLoopSE3()
     mvpCurrentConnectedKFs.push_back(mpCurrentKF);
 
     KeyFrameAndSE3Pose CorrectedSE3, NonCorrectedSE3;
-  //  assert(abs(mg2oScw.scale()-1.0)<0.2);
+    assert(abs(mg2oScw.scale()-1.0)<0.2);
     SLAM_DEBUG_STREAM("mg2oScw.scale() "<< mg2oScw.scale());
     Sophus::SE3d g2oTcw(mg2oScw.rotation(), mg2oScw.translation()/mg2oScw.scale());
     CorrectedSE3[mpCurrentKF]=g2oTcw;
@@ -694,15 +719,16 @@ void LoopClosing::CorrectLoopSE3()
 
     // Loop closed. Release Local Mapping.
     mpLocalMapper->Release();
-    mpTracker->ForceRelocalisation();
+
+    Sophus::SE3d oldTwi=NonCorrectedSE3[mpCurrentKF].inverse();
+
+    Sophus::SE3d Tneww2oldw= oldTwi*mpCurrentKF->GetPose();
+
+    mpTracker->ForceRelocalisation(g2o::Sim3( Tneww2oldw.unit_quaternion(), Tneww2oldw.translation(), 1));
 
     mpMap->SetFlagAfterBA();
     mLastLoopKFid = mpCurrentKF->mnFrameId;
 
-    Sophus::SE3d oldTwi=NonCorrectedSE3[mpCurrentKF].inverse();
-    boost::mutex::scoped_lock lock(mMutexTDelta);
-    mbTemporalFramesUpdated=false;
-    mTneww2oldw= oldTwi*mpCurrentKF->GetPose();
 }
 void LoopClosing::SearchAndFuse(KeyFrameAndPose &CorrectedPosesMap)
 {
@@ -734,17 +760,23 @@ void LoopClosing::RequestReset()
         boost::mutex::scoped_lock lock(mMutexReset);
         mbResetRequested = true;
     }
-
-//    ros::Rate r(500);
-    while(1)//ros::ok())
+#ifdef SLAM_USE_ROS
+    ros::Rate r(500);
+    while(ros::ok())
+#else
+    while(1)
+#endif
     {
         {
         boost::mutex::scoped_lock lock2(mMutexReset);
         if(!mbResetRequested)
             break;
         }
-            boost::this_thread::sleep(boost::posix_time::milliseconds(1));
-//        r.sleep();
+#ifdef SLAM_USE_ROS
+        r.sleep();
+#else
+        boost::this_thread::sleep(boost::posix_time::milliseconds(1));
+#endif
     }
 }
 

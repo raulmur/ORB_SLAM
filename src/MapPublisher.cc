@@ -28,7 +28,7 @@ namespace ORB_SLAM
 
 MapPublisher::MapPublisher(Map* pMap):mpMap(pMap), mbCameraUpdated(false)
 {
-    const char* MAP_FRAME_ID = "/ORB_SLAM/World";
+    const char* MAP_FRAME_ID = "/ORBSLAM_DWO/World";
     const char* POINTS_NAMESPACE = "MapPoints";
     const char* KEYFRAMES_NAMESPACE = "KeyFrames";
     const char* GRAPH_NAMESPACE = "Graph";
@@ -107,7 +107,7 @@ MapPublisher::MapPublisher(Map* pMap):mpMap(pMap), mbCameraUpdated(false)
     mReferencePoints.color.a = 1.0;
 
     //Configure Publisher
-    publisher = nh.advertise<visualization_msgs::Marker>("ORB_SLAM/Map", 10);
+    publisher = nh.advertise<visualization_msgs::Marker>("ORBSLAM_DWO/Map", 10);
 
     publisher.publish(mPoints);
     publisher.publish(mReferencePoints);
@@ -120,7 +120,7 @@ void MapPublisher::Refresh()
 {
     if(isCamUpdated())
     {
-       cv::Mat Tcw = GetCurrentCameraPose();
+       Sophus::SE3d Tcw = GetCurrentCameraPose();
        PublishCurrentCamera(Tcw);
        ResetCamFlag();
     }
@@ -149,23 +149,23 @@ void MapPublisher::PublishMapPoints(const vector<MapPoint*> &vpMPs, const vector
         if(vpMPs[i]->isBad() || spRefMPs.count(vpMPs[i]))
             continue;
         geometry_msgs::Point p;
-        cv::Mat pos = vpMPs[i]->GetWorldPos();
-        p.x=pos.at<float>(0);
-        p.y=pos.at<float>(1);
-        p.z=pos.at<float>(2);
+        Eigen::Vector3d pos = vpMPs[i]->GetWorldPos();
+        p.x=pos(0);
+        p.y=pos(1);
+        p.z=pos(2);
 
         mPoints.points.push_back(p);
     }
 
     for(set<MapPoint*>::iterator sit=spRefMPs.begin(), send=spRefMPs.end(); sit!=send; sit++)
     {
-        if((*sit)->isBad())
+        if((*sit)==NULL || (*sit)->isBad())
             continue;
         geometry_msgs::Point p;
-        cv::Mat pos = (*sit)->GetWorldPos();
-        p.x=pos.at<float>(0);
-        p.y=pos.at<float>(1);
-        p.z=pos.at<float>(2);
+        Eigen::Vector3d pos = (*sit)->GetWorldPos();
+        p.x=pos(0);
+        p.y=pos(1);
+        p.z=pos(2);
 
         mReferencePoints.points.push_back(p);
     }
@@ -185,38 +185,38 @@ void MapPublisher::PublishKeyFrames(const vector<KeyFrame*> &vpKFs)
     float d = fCameraSize;
 
     //Camera is a pyramid. Define in camera coordinate system
-    cv::Mat o = (cv::Mat_<float>(4,1) << 0, 0, 0, 1);
-    cv::Mat p1 = (cv::Mat_<float>(4,1) << d, d*0.8, d*0.5, 1);
-    cv::Mat p2 = (cv::Mat_<float>(4,1) << d, -d*0.8, d*0.5, 1);
-    cv::Mat p3 = (cv::Mat_<float>(4,1) << -d, -d*0.8, d*0.5, 1);
-    cv::Mat p4 = (cv::Mat_<float>(4,1) << -d, d*0.8, d*0.5, 1);
+    //Eigen::Vector3d o( 0, 0, 0);
+    Eigen::Vector3d p1( d, d*0.8, d*0.5);
+    Eigen::Vector3d p2( d, -d*0.8, d*0.5);
+    Eigen::Vector3d p3( -d, -d*0.8, d*0.5);
+    Eigen::Vector3d p4( -d, d*0.8, d*0.5);
 
     for(size_t i=0, iend=vpKFs.size() ;i<iend; i++)
     {
-        cv::Mat Tcw = vpKFs[i]->GetPose();
-        cv::Mat Twc = Tcw.inv();
-        cv::Mat ow = vpKFs[i]->GetCameraCenter();
-        cv::Mat p1w = Twc*p1;
-        cv::Mat p2w = Twc*p2;
-        cv::Mat p3w = Twc*p3;
-        cv::Mat p4w = Twc*p4;
+        Sophus::SE3d Tcw = vpKFs[i]->GetPose();
+        Sophus::SE3d Twc = Tcw.inverse();
+        Eigen::Vector3d ow = vpKFs[i]->GetCameraCenter();
+        Eigen::Vector3d p1w = Twc*p1;
+        Eigen::Vector3d p2w = Twc*p2;
+        Eigen::Vector3d p3w = Twc*p3;
+        Eigen::Vector3d p4w = Twc*p4;
 
         geometry_msgs::Point msgs_o,msgs_p1, msgs_p2, msgs_p3, msgs_p4;
-        msgs_o.x=ow.at<float>(0);
-        msgs_o.y=ow.at<float>(1);
-        msgs_o.z=ow.at<float>(2);
-        msgs_p1.x=p1w.at<float>(0);
-        msgs_p1.y=p1w.at<float>(1);
-        msgs_p1.z=p1w.at<float>(2);
-        msgs_p2.x=p2w.at<float>(0);
-        msgs_p2.y=p2w.at<float>(1);
-        msgs_p2.z=p2w.at<float>(2);
-        msgs_p3.x=p3w.at<float>(0);
-        msgs_p3.y=p3w.at<float>(1);
-        msgs_p3.z=p3w.at<float>(2);
-        msgs_p4.x=p4w.at<float>(0);
-        msgs_p4.y=p4w.at<float>(1);
-        msgs_p4.z=p4w.at<float>(2);
+        msgs_o.x=ow(0);
+        msgs_o.y=ow(1);
+        msgs_o.z=ow(2);
+        msgs_p1.x=p1w(0);
+        msgs_p1.y=p1w(1);
+        msgs_p1.z=p1w(2);
+        msgs_p2.x=p2w(0);
+        msgs_p2.y=p2w(1);
+        msgs_p2.z=p2w(2);
+        msgs_p3.x=p3w(0);
+        msgs_p3.y=p3w(1);
+        msgs_p3.z=p3w(2);
+        msgs_p4.x=p4w(0);
+        msgs_p4.y=p4w(1);
+        msgs_p4.z=p4w(2);
 
         mKeyFrames.points.push_back(msgs_o);
         mKeyFrames.points.push_back(msgs_p1);
@@ -243,11 +243,11 @@ void MapPublisher::PublishKeyFrames(const vector<KeyFrame*> &vpKFs)
             {
                 if((*vit)->mnId<vpKFs[i]->mnId)
                     continue;
-                cv::Mat Ow2 = (*vit)->GetCameraCenter();
+                Eigen::Vector3d Ow2 = (*vit)->GetCameraCenter();
                 geometry_msgs::Point msgs_o2;
-                msgs_o2.x=Ow2.at<float>(0);
-                msgs_o2.y=Ow2.at<float>(1);
-                msgs_o2.z=Ow2.at<float>(2);
+                msgs_o2.x=Ow2(0);
+                msgs_o2.y=Ow2(1);
+                msgs_o2.z=Ow2(2);
                 mCovisibilityGraph.points.push_back(msgs_o);
                 mCovisibilityGraph.points.push_back(msgs_o2);
             }
@@ -257,11 +257,11 @@ void MapPublisher::PublishKeyFrames(const vector<KeyFrame*> &vpKFs)
         KeyFrame* pParent = vpKFs[i]->GetParent();
         if(pParent)
         {
-            cv::Mat Owp = pParent->GetCameraCenter();
+            Eigen::Vector3d Owp = pParent->GetCameraCenter();
             geometry_msgs::Point msgs_op;
-            msgs_op.x=Owp.at<float>(0);
-            msgs_op.y=Owp.at<float>(1);
-            msgs_op.z=Owp.at<float>(2);
+            msgs_op.x=Owp(0);
+            msgs_op.y=Owp(1);
+            msgs_op.z=Owp(2);
             mMST.points.push_back(msgs_o);
             mMST.points.push_back(msgs_op);
         }
@@ -270,11 +270,11 @@ void MapPublisher::PublishKeyFrames(const vector<KeyFrame*> &vpKFs)
         {
             if((*sit)->mnId<vpKFs[i]->mnId)
                 continue;
-            cv::Mat Owl = (*sit)->GetCameraCenter();
+            Eigen::Vector3d Owl = (*sit)->GetCameraCenter();
             geometry_msgs::Point msgs_ol;
-            msgs_ol.x=Owl.at<float>(0);
-            msgs_ol.y=Owl.at<float>(1);
-            msgs_ol.z=Owl.at<float>(2);
+            msgs_ol.x=Owl(0);
+            msgs_ol.y=Owl(1);
+            msgs_ol.z=Owl(2);
             mMST.points.push_back(msgs_o);
             mMST.points.push_back(msgs_ol);
         }
@@ -289,42 +289,42 @@ void MapPublisher::PublishKeyFrames(const vector<KeyFrame*> &vpKFs)
     publisher.publish(mMST);
 }
 
-void MapPublisher::PublishCurrentCamera(const cv::Mat &Tcw)
+void MapPublisher::PublishCurrentCamera(const Sophus::SE3d &Tcw)
 {
     mCurrentCamera.points.clear();
 
     float d = fCameraSize;
 
     //Camera is a pyramid. Define in camera coordinate system
-    cv::Mat o = (cv::Mat_<float>(4,1) << 0, 0, 0, 1);
-    cv::Mat p1 = (cv::Mat_<float>(4,1) << d, d*0.8, d*0.5, 1);
-    cv::Mat p2 = (cv::Mat_<float>(4,1) << d, -d*0.8, d*0.5, 1);
-    cv::Mat p3 = (cv::Mat_<float>(4,1) << -d, -d*0.8, d*0.5, 1);
-    cv::Mat p4 = (cv::Mat_<float>(4,1) << -d, d*0.8, d*0.5, 1);
+    Eigen::Vector3d o( 0, 0, 0);
+    Eigen::Vector3d p1( d, d*0.8, d*0.5);
+    Eigen::Vector3d p2( d, -d*0.8, d*0.5);
+    Eigen::Vector3d p3( -d, -d*0.8, d*0.5);
+    Eigen::Vector3d p4( -d, d*0.8, d*0.5);
 
-    cv::Mat Twc = Tcw.inv();
-    cv::Mat ow = Twc*o;
-    cv::Mat p1w = Twc*p1;
-    cv::Mat p2w = Twc*p2;
-    cv::Mat p3w = Twc*p3;
-    cv::Mat p4w = Twc*p4;
+    Sophus::SE3d Twc = Tcw.inverse();
+    Eigen::Vector3d ow = Twc*o;
+    Eigen::Vector3d p1w = Twc*p1;
+    Eigen::Vector3d p2w = Twc*p2;
+    Eigen::Vector3d p3w = Twc*p3;
+    Eigen::Vector3d p4w = Twc*p4;
 
     geometry_msgs::Point msgs_o,msgs_p1, msgs_p2, msgs_p3, msgs_p4;
-    msgs_o.x=ow.at<float>(0);
-    msgs_o.y=ow.at<float>(1);
-    msgs_o.z=ow.at<float>(2);
-    msgs_p1.x=p1w.at<float>(0);
-    msgs_p1.y=p1w.at<float>(1);
-    msgs_p1.z=p1w.at<float>(2);
-    msgs_p2.x=p2w.at<float>(0);
-    msgs_p2.y=p2w.at<float>(1);
-    msgs_p2.z=p2w.at<float>(2);
-    msgs_p3.x=p3w.at<float>(0);
-    msgs_p3.y=p3w.at<float>(1);
-    msgs_p3.z=p3w.at<float>(2);
-    msgs_p4.x=p4w.at<float>(0);
-    msgs_p4.y=p4w.at<float>(1);
-    msgs_p4.z=p4w.at<float>(2);
+    msgs_o.x=ow(0);
+    msgs_o.y=ow(1);
+    msgs_o.z=ow(2);
+    msgs_p1.x=p1w(0);
+    msgs_p1.y=p1w(1);
+    msgs_p1.z=p1w(2);
+    msgs_p2.x=p2w(0);
+    msgs_p2.y=p2w(1);
+    msgs_p2.z=p2w(2);
+    msgs_p3.x=p3w(0);
+    msgs_p3.y=p3w(1);
+    msgs_p3.z=p3w(2);
+    msgs_p4.x=p4w(0);
+    msgs_p4.y=p4w(1);
+    msgs_p4.z=p4w(2);
 
     mCurrentCamera.points.push_back(msgs_o);
     mCurrentCamera.points.push_back(msgs_p1);
@@ -348,17 +348,17 @@ void MapPublisher::PublishCurrentCamera(const cv::Mat &Tcw)
     publisher.publish(mCurrentCamera);
 }
 
-void MapPublisher::SetCurrentCameraPose(const cv::Mat &Tcw)
+void MapPublisher::SetCurrentCameraPose(const Sophus::SE3d &Tcw)
 {
     boost::mutex::scoped_lock lock(mMutexCamera);
-    mCameraPose = Tcw.clone();
+    mCameraPose = Tcw;
     mbCameraUpdated = true;
 }
 
-cv::Mat MapPublisher::GetCurrentCameraPose()
+Sophus::SE3d MapPublisher::GetCurrentCameraPose()
 {
     boost::mutex::scoped_lock lock(mMutexCamera);
-    return mCameraPose.clone();
+    return mCameraPose;
 }
 
 bool MapPublisher::isCamUpdated()

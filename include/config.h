@@ -136,7 +136,7 @@ public:
     /// do we use a decay motion model
     static bool &useDecayVelocityModel(){return getInstance().use_decay_velocity_model;}
     /// temporal window size not counting the previous and current frame
-    static int &temporalWindowSize(){return getInstance().temporal_window_size;}
+    static size_t &temporalWindowSize(){return getInstance().temporal_window_size;}
     /// spatial window size of keyframes
     static int &spatialWindowSize(){return getInstance().spatial_window_size;}
 private:
@@ -181,7 +181,7 @@ private:
     float crop_roi_xl;
     float crop_roi_xr;
     bool use_decay_velocity_model;
-    int temporal_window_size;
+    size_t temporal_window_size;
     int spatial_window_size;
 };
 

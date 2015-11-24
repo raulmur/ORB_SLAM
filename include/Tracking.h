@@ -33,8 +33,6 @@
 #include "stereoSFM.h"
 #include<opencv2/core/core.hpp>
 #include<opencv2/features2d/features2d.hpp>
-//#include<sensor_msgs/Image.h>
-//#include<sensor_msgs/image_encodings.h>
 
 #include"FramePublisher.h"
 #include"Map.h"
@@ -47,7 +45,12 @@
 #include "Initializer.h"
 #include "MapPublisher.h"
 
-//#include<tf/transform_broadcaster.h>
+#ifdef SLAM_USE_ROS
+#include<sensor_msgs/Image.h>
+#include<sensor_msgs/image_encodings.h>
+#include<tf/transform_broadcaster.h>
+#endif
+
 #include <deque> //for temporal window of frames
 
 namespace ORB_SLAM
@@ -61,8 +64,13 @@ class LoopClosing;
 class Tracking
 {  
 public:
+#ifdef SLAM_USE_ROS
+    Tracking(ORBVocabulary* pVoc,FramePublisher* pFramePublisher, MapPublisher* pMapPublisher,
+             Map* pMap, string strSettingPath);
+#else
     Tracking(ORBVocabulary* pVoc,FramePublisher* pFramePublisher, /*MapPublisher* pMapPublisher,*/
              Map* pMap, string strSettingPath);
+#endif
     ~Tracking();
     enum eTrackingState{
         SYSTEM_NOT_READY=-1,
@@ -72,7 +80,7 @@ public:
         WORKING=3,
         LOST=4
     };
-
+    double GetFPS() const {return (double)mFps;}
     void SetLocalMapper(LocalMapping* pLocalMapper);
     void SetLoopClosing(LoopClosing* pLoopClosing);
     void SetKeyFrameDatabase(KeyFrameDatabase* pKFDB);
@@ -81,7 +89,14 @@ public:
     // This is the main function of the Tracking Thread
     void Run();
 
-    void ForceRelocalisation();
+    void ForceRelocalisation(const g2o::Sim3 );
+    Sophus::Sim3d GetSnew2old(){
+        return Sophus::Sim3d(Sophus::RxSO3d(mSneww2oldw.scale(), Sophus::SO3d(mSneww2oldw.rotation())), mSneww2oldw.translation());
+    }
+    Sophus::SE3d GetTnew2old(){
+        return Sophus::SE3d(mSneww2oldw.rotation(), mSneww2oldw.translation()/mSneww2oldw.scale());
+    }
+
     void CheckResetByPublishers();
     void setCoreKfs(std::vector<KeyFrame*> &);
     /// Optimize some of the observed 3D points.
@@ -92,6 +107,7 @@ public:
 
     // Current Frame
     Frame* mpCurrentFrame;
+    Frame* mpLastFrame; //last left frame
     FramePtr mpCurrentRightFrame;
     // Initialization Variables
     std::vector<int> mvIniLastMatches;
@@ -128,9 +144,9 @@ protected:
     void FirstInitialization();
 
     void Initialize();
-    void CreateInitialMap(Eigen::Matrix3d Rcw, Eigen::Vector3d tcw, float upscale=0.f);
+    void CreateInitialMap(Eigen::Matrix3d Rcw, Eigen::Vector3d tcw, double norm_tcinw=0);
     void CreateInitialMapStereo(const Sophus::SE3d &Tcw, const std::vector<p_match> &vQuadMatches);
-    void CreateInitialMapStereo(const Sophus::SE3d & Tcw, const std::vector<int> &vIniMatches);
+
     void Reset();
 
     bool TrackPreviousFrame();
@@ -138,7 +154,7 @@ protected:
     bool TrackWithMotionModel();
 
     bool RelocalisationRequested();
-    bool Relocalisation();    
+    bool Relocalisation();
 
     void UpdateReference();
     void UpdateReferencePoints();
@@ -202,7 +218,7 @@ protected:
 
     std::vector<KeyFrame*> mvpOldLocalKeyFrames;
     std::deque <Frame*> mvpTemporalFrames;
-    const int mnTemporalWinSize; // the current frame and its previous frame is not counted here
+    const size_t mnTemporalWinSize; // the current frame and its previous frame is not counted here
     const int mnSpatialWinSize; // keyframes in the temporal window is not counted
     //Publishers
     FramePublisher* mpFramePublisher;
@@ -235,12 +251,11 @@ protected:
 
     //Last Frame, KeyFrame and Relocalisation Info
     KeyFrame* mpLastKeyFrame;
-    Frame* mpLastFrame; //last left frame
+
     unsigned int mnLastKeyFrameId;
     unsigned int mnLastRelocFrameId;
 
-    //Mutex
-    boost::mutex mMutexTrack;
+    //Mutex  
     boost::mutex mMutexForceRelocalisation;
 
     //Reset
@@ -250,26 +265,28 @@ protected:
 
     //Is relocalisation requested by an external thread? (loop closing)
     bool mbForceRelocalisation;
+    g2o::Sim3 mSneww2oldw; // let $S_w^{c_{old}}$ and $S_w^{c_{new}}$ denote
+    // pose of the current keyframe before and after loop optimization, then mSneww2oldw is $(S_w^{c_{old}})^{-1}S_w^{c_{new}}$
 
     //Motion Model
-    bool mbMotionModel;
     Sophus::SE3d mVelocity; //T prev to curr
 
     //Color order (true RGB, false BGR, ignored if grayscale)
     bool mbRGB;
 
+#ifdef SLAM_USE_ROS
     // Transfor broadcaster (for visualization in rviz)
-//    tf::TransformBroadcaster mTfBr;
+    tf::TransformBroadcaster mTfBr;
+#endif
     //IMU related parameters
     bool mbUseIMUData;
     double imu_sample_interval;             //sampling interval in second
     ScaViSLAM::G2oIMUParameters imu_;
     static const int MAGIC2=2;         //we use 2*i to identify pose vertices and 2*i+1 for speeb bias vertices in g2o optimizer
     int mnStartId; // used to offset the ID of frames
-    int mnFinishId; // used to offset the ID of map point in g2o optimizer
+
     const int mnFeatures;// how many point features in a frame
-    cv::Mat mLastLeftImg;
-    cv::Mat mLastRightImg; //for quad matches orb extraction, only used by ProcessFrameViso2
+
     PointStatistics point_stats;
     std::vector<KeyFrame*> core_kfs_;                      //!< Keyframes in the closer neighbourhood.
     MotionModel mMotionModel;

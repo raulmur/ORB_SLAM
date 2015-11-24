@@ -54,6 +54,19 @@ Sophus::SE3d Converter::toSE3d(const g2o::SE3Quat &se3q)
 {
    return Sophus::SE3d(se3q.rotation(),se3q.translation());
 }
+
+Sophus::Sim3d Converter::toSim3d(const g2o::Sim3 &se3q)
+{
+   return Sophus::Sim3d(Sophus::RxSO3d(se3q.scale(), Sophus::SO3d(se3q.rotation())),se3q.translation());
+}
+Sophus::Sim3d Converter::toSim3d(const Sophus::SE3d &se3)
+{
+   return Sophus::Sim3d(Sophus::RxSO3d(1.0, Sophus::SO3d(se3.unit_quaternion())),se3.translation());
+}
+Sophus::SE3d Converter::toSE3d(const Sophus::Sim3d &sim3)
+{
+   return Sophus::SE3d(sim3.rotationMatrix(), sim3.translation()/sim3.scale());
+}
 Sophus::SE3d Converter::toSE3d(const cv::Mat &cvT)
 {
     Eigen::Matrix<double,3,3> R;

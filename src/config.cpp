@@ -15,14 +15,14 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #ifdef SLAM_USE_ROS
-#include <vikit/params_helper.h>
+//#include <vikit/params_helper.h>
 #endif
 #include "config.h"
 
 namespace ORB_SLAM {
 
 Config::Config() :
-#ifdef SLAM_USE_ROS
+/*#ifdef SLAM_USE_ROS
     trace_name(vk::getParam<string>("svo/trace_name", "svo")),
     trace_dir(vk::getParam<string>("svo/trace_dir", "/tmp")),
     n_pyr_levels(vk::getParam<int>("svo/n_pyr_levels", 3)),
@@ -52,7 +52,7 @@ Config::Config() :
     max_fts(vk::getParam<int>("svo/max_fts", 120)),
     quality_min_fts(vk::getParam<int>("svo/quality_min_fts", 50)),
     quality_max_drop_fts(vk::getParam<int>("svo/quality_max_drop_fts", 40))
-#else
+#else*/
     trace_name("svo"),
     trace_dir("/tmp"),
     n_pyr_levels(3),
@@ -88,10 +88,10 @@ Config::Config() :
     triang_max_cos_rays(0.99995f),
     pdop_thresh(1e8),
     crop_roi_xl(292), crop_roi_xr(949), //for KITTI set to 292 and 949
-    use_decay_velocity_model(true),
+    use_decay_velocity_model(false),
     temporal_window_size(3),
     spatial_window_size(7)
-#endif
+//#endif
 {}
 
 Config& Config::getInstance()

@@ -20,6 +20,7 @@
 
 #ifndef FRAME_H
 #define FRAME_H
+#include "g2o_types/PointStatistics.h"
 #include <Eigen/Dense>
 #include <viso2/p_match.h> //for matches adopted from libviso2
 
@@ -55,19 +56,20 @@ public:
 
     //monocular
     Frame(cv::Mat &im, const double &timeStamp, ORBextractor* extractor, ORBVocabulary* voc,
-          vk::PinholeCamera* cam,  const Eigen::Vector3d ginc=Eigen::Vector3d::Zero());
+          vk::PinholeCamera* cam,  const Eigen::Vector3d ginc=Eigen::Vector3d::Zero(),
+          const Eigen::Matrix<double, 9,1> sb=Eigen::Matrix<double, 9,1>::Zero());
     // stereo and viso2 stereo matches
     Frame(cv::Mat &im , const double &timeStamp, const int num_features_left,
           cv::Mat &right_img, const int num_features_right,
           const std::vector<p_match> & vStereoMatches, ORBextractor* extractor, ORBVocabulary* voc,
           vk::PinholeCamera* cam, vk::PinholeCamera* right_cam,
           const Sophus::SE3d& Tl2r, const Eigen::Vector3d &ginc, const Eigen::Matrix<double, 9,1> sb);
-    // stereo and viso2 quad matches
+  /*  // stereo and viso2 quad matches
     Frame(cv::Mat &im , const double &timeStamp, const int num_features_left,
           cv::Mat &right_img, const int num_features_right,
            ORBextractor* extractor, ORBVocabulary* voc, vk::PinholeCamera* cam, vk::PinholeCamera* right_cam,
           std::vector<p_match> & vQuadMatches,
-          const Sophus::SE3d& Tl2r, const Eigen::Vector3d &ginc, const Eigen::Matrix<double, 9,1> sb);
+          const Sophus::SE3d& Tl2r, const Eigen::Vector3d &ginc, const Eigen::Matrix<double, 9,1> sb);*/
     // for svo
     Frame(cv::Mat &im , const double &timeStamp, int cam_id,
           ORBextractor* extractor, ORBVocabulary* voc,
@@ -122,6 +124,45 @@ public:
       J(1,5) = -x*z_inv;            // x/z
     }
 
+inline void updatePointStatistics(PointStatistics* stats){
+      stats->num_points_grid2x2.setZero();
+      stats->num_points_grid3x3.setZero();
+      int half_width = Frame::mnMaxX*0.5;
+      int half_height = Frame::mnMaxY*0.5;
+
+      float third = 1./3.;
+      int third_width = cam_->width()*third;
+      int third_height = cam_->height()*third;
+      int twothird_width = cam_->width()*2*third;
+      int twothird_height = cam_->height()*2*third;
+      size_t jack=0;
+      Frame * frame= this;
+      for (auto it=frame->mvpMapPoints.begin(), ite= frame->mvpMapPoints.end();
+           it!=ite; ++it, ++jack)
+      {
+          if((*it)==NULL) continue;
+          const cv::Point2f & uv = frame->mvKeysUn[jack].pt;
+          int i = 1;
+          int j = 1;
+          if (uv.x<half_width)
+              i = 0;
+          if (uv.y<half_height)
+              j = 0;
+          ++(stats->num_points_grid2x2(i,j));
+
+          i = 2;
+          j = 2;
+          if (uv.x<third_width)
+              i = 0;
+          else if (uv.x<twothird_width)
+              i = 1;
+          if (uv.y<third_height)
+              j = 0;
+          else if (uv.y<twothird_height)
+              j = 1;
+          ++(stats->num_points_grid3x3(i,j));
+      }
+  }
 
     Eigen::Matrix3d ComputeFlr(Frame* pRightF, const Sophus::SE3d & Tl2r);
     void SetIMUObservations(const std::vector<Eigen::Matrix<double, 7, 1> >&  );
@@ -252,104 +293,7 @@ void remapQuadMatches(std::vector<p_match>& vQuadMatches, const std::vector<int>
 void createImgPyramid(const cv::Mat& img_level_0, int n_levels, ImgPyr& pyr);
 bool getSceneDepth(Frame& frame, double& depth_mean, double& depth_min);
 typedef boost::shared_ptr<Frame> FramePtr;
-struct PointStatistics
-{
-  PointStatistics(int USE_N_LEVELS_FOR_MATCHING=0)
-    : num_matched_points(USE_N_LEVELS_FOR_MATCHING)
-  {
-    num_points_grid2x2.setZero();
-    num_points_grid3x3.setZero();
 
-    for (int l=0; l<USE_N_LEVELS_FOR_MATCHING; ++l)
-    {
-      num_matched_points[l]=0;
-    }
-  }
-  PointStatistics(const PointStatistics & other)
-  {
-      num_matched_points=other.num_matched_points;
-      num_points_grid2x2=other.num_points_grid2x2;
-      num_points_grid3x3=other.num_points_grid3x3;
-  }
-  PointStatistics & operator=(const PointStatistics & other)
-  {
-      if(this==&other)
-          return *this;
-      num_matched_points=other.num_matched_points;
-      num_points_grid2x2=other.num_points_grid2x2;
-      num_points_grid3x3=other.num_points_grid3x3;
-      return *this;
-  }
-  ~PointStatistics()
-  {
-     num_matched_points.clear();
-  }
-  bool isWellDistributed()
-  {
-      double deviation=0;
-      for(int i=0; i<2; ++i)
-          for(int j=0; j<2; ++j)
-              deviation+=abs(num_points_grid3x3(i,j)/num_matched_points[0]-1/9.0);
-      return deviation<3/9.0;
-  }
-  void updatePointStatistics(Frame* frame){
-      num_points_grid2x2.setZero();
-      num_points_grid3x3.setZero();
-      int half_width = Frame::mnMaxX*0.5;
-      int half_height = Frame::mnMaxY*0.5;
-
-      float third = 1./3.;
-      int third_width = frame->cam_->width()*third;
-      int third_height =frame->cam_->height()*third;
-      int twothird_width = frame->cam_->width()*2*third;
-      int twothird_height = frame->cam_->height()*2*third;
-      size_t jack=0;
-      for (auto it=frame->mvpMapPoints.begin(), ite= frame->mvpMapPoints.end();
-           it!=ite; ++it, ++jack)
-      {
-          if((*it)==NULL) continue;
-          const cv::Point2f & uv = frame->mvKeysUn[jack].pt;
-          int i = 1;
-          int j = 1;
-          if (uv.x<half_width)
-              i = 0;
-          if (uv.y<half_height)
-              j = 0;
-          ++(num_points_grid2x2(i,j));
-
-          i = 2;
-          j = 2;
-          if (uv.x<third_width)
-              i = 0;
-          else if (uv.x<twothird_width)
-              i = 1;
-          if (uv.y<third_height)
-              j = 0;
-          else if (uv.y<twothird_height)
-              j = 1;
-          ++(num_points_grid3x3(i,j));
-      }
-  }
-  int numFeatureLessCorners3x3(int n_featureless_cell_thr=10){
-      int num_featuerless_corners=0;
-      for (int i=0; i<3; ++i)
-          for (int j=0; j<3; ++j)
-              if (num_points_grid3x3(i,j)<n_featureless_cell_thr)
-                  ++num_featuerless_corners;
-      return num_featuerless_corners;
-  }
-  int numFeatureLessCorners2x2(int n_featureless_cell_thr=15){
-      int num_featuerless_corners=0;
-      for (int i=0; i<2; ++i)
-          for (int j=0; j<2; ++j)
-              if (num_points_grid2x2(i,j)<n_featureless_cell_thr)
-                  ++num_featuerless_corners;
-      return num_featuerless_corners;
-  }
-  std::vector<int> num_matched_points; //number of matched points at each pyramid level
-  Eigen::Matrix2i num_points_grid2x2;
-  Eigen::Matrix3i num_points_grid3x3;//number of points in each cell of the 3x3 grid at level 0
-};
 }// namespace ORB_SLAM
 
 #endif // FRAME_H

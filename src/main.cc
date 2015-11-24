@@ -20,8 +20,12 @@
 
 #include<iostream>
 #include<fstream>
-////#include<ros/ros.h>
-//#include<ros/package.h>
+
+#ifdef SLAM_USE_ROS
+#include<ros/ros.h>
+#include<ros/package.h>
+#endif
+
 #include<boost/thread.hpp>
 
 #include<opencv2/core/core.hpp>
@@ -43,18 +47,21 @@ using namespace std;
 
 int main(int argc, char **argv)
 {
-//    ros::init(argc, argv, "ORB_SLAM");
-//    ros::start();
-
-    cout << endl << "ORB-SLAM Copyright (C) 2014 Raul Mur-Artal" << endl <<
+#ifdef SLAM_USE_ROS
+    ros::init(argc, argv, "ORBSLAM_DWO");
+    ros::start();
+#endif
+    cout << endl << "ORBSLAM_DWO Copyright (C) 2014 Raul Mur-Artal, 2015 Jianzhu Huai" << endl <<
             "This program comes with ABSOLUTELY NO WARRANTY;" << endl  <<
             "This is free software, and you are welcome to redistribute it" << endl <<
             "under certain conditions. See LICENSE.txt." << endl;
 
     if(argc != 2)
     {
-        cerr << endl << "Usage: ORB_SLAM path_to_settings (absolute or relative to package directory)" << endl;
-//        ros::shutdown();
+        cerr << endl << "Usage: executable_name path_to_settings (absolute or relative to package directory)" << endl;
+#ifdef SLAM_USE_ROS
+        ros::shutdown();
+#endif
         return 1;
     }
 
@@ -66,7 +73,9 @@ int main(int argc, char **argv)
     if(!fsSettings.isOpened())
     {
         cerr<<("Wrong path to settings. Path must be absolut or relative to ORB_SLAM package directory.");
-//        ros::shutdown();
+ #ifdef SLAM_USE_ROS
+        ros::shutdown();
+#endif
         return 1;
     }
 
@@ -88,7 +97,9 @@ int main(int argc, char **argv)
         {
             cerr << "Wrong path to vocabulary. Path must be absolut or relative to ORB_SLAM package directory." << endl;
             cerr << "Falied to open at: " << strVocFile << endl;
-            //        ros::shutdown();
+#ifdef SLAM_USE_ROS
+            ros::shutdown();
+#endif
             return 1;
         }
         Vocabulary.load(fsVoc);
@@ -101,13 +112,17 @@ int main(int argc, char **argv)
         {
             cerr << "Wrong path to vocabulary. Path must be absolut or relative to ORB_SLAM package directory." << endl;
             cerr << "Falied to open at: " << strVocFile << endl;
-            //        ros::shutdown();
+#ifdef SLAM_USE_ROS
+            ros::shutdown();
+#endif
             return 1;
         }
     }else {
         cerr << "Wrong path to vocabulary. Path must be absolut or relative to ORB_SLAM package directory." << endl;
         cerr << "Falied to open at: " << strVocFile << endl;
-        //        ros::shutdown();
+#ifdef SLAM_USE_ROS
+        ros::shutdown();
+#endif
         return 1;
     }
     cout << "Vocabulary loaded!" << endl << endl;
@@ -119,12 +134,15 @@ int main(int argc, char **argv)
     ORB_SLAM::Map World;
 
     FramePub.SetMap(&World);
-
+#ifdef SLAM_USE_ROS
     //Create Map Publisher for Rviz
-    //ORB_SLAM::MapPublisher MapPub(&World);
-
+    ORB_SLAM::MapPublisher MapPub(&World);
     //Initialize the Tracking Thread and launch
+    ORB_SLAM::Tracking Tracker(&Vocabulary, &FramePub, &MapPub, &World, strSettingsFile);
+#else
     ORB_SLAM::Tracking Tracker(&Vocabulary, &FramePub, /*&MapPub,*/ &World, strSettingsFile);
+#endif
+
 //    boost::thread trackingThread(&ORB_SLAM::Tracking::Run,&Tracker);
 
     Tracker.SetKeyFrameDatabase(&Database);
@@ -147,20 +165,21 @@ int main(int argc, char **argv)
     LoopCloser.SetTracker(&Tracker);
     LoopCloser.SetLocalMapper(&LocalMapper);
 
-    //This "main" thread will show the current processed frame and publish the map
 	Tracker.Run();    
-/*float fps = fsSettings["Camera.fps"];
+    loopClosingThread.join();
+    localMappingThread.join();
+/*  //This "main" thread will show the current processed frame and publish the map
+    float fps = fsSettings["Camera.fps"];
     if(fps==0)
         fps=30;
 
-    //   ros::Rate r(fps);
-    while (true) //ros::ok())
+    ros::Rate r(fps);
+    while (ros::ok())
     {
         FramePub.Refresh();
-//        MapPub.Refresh();
+        MapPub.Refresh();
         Tracker.CheckResetByPublishers();
-        boost::this_thread::sleep(boost::posix_time::milliseconds(1000/fps));
-//        r.sleep();
+        r.sleep();
     }*/
 
 /*    // Save keyframe poses at the end of the execution
@@ -187,14 +206,15 @@ int main(int argc, char **argv)
          << " " << q[0] << " " << q[1] << " " << q[2] << " " << q[3] << endl;
 
     }
-    f.close();
-    ros::shutdown();*/
+    f.close();*/
 
     assert(!(LocalMapper.stopRequested() || LocalMapper.isStopped()));
-    loopClosingThread.interrupt();
-    loopClosingThread.join();
-
+#ifdef SLAM_USE_ROS
+    ros::shutdown();
+#else
+    loopClosingThread.interrupt();// we cannot interrupt a thread that does not use boost::sleep()
     localMappingThread.interrupt();
-    localMappingThread.join();
+#endif
+
     return 0;
 }

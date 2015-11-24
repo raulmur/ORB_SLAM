@@ -35,6 +35,9 @@
 namespace ScaViSLAM{
 
 Matrix6d third(const Sophus::SE3d & A, const Vector6d & d);
+g2o::OptimizableGraph::Vertex*  GET_MAP_ELEM(const int & key,
+                            const g2o::OptimizableGraph::VertexIDMap & m);
+
 class G2oCameraParameters : public g2o::Parameter
 {
 public:
@@ -97,7 +100,8 @@ public:
   //for first estimate Jacobians
   Sophus::SE3d* first_estimate;
 };
-
+//This vertex can be used to represent both Euclidean coordinates XYZ and inverse depth coordinates (X/Z, Y/Z, 1/Z)
+//Please check its related G2oEdges to tell which representation is used.
 class G2oVertexPointXYZ : public g2o::BaseVertex<3, Eigen::Vector3d>
 {
 public:
@@ -126,7 +130,6 @@ public:
   }
   Eigen::Vector3d* first_estimate;
 };
-
 
 
 class G2oEdgeProjectXYZ2UV : public g2o::BaseBinaryEdge<2, Eigen::Vector2d, G2oVertexPointXYZ, G2oVertexSE3>{
