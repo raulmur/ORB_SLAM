@@ -29,6 +29,7 @@ long unsigned int Frame::nNextId=0;
 bool Frame::mbInitialComputations=true;
 float Frame::cx, Frame::cy, Frame::fx, Frame::fy;
 int Frame::mnMinX, Frame::mnMinY, Frame::mnMaxX, Frame::mnMaxY;
+float Frame::mfGridElementWidthInv, Frame::mfGridElementHeightInv;
 
 Frame::Frame()
 {}
@@ -39,7 +40,7 @@ Frame::Frame(const Frame &frame)
      mK(frame.mK.clone()), mDistCoef(frame.mDistCoef.clone()), N(frame.N), mvKeys(frame.mvKeys), mvKeysUn(frame.mvKeysUn),
      mBowVec(frame.mBowVec), mFeatVec(frame.mFeatVec), mDescriptors(frame.mDescriptors.clone()),
      mvpMapPoints(frame.mvpMapPoints), mvbOutlier(frame.mvbOutlier),
-     mfGridElementWidthInv(frame.mfGridElementWidthInv), mfGridElementHeightInv(frame.mfGridElementHeightInv),mnId(frame.mnId),
+     mnId(frame.mnId),
      mpReferenceKF(frame.mpReferenceKF), mnScaleLevels(frame.mnScaleLevels), mfScaleFactor(frame.mfScaleFactor),
      mvScaleFactors(frame.mvScaleFactors), mvLevelSigma2(frame.mvLevelSigma2), mvInvLevelSigma2(frame.mvInvLevelSigma2)
 {
