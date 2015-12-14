@@ -85,8 +85,8 @@ public:
     std::vector<bool> mvbOutlier;
 
     // Keypoints are assigned to cells in a grid to reduce matching complexity when projecting MapPoints
-    float mfGridElementWidthInv;
-    float mfGridElementHeightInv;
+    static float mfGridElementWidthInv;
+    static float mfGridElementHeightInv;
     std::vector<std::size_t> mGrid[FRAME_GRID_COLS][FRAME_GRID_ROWS];
 
     // Camera Pose
