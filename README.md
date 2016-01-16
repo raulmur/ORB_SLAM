@@ -65,7 +65,7 @@ We make use of some components of the DBoW2 and DLib library (see original at ht
 
 #3. Installation
 
-1. Make sure you have installed ROS and all library dependencies (boost, eigen3, cholmod, blas, lapack).
+1. Make sure you have installed ROS and all library dependencies (boost, eigen3, opencv, blas, lapack).
 
 2. Clone the repository:
 
