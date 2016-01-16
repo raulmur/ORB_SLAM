@@ -28,7 +28,6 @@
 #define G2O_OPTIMIZATION_ALGORITHM_DOGLEG_H
 
 #include "optimization_algorithm_with_hessian.h"
-#include "g2o_core_api.h"
 
 namespace g2o {
 
@@ -37,7 +36,7 @@ namespace g2o {
   /**
    * \brief Implementation of Powell's Dogleg Algorithm
    */
-  class G2O_CORE_API OptimizationAlgorithmDogleg : public OptimizationAlgorithmWithHessian
+  class  OptimizationAlgorithmDogleg : public OptimizationAlgorithmWithHessian
   {
     public:
       /** \brief type of the step to take */

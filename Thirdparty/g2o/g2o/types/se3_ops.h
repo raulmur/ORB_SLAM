@@ -1,5 +1,5 @@
 // g2o - General Graph Optimization
-// Copyright (C) 2011 R. Kuemmerle, G. Grisetti, W. Burgard
+// Copyright (C) 2011 H. Strasdat
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -24,31 +24,24 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#ifndef G2O_OPTIMIZATION_ALGORITHM_GAUSS_NEWTON_H
-#define G2O_OPTIMIZATION_ALGORITHM_GAUSS_NEWTON_H
+#ifndef G2O_MATH_STUFF
+#define G2O_MATH_STUFF
 
-#include "optimization_algorithm_with_hessian.h"
+#include <Eigen/Core>
+#include <Eigen/Geometry>
 
 namespace g2o {
+  using namespace Eigen;
 
-  /**
-   * \brief Implementation of the Gauss Newton Algorithm
-   */
-  class  OptimizationAlgorithmGaussNewton : public OptimizationAlgorithmWithHessian
-  {
-    public:
-      /**
-       * construct the Gauss Newton algorithm, which use the given Solver for solving the
-       * linearized system.
-       */
-      explicit OptimizationAlgorithmGaussNewton(Solver* solver);
-      virtual ~OptimizationAlgorithmGaussNewton();
+  inline Matrix3d skew(const Vector3d&v);
+  inline Vector3d deltaR(const Matrix3d& R);
+  inline Vector2d project(const Vector3d&);
+  inline Vector3d project(const Vector4d&);
+  inline Vector3d unproject(const Vector2d&);
+  inline Vector4d unproject(const Vector3d&);
 
-      virtual SolverResult solve(int iteration, bool online = false);
+#include "se3_ops.hpp"
 
-      virtual void printVerbose(std::ostream& os) const;
-  };
+}
 
-} // end namespace
-
-#endif
+#endif //MATH_STUFF

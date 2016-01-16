@@ -27,14 +27,13 @@
 #ifndef G2O_MATRIX_STRUCTURE_H
 #define G2O_MATRIX_STRUCTURE_H
 
-#include "g2o_core_api.h"
 
 namespace g2o {
 
 /**
  * \brief representing the structure of a matrix in column compressed structure (only the upper triangular part of the matrix)
  */
-class G2O_CORE_API MatrixStructure
+class MatrixStructure
 {
   public:
     MatrixStructure();

@@ -35,7 +35,6 @@
 
 #include "hyper_graph.h"
 #include "sparse_block_matrix.h"
-#include "g2o_core_api.h"
 
 namespace g2o {
 
@@ -44,10 +43,10 @@ namespace g2o {
   /**
    * \brief Generic interface for a non-linear solver operating on a graph
    */
-  class G2O_CORE_API OptimizationAlgorithm
+  class  OptimizationAlgorithm
   {
     public:
-      enum G2O_CORE_API SolverResult {Terminate=2, OK=1, Fail=-1};
+      enum  SolverResult {Terminate=2, OK=1, Fail=-1};
       OptimizationAlgorithm();
       virtual ~OptimizationAlgorithm();
 

@@ -18,12 +18,10 @@ LIST(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake_modules)
 
 find_package(OpenCV REQUIRED)
 find_package(Eigen3 REQUIRED)
-find_package(Cholmod REQUIRED)
 
 include_directories(
 ${PROJECT_SOURCE_DIR}
 ${EIGEN3_INCLUDE_DIR}
-${CHOLMOD_INCLUDE_DIR}
 )
 
 rosbuild_add_executable(${PROJECT_NAME}
@@ -52,14 +50,7 @@ rosbuild_link_boost(${PROJECT_NAME} thread)
 target_link_libraries(${PROJECT_NAME}
 ${OpenCV_LIBS}
 ${EIGEN3_LIBS}
-cholmod
 ${PROJECT_SOURCE_DIR}/Thirdparty/DBoW2/lib/libDBoW2.so
-${PROJECT_SOURCE_DIR}/Thirdparty/g2o/lib/libg2o_core.so
-${PROJECT_SOURCE_DIR}/Thirdparty/g2o/lib/libg2o_solver_cholmod.so
-${PROJECT_SOURCE_DIR}/Thirdparty/g2o/lib/libg2o_solver_dense.so
-${PROJECT_SOURCE_DIR}/Thirdparty/g2o/lib/libg2o_stuff.so
-${PROJECT_SOURCE_DIR}/Thirdparty/g2o/lib/libg2o_types_sba.so
-${PROJECT_SOURCE_DIR}/Thirdparty/g2o/lib/libg2o_types_sim3.so
-${PROJECT_SOURCE_DIR}/Thirdparty/g2o/lib/libg2o_types_slam3d.so
+${PROJECT_SOURCE_DIR}/Thirdparty/g2o/lib/libg2o.so
 )
 

@@ -35,7 +35,6 @@
 #include <iostream>
 #include <typeinfo>
 
-#include "g2o_core_api.h"
 
 // define to get some verbose output
 //#define G2O_DEBUG_OPTIMIZATION_ALGORITHM_FACTORY
@@ -43,8 +42,8 @@
 namespace g2o {
 
   // forward decl
-  class G2O_CORE_API OptimizationAlgorithm;
-  class G2O_CORE_API SparseOptimizer;
+  class  OptimizationAlgorithm;
+  class  SparseOptimizer;
 
   /**
    * \brief base for allocating an optimization algorithm
@@ -52,7 +51,7 @@ namespace g2o {
    * Allocating a solver for a given optimizer. The method construct() has to be
    * implemented in your derived class to allocate the desired solver.
    */
-  class G2O_CORE_API AbstractOptimizationAlgorithmCreator
+  class  AbstractOptimizationAlgorithmCreator
   {
     public:
       AbstractOptimizationAlgorithmCreator(const OptimizationAlgorithmProperty& p);
@@ -72,7 +71,7 @@ namespace g2o {
    * The Factory is implemented as a sigleton and the single
    * instance can be accessed via the instance() function.
    */
-  class G2O_CORE_API OptimizationAlgorithmFactory
+  class  OptimizationAlgorithmFactory
   {
     public:
       typedef std::list<AbstractOptimizationAlgorithmCreator*>      CreatorList;

@@ -30,7 +30,7 @@
 
 #include "KeyFrameDatabase.h"
 
-#include "Thirdparty/g2o/g2o/types/sim3/types_seven_dof_expmap.h"
+#include "Thirdparty/g2o/g2o/types/types_seven_dof_expmap.h"
 
 namespace ORB_SLAM
 {

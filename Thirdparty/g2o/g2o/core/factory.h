@@ -46,7 +46,7 @@ namespace g2o {
   /**
    * \brief create vertices and edges based on TAGs in, for example, a file
    */
-  class G2O_CORE_API Factory
+  class  Factory
   {
     public:
 

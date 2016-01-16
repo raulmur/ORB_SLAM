@@ -30,14 +30,13 @@
 #include <iostream>
 #include <vector>
 
-#include "g2o_core_api.h"
 
 namespace g2o {
 
   /**
    * \brief statistics about the optimization
    */
-  struct G2O_CORE_API G2OBatchStatistics {
+  struct  G2OBatchStatistics {
     G2OBatchStatistics();
     int iteration;                    ///< which iteration
     int numVertices;                  ///< how many vertices are involved
@@ -76,7 +75,7 @@ namespace g2o {
     static G2OBatchStatistics* _globalStats;
   };
 
-  G2O_CORE_API std::ostream& operator<<(std::ostream&, const G2OBatchStatistics&);
+   std::ostream& operator<<(std::ostream&, const G2OBatchStatistics&);
 
   typedef std::vector<G2OBatchStatistics> BatchStatisticsContainer;
 }

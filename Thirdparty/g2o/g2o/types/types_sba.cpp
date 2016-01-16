@@ -1,5 +1,5 @@
 // g2o - General Graph Optimization
-// Copyright (C) 2011 R. Kuemmerle, G. Grisetti, W. Burgard
+// Copyright (C) 2011 Kurt Konolige
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -24,31 +24,33 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#ifndef G2O_OPTIMIZATION_ALGORITHM_GAUSS_NEWTON_H
-#define G2O_OPTIMIZATION_ALGORITHM_GAUSS_NEWTON_H
-
-#include "optimization_algorithm_with_hessian.h"
+#include "types_sba.h"
+#include <iostream>
 
 namespace g2o {
 
-  /**
-   * \brief Implementation of the Gauss Newton Algorithm
-   */
-  class  OptimizationAlgorithmGaussNewton : public OptimizationAlgorithmWithHessian
+  using namespace std;
+
+
+  VertexSBAPointXYZ::VertexSBAPointXYZ() : BaseVertex<3, Vector3d>()
   {
-    public:
-      /**
-       * construct the Gauss Newton algorithm, which use the given Solver for solving the
-       * linearized system.
-       */
-      explicit OptimizationAlgorithmGaussNewton(Solver* solver);
-      virtual ~OptimizationAlgorithmGaussNewton();
+  }
 
-      virtual SolverResult solve(int iteration, bool online = false);
+  bool VertexSBAPointXYZ::read(std::istream& is)
+  {
+    Vector3d lv;
+    for (int i=0; i<3; i++)
+      is >> _estimate[i];
+    return true;
+  }
 
-      virtual void printVerbose(std::ostream& os) const;
-  };
+  bool VertexSBAPointXYZ::write(std::ostream& os) const
+  {
+    Vector3d lv=estimate();
+    for (int i=0; i<3; i++){
+      os << lv[i] << " ";
+    }
+    return os.good();
+  }
 
 } // end namespace
-
-#endif

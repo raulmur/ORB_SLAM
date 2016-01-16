@@ -31,7 +31,6 @@
 
 #include "optimizable_graph.h"
 #include "sparse_block_matrix.h"
-#include "g2o_core_api.h"
 #include "batch_stats.h"
 
 #include <map>
@@ -43,7 +42,7 @@ namespace g2o {
   class OptimizationAlgorithm;
   class EstimatePropagatorCost;
 
-  class G2O_CORE_API SparseOptimizer : public OptimizableGraph {
+  class  SparseOptimizer : public OptimizableGraph {
 
     public:
     enum {

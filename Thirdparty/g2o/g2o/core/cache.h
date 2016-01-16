@@ -30,17 +30,16 @@
 #include <map>
 
 #include "optimizable_graph.h"
-#include "g2o_core_api.h"
 
 namespace g2o {
 
   class CacheContainer;
   
-  class G2O_CORE_API Cache: public HyperGraph::HyperGraphElement
+  class  Cache: public HyperGraph::HyperGraphElement
   {
     public:
       friend class CacheContainer;
-      class G2O_CORE_API CacheKey
+      class  CacheKey
       {
         public:
           friend class CacheContainer;
@@ -101,7 +100,7 @@ namespace g2o {
       CacheContainer* _container;
   };
 
-  class G2O_CORE_API CacheContainer: public std::map<Cache::CacheKey, Cache*>
+  class  CacheContainer: public std::map<Cache::CacheKey, Cache*>
   {
     public:
       CacheContainer(OptimizableGraph::Vertex* vertex_);

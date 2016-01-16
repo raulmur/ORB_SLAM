@@ -41,7 +41,6 @@
 #include "jacobian_workspace.h"
 
 #include "../stuff/macros.h"
-#include "g2o_core_api.h"
 
 namespace g2o {
 
@@ -62,7 +61,7 @@ namespace g2o {
      also provides basic functionalities to handle the backup/restore
      of portions of the vertices.
    */
-  struct G2O_CORE_API OptimizableGraph : public HyperGraph {
+  struct  OptimizableGraph : public HyperGraph {
 
     enum ActionType {
       AT_PREITERATION, AT_POSTITERATION,
@@ -72,14 +71,14 @@ namespace g2o {
     typedef std::set<HyperGraphAction*>    HyperGraphActionSet;
 
     // forward declarations
-    class G2O_CORE_API Vertex;
-    class G2O_CORE_API Edge;
+    class  Vertex;
+    class  Edge;
 
     /**
      * \brief data packet for a vertex. Extend this class to store in the vertices
      * the potential additional information you need (e.g. images, laser scans, ...).
      */
-    class G2O_CORE_API Data : public HyperGraph::HyperGraphElement
+    class  Data : public HyperGraph::HyperGraphElement
     {
       friend struct OptimizableGraph;
       public:
@@ -100,7 +99,7 @@ namespace g2o {
     /**
      * \brief order vertices based on their ID
      */
-    struct G2O_CORE_API VertexIDCompare {
+    struct  VertexIDCompare {
       bool operator() (const Vertex* v1, const Vertex* v2) const
       {
         return v1->id() < v2->id();
@@ -110,7 +109,7 @@ namespace g2o {
     /**
      * \brief order edges based on the internal ID, which is assigned to the edge in addEdge()
      */
-    struct G2O_CORE_API EdgeIDCompare {
+    struct  EdgeIDCompare {
       bool operator() (const Edge* e1, const Edge* e2) const
       {
         return e1->internalId() < e2->internalId();
@@ -125,7 +124,7 @@ namespace g2o {
     /**
      * \brief A general case Vertex for optimization
      */
-    class G2O_CORE_API Vertex : public HyperGraph::Vertex {
+    class  Vertex : public HyperGraph::Vertex {
       private:
         friend struct OptimizableGraph;
       public:
@@ -380,7 +379,7 @@ namespace g2o {
 
     };
     
-    class G2O_CORE_API Edge: public HyperGraph::Edge {
+    class  Edge: public HyperGraph::Edge {
       private:
         friend struct OptimizableGraph;
       public:
