@@ -1,4 +1,5 @@
-# ORB_SLAM
+# ORB-SLAM Monocular
+#### Current version: 1.0.1 (see Changelog.md)
 
 ORB-SLAM is a versatile and accurate Monocular SLAM solution able to compute in real-time the camera trajectory and a sparse 3D reconstruction of the scene in a wide variety of environments, ranging from small hand-held sequences to a car driven around several city blocks. It is able to close large loops and perform global relocalisation in real-time and from wide baselines.
 
@@ -15,7 +16,7 @@ Link to pdf: http://webdiis.unizar.es/~raulmur/MurMontielTardosTRO15.pdf
 
 #1. License
 
-ORB-SLAM is released under a GPLv3 license. Please note that we provide along ORB-SLAM a modified version of g2o and DBoW2 which are both BSD. 
+ORB-SLAM is released under a GPLv3 license. For a list of all code/library dependencies and associated licenses, please see Dependencies.txt
 
 For a closed-source version of ORB-SLAM for commercial purposes, please contact the authors. 
 
