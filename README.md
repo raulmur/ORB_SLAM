@@ -1,5 +1,5 @@
 # ORB-SLAM Monocular
-#### Current version: 1.0.1 (see Changelog.md)
+#### Current version: 1.0.1 (see [Changelog.md](https://github.com/raulmur/ORB_SLAM/blob/master/Changelog.md))
 
 ORB-SLAM is a versatile and accurate Monocular SLAM solution able to compute in real-time the camera trajectory and a sparse 3D reconstruction of the scene in a wide variety of environments, ranging from small hand-held sequences to a car driven around several city blocks. It is able to close large loops and perform global relocalisation in real-time and from wide baselines.
 
