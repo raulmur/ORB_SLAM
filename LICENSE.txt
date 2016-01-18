@@ -1,5 +1,5 @@
 ORB-SLAM is released under a GPLv3 license (see License-gpl.txt).
-Please note that we provide along ORB-SLAM a modified version of g2o and DBoW2 which are both BSD.
+Please see Dependencies.pdf for a list of all included code and library dependencies which are not property of the authors of ORB-SLAM.
 
 For a closed-source version of ORB-SLAM for commercial purposes, please contact the authors.
 
