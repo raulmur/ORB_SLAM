@@ -16,7 +16,8 @@ Link to pdf: http://webdiis.unizar.es/~raulmur/MurMontielTardosTRO15.pdf
 
 1. License
 
-ORB-SLAM is released under a GPLv3 license. Please note that we provide along ORB-SLAM a modified version of g2o and DBoW2 which are both BSD. 
+ORB-SLAM is released under a GPLv3 license.  
+For a list of all code/library dependencies (and associated licenses), please see Dependencies.md.
 
 For a closed-source version of ORB-SLAM for commercial purposes, please contact the authors. 
 
