@@ -1,3 +1,6 @@
+
+##Check out our new [ORB-SLAM2](https://github.com/raulmur/ORB_SLAM2)
+-----
 # ORB-SLAM Monocular
 #### Current version: 1.0.1 (see [Changelog.md](https://github.com/raulmur/ORB_SLAM/blob/master/Changelog.md))
 
