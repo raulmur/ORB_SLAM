@@ -1,6 +1,6 @@
 
-##Check out our new [ORB-SLAM2](https://github.com/raulmur/ORB_SLAM2)
------
+##Check out our new [ORB-SLAM2](https://github.com/raulmur/ORB_SLAM2) (Monocular, Stereo and RGB-D)
+---
 # ORB-SLAM Monocular
 **Authors:** [Raul Mur-Artal](http://webdiis.unizar.es/~raulmur/), [Juan D. Tardos](http://webdiis.unizar.es/~jdtardos/), [J. M. M. Montiel](http://webdiis.unizar.es/~josemari/) and [Dorian Galvez-Lopez](http://doriangalvez.com/) ([DBoW2](https://github.com/dorian3d/DBoW2))
 
@@ -21,7 +21,7 @@ See our project webpage: http://webdiis.unizar.es/~raulmur/orbslam/
 
 ORB-SLAM is released under a [GPLv3 license](https://github.com/raulmur/ORB_SLAM/blob/master/License-gpl.txt). For a list of all code/library dependencies (and associated licenses), please see [Dependencies.md](https://github.com/raulmur/ORB_SLAM/blob/master/Dependencies.md).
 
-For a closed-source version of ORB-SLAM for commercial purposes, please contact the authors. 
+For a closed-source version of ORB-SLAM for commercial purposes, please contact the authors: orbslam (at) unizar (dot) es. 
 
 If you use ORB-SLAM in an academic work, please cite:
 
@@ -183,13 +183,10 @@ Please make sure you write and call your own settings file for your camera (copy
 #7. Failure Modes
 
 You should expect to achieve good results in sequences similar to those in which we show results in our paper [1], in terms of camera movement and texture in the environment. In general our Monocular SLAM solution is expected to have a bad time in the following situations:
-- Pure rotations in exploration
-- Low texture environments
+- No translation at system initialization (or too much rotation).
+- Pure rotations in exploration.
+- Low texture environments.
 - Many (or big) moving objects, especially if they move slowly.
 
 The system is able to initialize from planar and non-planar scenes. In the case of planar scenes, depending on the camera movement relative to the plane, it is possible that the system refuses to initialize, see the paper [1] for details. 
-
-#8. Questions/Comments
-
-You can use our email orbslam (at) unizar (dot) es.
 
