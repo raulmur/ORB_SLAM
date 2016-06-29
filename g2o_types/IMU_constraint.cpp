@@ -131,8 +131,8 @@ bool G2oEdgeIMUConstraint
                   cast_measurement, cast_gwomegaw, cast_q,
                   &pred_T_s2_to_w, &pred_speed_2, holder);
     SE3Group<T> predTckp12w=  pred_T_s2_to_w*params_imu->T_imu_from_cam.cast<T>();
-    value.head(6)=SE3Group<T>::log(predTckp12w*se3Tw2ckp1);
-    value.tail(3)=pred_speed_2-Xsbkp1.head(3);
+    value.template head<6>()=SE3Group<T>::log(predTckp12w*se3Tw2ckp1);
+    value.template tail<3>()=pred_speed_2-Xsbkp1.template head<3>();
     return true;
 }
 
@@ -157,8 +157,8 @@ void G2oEdgeIMUConstraint
     Matrix<double, 6, 1> zero_delta= Matrix<double, 6, 1>::Zero();
     (*this)(T_c1_from_world->estimate().data(), zero_delta.data(), speed_bias_1->estimate().data(),
             T_c2_from_world->estimate().data(), speed_bias_2->estimate().data(), error_posvel.data() );
-    _error.head(9)=error_posvel;
-    _error.tail(6)=(speed_bias_1->estimate()).tail(6)-(speed_bias_2->estimate()).tail(6);
+    _error.head<9>()=error_posvel;
+    _error.tail<6>()=(speed_bias_1->estimate()).tail<6>()-(speed_bias_2->estimate()).tail<6>();
 }
 /**
 * \brief Functor used to compute the Jacobian via AD
@@ -176,8 +176,8 @@ struct LogDeltaSE3Vee
         Eigen::Map<const Sophus::SE3Group<T> > se3Tskp12wConst(predTskp12w); //qxyzw txyz
         Sophus::SE3Group<T> se3Tskp12w=se3Tskp12wConst;
         typename Eigen::Matrix<T, 6, 1, Eigen::ColMajor>::ConstMapType deltaxpsi(pDeltaxpsi);
-        se3Tskp12w.translation() =se3Tskp12wConst.translation() - deltaxpsi.head(3);
-        Matrix<T,3,1> rvec= deltaxpsi.tail(3);
+        se3Tskp12w.translation() =se3Tskp12wConst.translation() - deltaxpsi.template head<3>();
+        Matrix<T,3,1> rvec= deltaxpsi.template tail<3>();
         se3Tskp12w.setQuaternion(quaternionFromSmallAngle(rvec)*se3Tskp12wConst.unit_quaternion());
 
         const Eigen::Map<const Sophus::SE3Group<T> > se3Tw2skp1(pTw2skp1); //qxyzw txyz
@@ -223,7 +223,7 @@ void G2oEdgeIMUConstraint
         temp_T.translation()[i]-=h;
         diff=SE3d::log(temp_T*params_imu.T_imu_from_cam*T_c2_from_world->estimate());
         diff-=orig_pose_error;
-        J_pred.col(i).head(6) = diff/h;
+        J_pred.col(i).head<6>() = diff/h;
     }
     //take derivative w.r.t perturbation in predicted rotation
     for (unsigned int i=0; i<3; ++i)
@@ -234,9 +234,9 @@ void G2oEdgeIMUConstraint
         temp_T.setQuaternion(quaternionFromSmallAngle(rvec)*temp_T.unit_quaternion());
         diff=SE3d::log(temp_T*params_imu.T_imu_from_cam*T_c2_from_world->estimate());
         diff-=orig_pose_error;
-        J_pred.col(i+6).head(6) = diff/h; // +6 because $\psi^w$ corresponds to 6-8 rows/cols of P
+        J_pred.col(i+6).head<6>() = diff/h; // +6 because $\psi^w$ corresponds to 6-8 rows/cols of P
     }
-    cout<<"ND J_pred.block(0,0,6,9):"<<endl<< J_pred.block(0,0,6,9)<<endl;
+    cout<<"ND J_pred.block<6,9>(0,0):"<<endl<< J_pred.block<6,9>(0,0)<<endl;
 
 #else
     // compute the Jacobian using AD
@@ -250,17 +250,17 @@ void G2oEdgeIMUConstraint
     LogDeltaSE3Vee deltaTvee;
     ceres::internal::AutoDiff<LogDeltaSE3Vee, double, kGlobalSize, kLocalSize, kGlobalSize>
             ::Differentiate(deltaTvee, parameters, num_outputs, value, jacobians);
-    J_pred.block(0,0,6,3)= dTinv_de_AD.block(0,0,6,3);
-    J_pred.block(0,6,6,3)= dTinv_de_AD.block(0,3,6,3);
-    //cout<<"AD J_pred.block(0,0,6,9):"<<endl<< J_pred.block(0,0,6,9)<<endl;
+    J_pred.block<6,3>(0,0)= dTinv_de_AD.block<6,3>(0,0);
+    J_pred.block<6,3>(0,6)= dTinv_de_AD.block<6,3>(0,3);
+    //cout<<"AD J_pred.block<6,9>(0,0):"<<endl<< J_pred.block<6,9>(0,0)<<endl;
 #endif
-    J_pred.block(6,3,3,3)=Matrix3d::Identity();//delta velocity
-    J_pred.block(9,9,3,3)=Matrix3d::Identity();//b_a
-    J_pred.block(12,12,3,3)=Matrix3d::Identity();//b_g
-    //TODO: verify that numerical Jacobian satisfy $J_pred\approx diag(third(_error.head(6), SE3d()),I)$
+    J_pred.block<3,3>(6,3)=Matrix3d::Identity();//delta velocity
+    J_pred.block<3,3>(9,9)=Matrix3d::Identity();//b_a
+    J_pred.block<3,3>(12,12)=Matrix3d::Identity();//b_g
+    //TODO: verify that numerical Jacobian satisfy $J_pred\approx diag(third(_error.head<6>(), SE3d()),I)$
     _information=(J_pred*P*J_pred.transpose()).inverse();
 
-    //    cout<<"new P(9,9)"<<P.topLeftCorner(9,9)<<endl;
+    //    cout<<"new P(9,9)"<<P.topLeftCorner<9,9>()<<endl;
     //    cout<<_information.diagonal().transpose()<<endl;
 }
 
@@ -280,7 +280,7 @@ void G2oEdgeIMUConstraint::linearizeOplus()
             = static_cast<const G2oIMUParameters *>(parameter(0));
 #if 0
     const double h = 0.00000001; //was 1e-12 in Strasdat's numerical differentiation
-    const Matrix<double, 6,1> orig_pose_error=_error.head(6);
+    const Matrix<double, 6,1> orig_pose_error=_error.head<6>();
     Matrix<double, 6,1> diff;
 
     _jacobianOplus[0]=Matrix<double,15, 6>::Zero(); //15x6
@@ -302,9 +302,8 @@ void G2oEdgeIMUConstraint::linearizeOplus()
 
         diff=SE3d::log(pred_T_s2_to_w*params_imu->T_imu_from_cam*T_2w);
         diff-=orig_pose_error;
-        _jacobianOplus[0].col(i).head(6) = diff/h;
-        _jacobianOplus[0].col(i).segment(6,3) = ((pred_speed_2- sb_2.head(3))-_error.segment(6,3))/h;
-
+        _jacobianOplus[0].col(i).head<6>() = diff/h;
+        _jacobianOplus[0].col(i).segment<3>(6) = ((pred_speed_2- sb_2.head<3>())-_error.segment<3>(6))/h;
     }
 
     _jacobianOplus[1]=Matrix<double,15, 9>::Zero(); //15x9
@@ -324,12 +323,12 @@ void G2oEdgeIMUConstraint::linearizeOplus()
 
         diff=SE3d::log(pred_T_s2_to_w*params_imu->T_imu_from_cam*T_2w);
         diff-=orig_pose_error;
-        _jacobianOplus[1].col(i).head(6) = diff/h;
-        _jacobianOplus[1].col(i).segment(6,3) = ((pred_speed_2- sb_2.head(3))-_error.segment(6,3))/h;
+        _jacobianOplus[1].col(i).head<6>() = diff/h;
+        _jacobianOplus[1].col(i).segment<3>(6) = ((pred_speed_2- sb_2.head<3>())-_error.segment<3>(6))/h;
     }
-    //cout<<"ND Jac _jacobianOplus[0].topLeftCorner(9,6):"<<endl<< _jacobianOplus[0].topLeftCorner(9,6)<<endl;
-    //cout<<"ND Jac _jacobianOplus[1].topLeftCorner(9,9):"<<endl<< _jacobianOplus[1].topLeftCorner(9,9)<<endl;
-#else
+    cout<<"ND Jac _jacobianOplus[0].topLeftCorner<9,6>():"<<endl<< _jacobianOplus[0].topLeftCorner<9,6>()<<endl;
+    cout<<"ND Jac _jacobianOplus[1].topLeftCorner<9,9>():"<<endl<< _jacobianOplus[1].topLeftCorner<9,9>()<<endl;
+#endif
     _jacobianOplus[0]=Matrix<double,15, 6>::Zero(); //15x6
     _jacobianOplus[1]=Matrix<double,15, 9>::Zero(); //15x9
     const int kGlobalSize=7, kLocalSize=6, num_outputs=9, sbDim=9;
@@ -345,15 +344,16 @@ void G2oEdgeIMUConstraint::linearizeOplus()
     bool diffState = IMUConstraintAutoDiff::Differentiate(*this, parameters, num_outputs, value, jacobians);
     // copy over the Jacobians (convert row-major -> column-major)
     if (diffState) {
-        _jacobianOplus[0].topLeftCorner(9,6) = dError_dTw2ck;
-        _jacobianOplus[1].topLeftCorner(9,9) = dError_dsb;
+        _jacobianOplus[0].topLeftCorner<9,6>() = dError_dTw2ck;       
+        _jacobianOplus[1].topLeftCorner<9,9>() = dError_dsb;
     } else {
         assert(0 && "Error while AD differentiating");
     }
-    //    cout<<"AD Jac dError_dTw2ck:"<<endl<< dError_dTw2ck <<endl;
-    //    cout<<"AD Jac dError_dsb:"<<endl<< dError_dsb <<endl;
+#if 0
+    cout<<"AD Jac dError_dTw2ck:"<<endl<< dError_dTw2ck <<endl;
+    cout<<"AD Jac dError_dsb:"<<endl<< dError_dsb <<endl;
 #endif
-    _jacobianOplus[1].bottomRightCorner(6,6).setIdentity();
+    _jacobianOplus[1].bottomRightCorner<6,6>().setIdentity();
 
     //given IMU measurements, and states at time 1,i.e., t(k), predict states at time 2, i.e., t(k+1)
 
@@ -367,10 +367,10 @@ void G2oEdgeIMUConstraint::linearizeOplus()
     SE3d predTckp12w=  pred_T_s2_to_w*params_imu->T_imu_from_cam;
     Eigen::Matrix<double, 6,1> error_fe= SE3d::log(predTckp12w*T_2w);
     _jacobianOplus[2]=Matrix<double, 15, 6>::Zero(); //15x6
-    _jacobianOplus[2].topLeftCorner(6,6)= third(predTckp12w,  error_fe);
+    _jacobianOplus[2].topLeftCorner<6,6>()= third(predTckp12w,  error_fe);
 
     _jacobianOplus[3]=Matrix<double, 15, 9>::Zero(); //15x9
-    _jacobianOplus[3].bottomRightCorner(9,9)= -Matrix<double, 9,9>::Identity();
+    _jacobianOplus[3].bottomRightCorner<9,9>()= -Matrix<double, 9,9>::Identity();
 }
 void IMURollPitchEdge::computeError()
 {
@@ -380,7 +380,7 @@ void IMURollPitchEdge::computeError()
             = static_cast<const G2oIMUParameters *>(parameter(0));
 
     Eigen::Quaterniond qw2s=(params_imu->T_imu_from_cam*v_se3->estimate()).unit_quaternion();
-    _error = params_imu->gwomegaw.head(3)+qw2s.conjugate()._transformVector(_measurement-v_sb->estimate().segment(3,3));
+    _error = params_imu->gwomegaw.head<3>()+qw2s.conjugate()._transformVector(_measurement-v_sb->estimate().segment<3>(3));
 }
 void IMURollPitchEdge::
 linearizeOplus()
@@ -401,15 +401,15 @@ linearizeOplus()
                 = Matrix<double,6,1>::Zero();
         eps[i] = h;
         Quaterniond pred_qw2s=(params_imu->T_imu_from_cam*SE3d::exp(eps)*Tw2c).unit_quaternion();
-        Vector3d pred_err=params_imu->gwomegaw.head(3)+pred_qw2s.conjugate()._transformVector(_measurement-v9sb.segment(3,3));
+        Vector3d pred_err=params_imu->gwomegaw.head<3>()+pred_qw2s.conjugate()._transformVector(_measurement-v9sb.segment<3>(3));
         _jacobianOplusXi.col(i)= (pred_err-_error)/h;
     }
 #else
-    _jacobianOplusXi.block(0,3,3,3) = Tw2c.rotationMatrix().transpose()*
-            skew(params_imu->T_imu_from_cam.unit_quaternion().conjugate()._transformVector(_measurement-v9sb.segment(3,3)));
+    _jacobianOplusXi.block<3,3>(0,3) = Tw2c.rotationMatrix().transpose()*
+            skew3d(params_imu->T_imu_from_cam.unit_quaternion().conjugate()._transformVector(_measurement-v9sb.segment<3>(3)));
 #endif
     _jacobianOplusXj.setZero(); //3x9
-    _jacobianOplusXj.block(0,3,3,3) = - qw2s.conjugate().toRotationMatrix();
+    _jacobianOplusXj.block<3,3>(0,3) = - qw2s.conjugate().toRotationMatrix();
 }
 
 void GPSObservationPosition3DEdge::linearizeOplus()
@@ -428,8 +428,8 @@ void GPSObservationPosition3DEdge::linearizeOplus()
         _jacobianOplusXi.col(i)= (temp_T.inverse().translation()-_measurement - _error)/h;
     }
 #else
-    _jacobianOplusXi.block(0,0,3,3)=Eigen::Matrix3d::Identity();
-    _jacobianOplusXi.block(0,3,3,3)=Eigen::Matrix3d::Zero();
+    _jacobianOplusXi.block<3,3>(0,0)=Eigen::Matrix3d::Identity();
+    _jacobianOplusXi.block<3,3>(0,3)=Eigen::Matrix3d::Zero();
     _jacobianOplusXi= - Tw2c.rotationMatrix().transpose()*_jacobianOplusXi;
 #endif
 }
@@ -438,10 +438,11 @@ void G2oEdgeGPSObservation::linearizeOplus()
     const G2oVertexSE3* v = static_cast<const G2oVertexSE3*>(_vertices[0]);
     const G2oVertexLeverArm* vl = static_cast<const G2oVertexLeverArm*>(_vertices[1]);
     SE3d Tw2c= v->estimate();
-    _jacobianOplusXi.block(0,0,3,3)=Eigen::Matrix3d::Identity();
-    _jacobianOplusXi.block(0,3,3,3)= -skew(Tw2c* _measurement);
-    _jacobianOplusXj= - Eigen::Matrix3d::Identity();
+    _jacobianOplusXi.block<3,3>(0,0)= Tw2c.rotationMatrix().transpose();
+    _jacobianOplusXi.block<3,3>(0,3)= -Tw2c.rotationMatrix().transpose()*skew3d(vl->estimate());
+    _jacobianOplusXj= - Tw2c.rotationMatrix().transpose();
 }
+
 bool G2oVertexGSCamera
 ::write (std::ostream & os) const
 {
