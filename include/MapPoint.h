@@ -92,10 +92,10 @@ public:
     inline size_t nRefs() const { return mObservations.size(); }
 
     /// Optimize point position through minimizing the reprojection error.
-    static void optimize(const std::vector< Eigen::Vector3d> & obs,
-                            const std::vector<Sophus::SE3d> & frame_poses,
-                            Eigen::Vector3d& old_point, double & pdop,
-                            vk::PinholeCamera* cam, size_t n_iter=5);
+//    static void optimize(const std::vector< Eigen::Vector3d> & obs,
+//                            const std::vector<Sophus::SE3d> & frame_poses,
+//                            Eigen::Vector3d& old_point, double & pdop,
+//                            vk::PinholeCamera* cam, size_t n_iter=5);
 
     /// Jacobian of point projection on unit plane (focal length = 1) in frame (f).
     inline static void jacobian_xyz2uv(

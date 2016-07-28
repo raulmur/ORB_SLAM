@@ -22,8 +22,8 @@
 #include "MapPoint.h"
 #include "Converter.h"
 #include "ORBmatcher.h" //stereo matching
-#include "g2o_types/eigen_utils.h" //skew
-#include "g2o_types/global.h"
+#include "g2o_types/eigen_utils.h" //skew3d
+#include "global.h"
 
 #include <vikit/vision.h>
 #include <vikit/math_utils.h>
@@ -36,7 +36,7 @@ namespace ORB_SLAM
 
 long unsigned int Frame::nNextId=0;
 bool Frame::mbInitialComputations=true;
-int Frame::mnMinX, Frame::mnMinY, Frame::mnMaxX, Frame::mnMaxY;
+float Frame::snMinX, Frame::snMinY, Frame::snMaxX, Frame::snMaxY;
 float Frame::mfGridElementWidthInv;
 float Frame::mfGridElementHeightInv;
 
@@ -57,17 +57,19 @@ Frame::Frame(const Frame &frame)
      prev_frame(frame.prev_frame), next_frame(frame.next_frame), speed_bias(frame.speed_bias), imu_observ(frame.imu_observ),
      mbFixedLinearizationPoint(frame.mbFixedLinearizationPoint), speed_bias_first_estimate(frame.speed_bias_first_estimate),
      mTcw_first_estimate(frame.mTcw_first_estimate),
-     cam_(frame.cam_), right_cam_(frame.right_cam_),mTl2r(frame.mTl2r),
-     img_pyr_(frame.img_pyr_), blurred_img_pyr_(frame.blurred_img_pyr_),
+     cam_(frame.cam_), right_cam_(frame.right_cam_),mTl2r(frame.mTl2r),    
      // we do not clone pyramid because frame will be deleted and these pyramid will be kept by the new frame
      N(frame.N), mvKeys(frame.mvKeys), mvKeysUn(frame.mvKeysUn),
      mvRightKeys(frame.mvRightKeys), mvRightKeysUn(frame.mvRightKeysUn),
      mBowVec(frame.mBowVec), mFeatVec(frame.mFeatVec), mDescriptors(frame.mDescriptors.clone()),
      mRightDescriptors(frame.mRightDescriptors.clone()),
      mvpMapPoints(frame.mvpMapPoints), mvbOutlier(frame.mvbOutlier),
-     mnId(frame.mnId),
-   viso2LeftId2StereoId(frame.viso2LeftId2StereoId),viso2RightId2StereoId(frame.viso2RightId2StereoId),
-   mbBad(frame.mbBad), v_kf_(frame.v_kf_), v_sb_(frame.v_sb_)
+     mnId(frame.mnId), mnScaleLevels(frame.mnScaleLevels), mfScaleFactor(frame.mfScaleFactor),
+     mfLogScaleFactor(frame.mfLogScaleFactor), mvScaleFactors(frame.mvScaleFactors),
+     mvLevelSigma2(frame.mvLevelSigma2), mvInvLevelSigma2(frame.mvInvLevelSigma2),
+     mnMinX(frame.mnMinX),mnMaxX(frame.mnMaxX),mnMinY(frame.mnMinY), mnMaxY(frame.mnMaxY),
+     viso2LeftId2StereoId(frame.viso2LeftId2StereoId),viso2RightId2StereoId(frame.viso2RightId2StereoId),
+     mbBad(frame.mbBad), v_kf_(frame.v_kf_), v_sb_(frame.v_sb_)
 { 
     for(int i=0;i<FRAME_GRID_COLS;i++)
         for(int j=0; j<FRAME_GRID_ROWS; j++)
@@ -79,11 +81,21 @@ Frame::Frame(cv::Mat &im_, const double &timeStamp, ORBextractor* extractor,
              ORBVocabulary* voc, vk::PinholeCamera* cam,
              const Eigen::Vector3d ginc, const Eigen::Matrix<double, 9,1> sb)
     :mpORBvocabulary(voc),mpORBextractor(extractor), mTimeStamp(timeStamp),
-      prev_frame(NULL), next_frame(NULL), speed_bias(sb), mbFixedLinearizationPoint(false), cam_(cam),
-       mnId(nNextId++), mbBad(false),v_kf_(NULL), v_sb_(NULL)
+      prev_frame(NULL), next_frame(NULL), speed_bias(sb), mbFixedLinearizationPoint(false), cam_(*cam),
+      right_cam_(*cam), mnId(nNextId++), mbBad(false),v_kf_(NULL), v_sb_(NULL)
 {
-    cv::Mat fK=Converter::toCvMat(cam_->K());
-    cv::Mat fDistCoef=(cv::Mat_<float>(4,1)<< cam_->d0(),cam_->d1(), cam_->d2(), cam_->d3());
+
+    // Scale Level Info
+    mnScaleLevels = mpORBextractor->GetLevels();
+    mfScaleFactor = mpORBextractor->GetScaleFactor();
+    mfLogScaleFactor = log(mfScaleFactor);
+    mvScaleFactors = mpORBextractor->GetScaleFactors();
+
+    mvLevelSigma2 = mpORBextractor->GetScaleSigmaSquares();
+    mvInvLevelSigma2 = mpORBextractor->GetInverseScaleSigmaSquares();
+
+    cv::Mat fK=Converter::toCvMat(cam_.K());
+    cv::Mat fDistCoef=(cv::Mat_<float>(4,1)<< cam_.d0(),cam_.d1(), cam_.d2(), cam_.d3());
 
     //compute orientation either with gravity or illumination
     if(ginc.norm()<1e-6) //assigned proper value
@@ -105,11 +117,22 @@ Frame::Frame(cv::Mat &im_, const double &timeStamp, ORBextractor* extractor,
     if(mbInitialComputations)
     {
         ComputeImageBounds();
+        mnMinX = snMinX;
+        mnMaxX = snMaxX;
+        mnMinY = snMinY;
+        mnMaxY = snMaxY;
 
         mfGridElementWidthInv=static_cast<float>(FRAME_GRID_COLS)/static_cast<float>(mnMaxX-mnMinX);
         mfGridElementHeightInv=static_cast<float>(FRAME_GRID_ROWS)/static_cast<float>(mnMaxY-mnMinY);
 
         mbInitialComputations=false;
+    }
+    else
+    {
+        mnMinX = snMinX;
+        mnMaxX = snMaxX;
+        mnMinY = snMinY;
+        mnMaxY = snMaxY;
     }
 
     // Assign Features to Grid Cells
@@ -129,114 +152,6 @@ Frame::Frame(cv::Mat &im_, const double &timeStamp, ORBextractor* extractor,
     }
     mvbOutlier = vector<bool>(N,false);    
 }
-Frame::Frame(cv::Mat &im , const double & timeStamp, int cam_id,
-             ORBextractor* extractor, ORBVocabulary* voc,       
-             vk::PinholeCamera * cam,
-             const Eigen::Vector3d & ginc, const Eigen::Matrix<double, 9,1> sb)
-    : mpORBvocabulary(voc),mpORBextractor(extractor), mTimeStamp(timeStamp),
-      prev_frame(NULL), next_frame(NULL), speed_bias(sb),
-      mbFixedLinearizationPoint(false),
-      cam_(cam),N(0),mnId(nNextId++), mbBad(false), v_kf_(NULL), v_sb_(NULL)
-{       
-    // create image pyramid
-    mpORBextractor->ComputePyramid(im, img_pyr_);
-
-    // This is done for the first created Frame
-    if(mbInitialComputations)
-    {
-        ComputeImageBounds();
-
-        mfGridElementWidthInv=static_cast<float>(FRAME_GRID_COLS)/static_cast<float>(mnMaxX-mnMinX);
-        mfGridElementHeightInv=static_cast<float>(FRAME_GRID_ROWS)/static_cast<float>(mnMaxY-mnMinY);
-
-        mbInitialComputations=false;
-    }
-}
-/*
-Frame::Frame(cv::Mat &im_ , const double & timeStamp, const int num_features_left,
-             cv::Mat &right_img, const int num_features_right,
-                      ORBextractor* extractor, ORBVocabulary* voc,
-           vk::PinholeCamera * cam, vk::PinholeCamera * right_cam,
-             std::vector<p_match> & vQuadMatches, const Sophus::SE3d& Tl2r,
-             const Eigen::Vector3d & ginc, const Eigen::Matrix<double, 9,1> sb)
-    :mpORBvocabulary(voc),mpORBextractor(extractor), mTimeStamp(timeStamp),
-      prev_frame(NULL), next_frame(NULL), speed_bias(sb), mbFixedLinearizationPoint(false),
-      cam_(cam), right_cam_(right_cam),
-    mTl2r(Tl2r), mnId(nNextId++), mbBad(false),v_kf_(NULL), v_sb_(NULL)
-{
-    viso2LeftId2StereoId.resize(num_features_left, -1);
-    viso2RightId2StereoId.resize(num_features_right, -1);
-    N=0;
-    mvKeys.reserve(vQuadMatches.size());
-    mvRightKeys.reserve(vQuadMatches.size());
-    for (auto it= vQuadMatches.begin(), ite=vQuadMatches.end(); it!=ite; ++it)
-    {
-        p_match & pMatch= *it;
-        if(pMatch.i1c==-1)
-            continue;
-        else if(viso2LeftId2StereoId[pMatch.i1c]== -1 && viso2RightId2StereoId[pMatch.i2c]==-1){
-            viso2LeftId2StereoId[pMatch.i1c]= N;
-            viso2RightId2StereoId[pMatch.i2c]= N;
-
-            mvKeys.push_back(cv::KeyPoint(pMatch.u1c, pMatch.v1c, 11));//11 according to stereoscan article
-            mvRightKeys.push_back(cv::KeyPoint(pMatch.u2c, pMatch.v2c, 11));
-            ++N;
-        }
-        else
-            pMatch.i1c=-1;
-    }
-    assert(N==mvKeys.size());
-    // Exctract ORB for left image and right image
-    cv::Mat fK=Converter::toCvMat(cam_->K());
-    cv::Mat fDistCoef=(cv::Mat_<float>(4,1)<< cam_->d0(),cam_->d1(), cam_->d2(), cam_->d3());
-    UndistortKeyPoints( mvKeys, mvKeysUn, fK, fDistCoef);
-    cv::Mat fRightK=Converter::toCvMat(right_cam_->K());
-    cv::Mat fRightDistCoef=(cv::Mat_<float>(4,1)<< right_cam_->d0(),right_cam_->d1(), right_cam_->d2(), right_cam_->d3());
-    UndistortKeyPoints( mvRightKeys, mvRightKeysUn, fRightK, fRightDistCoef);
-    //compute orientation either with gravity or illumination
-    if(ginc.norm()<1e-6) //assigned proper value
-    {
-        (*mpORBextractor)(im_, mvKeys, mDescriptors);
-        (*mpORBextractor)(right_img, mvRightKeys, mRightDescriptors);
-    }else{
-        computeKeyPointGAO(mvKeys, mvKeysUn, fK, fDistCoef, ginc);
-        (*mpORBextractor)(im_, mvKeys, mDescriptors, true);     
-        Eigen::Vector3d ginr=mTl2r*ginc;
-        computeKeyPointGAO(mvRightKeys, mvRightKeysUn, fRightK, fRightDistCoef, ginr);
-        (*mpORBextractor)(right_img, mvRightKeys, mRightDescriptors, true);
-    }
-
-    mvpMapPoints = vector<MapPoint*>(N,static_cast<MapPoint*>(NULL));
-
-    // This is done for the first created Frame
-    if(mbInitialComputations)
-    {
-        ComputeImageBounds();
-
-        mfGridElementWidthInv=static_cast<float>(FRAME_GRID_COLS)/static_cast<float>(mnMaxX-mnMinX);
-        mfGridElementHeightInv=static_cast<float>(FRAME_GRID_ROWS)/static_cast<float>(mnMaxY-mnMinY);
-
-        mbInitialComputations=false;
-    }
-
-    assert(mpORBextractor->GetLevels()==1);
-
-    // Assign Features to Grid Cells
-    int nReserve = 0.5*N/(FRAME_GRID_COLS*FRAME_GRID_ROWS);
-    for(unsigned int i=0; i<FRAME_GRID_COLS;i++)
-        for (unsigned int j=0; j<FRAME_GRID_ROWS;j++)
-            mGrid[i][j].reserve(nReserve);//N.B. mGrid[i][j] can grow over nReserve
-
-    for(size_t i=0;i<mvKeysUn.size();i++)
-    {
-        cv::KeyPoint &kp = mvKeysUn[i];
-
-        int nGridPosX, nGridPosY;
-        if(PosInGrid(kp,nGridPosX,nGridPosY))
-            mGrid[nGridPosX][nGridPosY].push_back(i);
-    }
-    mvbOutlier = vector<bool>(N,false);
-}*/
 
 Frame::Frame(cv::Mat &im_ , const double & timeStamp, const int num_features_left, cv::Mat &right_img, const int num_features_right,
                       const std::vector<p_match> & vStereoMatches, ORBextractor* extractor, ORBVocabulary* voc,
@@ -244,9 +159,18 @@ Frame::Frame(cv::Mat &im_ , const double & timeStamp, const int num_features_lef
              const Eigen::Vector3d & ginc, const Eigen::Matrix<double, 9,1> sb)
     :mpORBvocabulary(voc),mpORBextractor(extractor), mTimeStamp(timeStamp),
       prev_frame(NULL), next_frame(NULL), speed_bias(sb), mbFixedLinearizationPoint(false),
-      cam_(cam), right_cam_(right_cam),
+      cam_(*cam), right_cam_(*right_cam),
         mTl2r(Tl2r), mnId(nNextId++), mbBad(false),v_kf_(NULL), v_sb_(NULL)
 {
+    // Scale Level Info
+    mnScaleLevels = mpORBextractor->GetLevels();
+    mfScaleFactor = mpORBextractor->GetScaleFactor();
+    mfLogScaleFactor = log(mfScaleFactor);
+    mvScaleFactors = mpORBextractor->GetScaleFactors();
+
+    mvLevelSigma2 = mpORBextractor->GetScaleSigmaSquares();
+    mvInvLevelSigma2 = mpORBextractor->GetInverseScaleSigmaSquares();
+
     N=vStereoMatches.size();
     if(N==0)
         return;
@@ -265,11 +189,11 @@ Frame::Frame(cv::Mat &im_ , const double & timeStamp, const int num_features_lef
         mvKeys[jack]=cv::KeyPoint(pMatch.u1c, pMatch.v1c, 11);//11 according to stereoscan article
         mvRightKeys[jack]=cv::KeyPoint(pMatch.u2c, pMatch.v2c, 11);
     }
-    cv::Mat fK=Converter::toCvMat(cam_->K());
-    cv::Mat fDistCoef=(cv::Mat_<float>(4,1)<< cam_->d0(),cam_->d1(), cam_->d2(), cam_->d3());
+    cv::Mat fK=Converter::toCvMat(cam_.K());
+    cv::Mat fDistCoef=(cv::Mat_<float>(4,1)<< cam_.d0(),cam_.d1(), cam_.d2(), cam_.d3());
 
-    cv::Mat fRightK=Converter::toCvMat(right_cam_->K());
-    cv::Mat fRightDistCoef=(cv::Mat_<float>(4,1)<< right_cam_->d0(),right_cam_->d1(), right_cam_->d2(), right_cam_->d3());
+    cv::Mat fRightK=Converter::toCvMat(right_cam_.K());
+    cv::Mat fRightDistCoef=(cv::Mat_<float>(4,1)<< right_cam_.d0(),right_cam_.d1(), right_cam_.d2(), right_cam_.d3());
 
     UndistortKeyPoints( mvKeys, mvKeysUn, fK, fDistCoef);
     UndistortKeyPoints( mvRightKeys, mvRightKeysUn, fRightK, fRightDistCoef);
@@ -295,11 +219,21 @@ Frame::Frame(cv::Mat &im_ , const double & timeStamp, const int num_features_lef
     if(mbInitialComputations)
     {
         ComputeImageBounds();
-
+        mnMinX = snMinX;
+        mnMaxX = snMaxX;
+        mnMinY = snMinY;
+        mnMaxY = snMaxY;
         mfGridElementWidthInv=static_cast<float>(FRAME_GRID_COLS)/static_cast<float>(mnMaxX-mnMinX);
         mfGridElementHeightInv=static_cast<float>(FRAME_GRID_ROWS)/static_cast<float>(mnMaxY-mnMinY);
 
         mbInitialComputations=false;
+    }
+    else
+    {
+        mnMinX = snMinX;
+        mnMaxX = snMaxX;
+        mnMinY = snMinY;
+        mnMaxY = snMaxY;
     }
 
     // Assign Features to Grid Cells
@@ -342,6 +276,24 @@ void Frame::Release()
     viso2RightId2StereoId.clear();
 
 }
+
+// all the vectors that are not used in keyframe operations will be released before creating a keyframe from this frame
+void Frame::PartialRelease()
+{
+//    imu_observ.clear();
+    mvKeys.clear();
+    mvRightKeys.clear();
+    mvbOutlier.clear();
+
+// mGrid is used for detecting matches between keyframes
+//    for(int i=0;i<FRAME_GRID_COLS;i++)
+//        for(int j=0; j<FRAME_GRID_ROWS; j++)
+//            mGrid[i][j].clear();
+
+    viso2LeftId2StereoId.clear();
+    viso2RightId2StereoId.clear();
+}
+
 Frame::~Frame()
 {
     Release();
@@ -373,8 +325,8 @@ bool Frame::isInFrustum(MapPoint *pMP, float viewingCosLimit)
 
     // Project in image and check it is not outside
     const float invz = 1.0/PcZ;
-    const float u=cam_->fx()*PcX*invz+cam_->cx();
-    const float v=cam_->fy()*PcY*invz+cam_->cy();
+    const float u=cam_.fx()*PcX*invz+cam_.cx();
+    const float v=cam_.fy()*PcY*invz+cam_.cy();
 
     if(u<mnMinX || u>mnMaxX)
         return false;
@@ -437,10 +389,10 @@ bool Frame::isInFrustumStereo(MapPoint *pMP, float viewingCosLimit)
 
     // Project in left and right image and check it is not outside
     const float invz = 1.0/PcZ;
-    const float u=cam_->fx()*PcX*invz+cam_->cx();
-    const float v=cam_->fy()*PcY*invz+cam_->cy();
+    const float u=cam_.fx()*PcX*invz+cam_.cx();
+    const float v=cam_.fy()*PcY*invz+cam_.cy();
     const double invzr= 1.0/ PrXYZ[2];
-    Eigen::Matrix3d eigRightK= right_cam_->K();
+    Eigen::Matrix3d eigRightK= right_cam_.K();
     double ur= eigRightK(0,0)*PrXYZ[0]*invzr + eigRightK(0,2);
     double vr= eigRightK(1,1)*PrXYZ[1]*invzr + eigRightK(1,2);
     if(u<mnMinX || u>mnMaxX || ur<mnMinX || ur>mnMaxX)
@@ -660,34 +612,34 @@ void remapQuadMatches(std::vector<p_match>& vQuadMatches,
 }
 void Frame::ComputeImageBounds()
 {
-    cv::Mat fK=Converter::toCvMat(cam_->K());
-    cv::Mat fDistCoef=(cv::Mat_<float>(4,1)<< cam_->d0(),cam_->d1(), cam_->d2(), cam_->d3());
+    cv::Mat fK=Converter::toCvMat(cam_.K());
+    cv::Mat fDistCoef=(cv::Mat_<float>(4,1)<< cam_.d0(),cam_.d1(), cam_.d2(), cam_.d3());
 
-    if(cam_->d0()!=0.0)
+    if(cam_.d0()!=0.0)
     {
         cv::Mat mat(4,2,CV_32F);
         mat.at<float>(0,0)=0.0; mat.at<float>(0,1)=0.0;
-        mat.at<float>(1,0)=cam_->width(); mat.at<float>(1,1)=0.0;
-        mat.at<float>(2,0)=0.0; mat.at<float>(2,1)=cam_->height();
-        mat.at<float>(3,0)=cam_->width(); mat.at<float>(3,1)=cam_->height();
+        mat.at<float>(1,0)=cam_.width(); mat.at<float>(1,1)=0.0;
+        mat.at<float>(2,0)=0.0; mat.at<float>(2,1)=cam_.height();
+        mat.at<float>(3,0)=cam_.width(); mat.at<float>(3,1)=cam_.height();
 
         // Undistort corners
         mat=mat.reshape(2);
         cv::undistortPoints(mat,mat,fK,fDistCoef,cv::Mat(),fK);
         mat=mat.reshape(1);
 
-        mnMinX = min(floor(mat.at<float>(0,0)),floor(mat.at<float>(2,0)));
-        mnMaxX = max(ceil(mat.at<float>(1,0)),ceil(mat.at<float>(3,0)));
-        mnMinY = min(floor(mat.at<float>(0,1)),floor(mat.at<float>(1,1)));
-        mnMaxY = max(ceil(mat.at<float>(2,1)),ceil(mat.at<float>(3,1)));
+        snMinX = min(floor(mat.at<float>(0,0)),floor(mat.at<float>(2,0)));
+        snMaxX = max(ceil(mat.at<float>(1,0)),ceil(mat.at<float>(3,0)));
+        snMinY = min(floor(mat.at<float>(0,1)),floor(mat.at<float>(1,1)));
+        snMaxY = max(ceil(mat.at<float>(2,1)),ceil(mat.at<float>(3,1)));
 
     }
     else
     {
-        mnMinX = 0;
-        mnMaxX = cam_->width();
-        mnMinY = 0;
-        mnMaxY = cam_->height();
+        snMinX = 0;
+        snMaxX = cam_.width();
+        snMinY = 0;
+        snMaxY = cam_.height();
     }
 }
 
@@ -786,79 +738,10 @@ Eigen::Matrix3d Frame::ComputeFlr(Frame* pRightF, const Sophus::SE3d & Tl2r)
     Sophus::SE3d Tr2l= Tl2r.inverse();
     Eigen::Matrix3d R12 = Tr2l.rotationMatrix();
     Eigen::Vector3d t12 = Tr2l.translation();
-    Eigen::Matrix3d t12x = skew(t12);
-    return (cam_->K_inv().transpose())*t12x*R12*(pRightF->cam_->K_inv());
+    Eigen::Matrix3d t12x = skew3d(t12);
+    return (cam_.K_inv().transpose())*t12x*R12*(pRightF->cam_.K_inv());
 }
 
-// add key points to the previous frame k-1 based quad matches between k-1 and k.
-// In k-1, there may already be some key points created using quad matches between k-2 and k-1
-// im and right_img are used in extracting ORB descriptors
-void Frame::RefillKeyPoints(const cv::Mat & im_, const cv::Mat & right_img,
-                            std::vector<p_match> &vQuadMatches, const  Eigen::Vector3d & ginc)
-{     
-    assert(N== mvKeys.size());
-    std::vector<cv::KeyPoint> vKeys, vRightKeys;
-    vKeys.reserve(vQuadMatches.size());
-    vRightKeys.reserve(vQuadMatches.size());
-    for (auto it=vQuadMatches.begin(), ite= vQuadMatches.end(); it!=ite; ++it)
-    {
-        p_match & pMatch= *it;
-        if(pMatch.i1c==-1)
-            continue;
-        else if(viso2LeftId2StereoId[pMatch.i1p]== -1 && viso2RightId2StereoId[pMatch.i2p]==-1){
-            viso2LeftId2StereoId[pMatch.i1p]= N;
-            viso2RightId2StereoId[pMatch.i2p]= N;
-
-            vKeys.push_back(cv::KeyPoint(pMatch.u1p, pMatch.v1p, 11));//11 according to stereoscan article
-            vRightKeys.push_back(cv::KeyPoint(pMatch.u2p, pMatch.v2p, 11));
-            ++N;
-        }
-        else if(viso2LeftId2StereoId[pMatch.i1p]!= viso2RightId2StereoId[pMatch.i2p])
-            pMatch.i1c=-1;
-    }
-    cv::Mat fK=Converter::toCvMat(cam_->K());
-    cv::Mat fDistCoef=(cv::Mat_<float>(4,1)<< cam_->d0(),cam_->d1(), cam_->d2(), cam_->d3());
-
-    cv::Mat fRightK=Converter::toCvMat(right_cam_->K());
-    cv::Mat fRightDistCoef=(cv::Mat_<float>(4,1)<< right_cam_->d0(),right_cam_->d1(), right_cam_->d2(), right_cam_->d3());
-    // Exctract ORB for left image and right image 
-    std::vector<cv::KeyPoint> vKeysUn, vRightKeysUn;
-    UndistortKeyPoints( vKeys, vKeysUn, fK, fDistCoef);
-    UndistortKeyPoints( vRightKeys, vRightKeysUn, fRightK, fRightDistCoef);
-    //compute orientation either with gravity or illumination
-    cv::Mat descriptors, right_descriptors;
-    if(ginc.norm()<1e-6) //assigned proper value
-	{
-        (*mpORBextractor)(im_, vKeys, descriptors);
-        (*mpORBextractor)(right_img, vRightKeys, right_descriptors);
-    }else{
-        computeKeyPointGAO(vKeys, vKeysUn, fK, fDistCoef, ginc);
-        (*mpORBextractor)(im_, vKeys, descriptors, true);
- 		Eigen::Vector3d ginr=mTl2r*ginc;
-
-        computeKeyPointGAO(vRightKeys, vRightKeysUn, fRightK, fRightDistCoef, ginr);
-        (*mpORBextractor)(right_img, vRightKeys, right_descriptors, true);
-    }
-//update class members based on new key points
-
-    mvpMapPoints.resize(N,static_cast<MapPoint*>(NULL));
-    size_t inch= mvKeys.size();
-    mvKeys.insert(mvKeys.end(), vKeys.begin(), vKeys.end());
-    mvRightKeys.insert(mvRightKeys.end(), vRightKeys.begin(), vRightKeys.end());
-    mvKeysUn.insert(mvKeysUn.end(), vKeysUn.begin(), vKeysUn.end());
-    mvRightKeysUn.insert(mvRightKeysUn.end(), vRightKeysUn.begin(), vRightKeysUn.end());
-    mDescriptors.push_back(descriptors);
-    mRightDescriptors.push_back(right_descriptors);
-    for(size_t i=0;i<vKeysUn.size();++i)
-    {
-        cv::KeyPoint &kp = vKeysUn[i];
-
-        int nGridPosX, nGridPosY;
-        if(PosInGrid(kp,nGridPosX,nGridPosY))
-            mGrid[nGridPosX][nGridPosY].push_back(i+ inch);
-    }
-    mvbOutlier.resize(N,false);
-}
 float Frame::ComputeSceneMedianDepth(int q)
 {
     vector<MapPoint*> vpMapPoints;

@@ -1,61 +1,71 @@
 
 #include "timegrabber.h"
+#include "eigen_utils.h"
+
+#include <gpstk-2.5.linux.x86_64/SystemTime.hpp>
+#include <gpstk-2.5.linux.x86_64/CommonTime.hpp>
+#include <gpstk-2.5.linux.x86_64/CivilTime.hpp>
+#include <gpstk-2.5.linux.x86_64/YDSTime.hpp>
+#include <gpstk-2.5.linux.x86_64/GPSWeekSecond.hpp>
+#include <gpstk-2.5.linux.x86_64/Position.hpp>
+
+using namespace gpstk;
 using namespace std;
 TimeGrabber::TimeGrabber():
-        last_line_index(-1), last_line_time(-1){
-    }
-    TimeGrabber::TimeGrabber(const string time_file_name):time_file(time_file_name),
-        time_stream(time_file_name.c_str()),
-        last_line_index(-1), last_line_time(-1){
-        if(!time_stream.is_open())
-        {
-             std::cout << "Error opening timestamp file!"<<endl;
-        }
-    }
-   
-    TimeGrabber::~TimeGrabber(){
-        time_stream.close();
-    }
-    bool TimeGrabber::init(const string time_file_name){
-        time_file=time_file_name;
-        time_stream.open(time_file_name.c_str()),
-        last_line_index=-1;
-        last_line_time=-1;
-        if(!time_stream.is_open())
-        {
-                 std::cout << "Error opening timestamp file!"<<endl;
-                 return false;
-        }
-        return true;
-    }
-    // this reading function only works for KITTI timestamp files
-    double TimeGrabber::readTimestamp(int line_number)
+    last_line_index(-1), last_line_time(-1){
+}
+TimeGrabber::TimeGrabber(const string time_file_name):time_file(time_file_name),
+    time_stream(time_file_name.c_str()),
+    last_line_index(-1), last_line_time(-1){
+    if(!time_stream.is_open())
     {
-        string tempStr;
-        double precursor(-1);
-        if(last_line_index>line_number){
-            cerr<<"Retracing to read timestamps is unsupported!"<<endl;
-            return -1;
-        }
-        if(last_line_index==line_number)
-            return last_line_time;
-        while(last_line_index<line_number){
-            time_stream>>precursor;
-            if(time_stream.fail())
-                break;
-            getline(time_stream, tempStr);       //remove the remaining part, this works even when it is empty
-            ++last_line_index;
-        }
-        if(last_line_index<line_number)
-        {
-            cerr<<"Failed to find this line in time file!"<<endl;
-            return -1;
-        }
-        last_line_time=precursor;
-        return last_line_time;
+        std::cout << "Error opening timestamp file!"<<endl;
     }
-    //extract time and return left image filename, tailored for Malaga urban dataset
-    // in this function frame_number is 0 for the first two lines in the /*_IMAGE.txt file
+}
+
+TimeGrabber::~TimeGrabber(){
+    time_stream.close();
+}
+bool TimeGrabber::init(const string time_file_name){
+    time_file=time_file_name;
+    time_stream.open(time_file_name.c_str());
+    last_line_index=-1;
+    last_line_time=-1;
+    if(!time_stream.is_open())
+    {
+        std::cout << "Error opening timestamp file!"<<endl;
+        return false;
+    }
+    return true;
+}
+// this reading function only works for KITTI timestamp files
+double TimeGrabber::readTimestamp(int line_number)
+{
+    string tempStr;
+    double precursor(-1);
+    if(last_line_index>line_number){
+        cerr<<"Retracing to read timestamps is unsupported!"<<endl;
+        return -1;
+    }
+    if(last_line_index==line_number)
+        return last_line_time;
+    while(last_line_index<line_number){
+        time_stream>>precursor;
+        if(time_stream.fail())
+            break;
+        getline(time_stream, tempStr);       //remove the remaining part, this works even when it is empty
+        ++last_line_index;
+    }
+    if(last_line_index<line_number)
+    {
+        cerr<<"Failed to find this line in time file!"<<endl;
+        return -1;
+    }
+    last_line_time=precursor;
+    return last_line_time;
+}
+//extract time and return left image filename, tailored for Malaga urban dataset
+// in this function frame_number is 0 for the first two lines in the /*_IMAGE.txt file
 double TimeGrabber::extractTimestamp(int frame_number)
 {
     string tempStr;
@@ -91,72 +101,61 @@ DataGrabber::DataGrabber(const std::string file, double interval):reinit_data(tr
         std::cerr<<"Cannot open "<<file<<std::endl;
 }
 
-bool GPSGrabber::getObservation(double tk)
+std::istream& CSFMDataPattern::read(std::istream & is)
 {
-    //Assume each line in gps_file: GPSWeek, TOW, ecef X,Y,Z, Q and no of satels, and std ecef X,Y,Z
-
-    int lineNum=0;      //how many lines have been read in
-    string tempStr;
-    RtklibPosPattern pat;
-    if(reinit_data){//grab data until its timestamp is greater than t(startIndex)
-        while(!stream.eof()){
-            getline(stream, tempStr);
-            if(stream.fail())
-                break;
-            stringstream line_str(tempStr);
-            line_str>>pat;
-            transMat[0]=pat.GPS_TOW;
-            for (int j=1; j<4; ++j)
-                transMat[j]=pat.xyz_ecef[j-1];
-            for (int j=4; j<7; ++j)
-                transMat[j]=pat.sdxyz[j-4];
-            ++lineNum;
-            if(abs(transMat[0]-tk)<interval)
-                break;
-            measurement=transMat;
-        }
-        if(abs(transMat[0]-tk)<interval&&measurement[0]!=-1){
-            reinit_data=false;
-            is_measurement_good=true;
-            measurement=transMat;
-        }
-    }
-    else{
-        assert(abs(measurement[0]-tkm1)<interval);
-        measurement=transMat;        //last stranded measurement, t(p(k-1))
-
-        while(!stream.eof()){
-            getline(stream, tempStr);
-            if(stream.fail())
-                break;
-            stringstream line_str(tempStr);
-            line_str>>pat;
-            transMat[0]=pat.GPS_TOW;
-            for (int j=1; j<4; ++j)
-                transMat[j]=pat.xyz_ecef[j-1];
-            for (int j=4; j<7; ++j)
-                transMat[j]=pat.sdxyz[j-4];
-            ++lineNum;
-            if(abs(transMat[0]-tk)<interval)
-                break;
-            measurement=transMat;
-        }
-        if(abs(transMat[0]-tk)<interval)
-            //the second condition applies at the end of data file.
-            // Otherwise, something wrong with reading data
-        {
-            is_measurement_good=true;
-            measurement=transMat;
-        }
-        else{
-            is_measurement_good=false;
-            reinit_data=true;
-            assert(false);//this should never happen with continuous sensor readings
-        }
-    }
-    tkm1=tk;
-    return is_measurement_good;
+    is>>timestamp>>txyz[0]>>
+            txyz[1]>>txyz[2]>>
+            qxyzw[0]>>qxyzw[1]>>qxyzw[2]>>qxyzw[3];
+    return is;
 }
+std::ostream& CSFMDataPattern::print(std::ostream & os) const
+{
+    char delim=' ';
+    os<<std::setprecision(12)<<timestamp<< delim<<txyz[0]<< delim<< txyz[1]<<delim<<
+        txyz[2]<<delim<<std::setprecision(6)<<qxyzw[0]<<delim<<qxyzw[1]<<delim<<qxyzw[2]<<delim<<qxyzw[3]<<endl;
+    return os;
+}
+
+void loadCSFMOutput(string csfmFile, vector<pair<double, Eigen::Vector3d> > & vTimeAndPose)
+{
+    ifstream stream(csfmFile);
+    string tempStr;
+    CSFMDataPattern pat;
+    vTimeAndPose.clear();
+    while(!stream.eof()){
+        getline(stream, tempStr);
+        if(stream.fail()){
+            break;
+        }
+        stringstream line_str(tempStr);
+        line_str>>pat;
+        Eigen::Vector3d txyz; txyz<< pat.txyz[0], pat.txyz[1], pat.txyz[2];
+        std::pair<double, Eigen::Vector3d> meas= make_pair(pat.timestamp, txyz);
+        vTimeAndPose.push_back(meas);
+    }
+    stream.close();
+}
+
+void saveCSFMOutput(string csfmFile, const vector<pair<double, Eigen::Vector3d> > & vTimeAndPose)
+{
+    ofstream stream(csfmFile);
+    CSFMDataPattern pat;
+
+    for(auto it= vTimeAndPose.begin(), ite= vTimeAndPose.end(); it!=ite; ++it){
+        pat.timestamp= it->first;
+        pat.txyz[0] = it->second[0];
+        pat.txyz[1] = it->second[1];
+        pat.txyz[2] = it->second[2];
+        pat.qxyzw[0] = 0;
+        pat.qxyzw[1] = 0;
+        pat.qxyzw[2] = 0;
+        pat.qxyzw[3] = 0;
+        stream<< pat;
+    }
+    stream.close();
+}
+
+
 std::ostream& operator << (std::ostream &os, const IMUGrabber::MicroStrainCSVPattern & rhs)
 {
     os<< rhs.GPS_TFlags<<','<<rhs.GPS_Week<<','<<rhs.GPS_TOW<<','<<
@@ -191,27 +190,19 @@ std::istream & operator>>(std::istream &is, IMUGrabber::PlainTextPattern &rhs)
     return is;
 }
 
-std::ostream& operator << (std::ostream &os, const GPSGrabber::RtklibPosPattern& rhs)
-{
-    char delim=' ';
-    os<< rhs.GPS_Week<<delim<<rhs.GPS_TOW<<delim<<rhs.xyz_ecef[0]<<delim<<
-         rhs.xyz_ecef[1]<<delim<<rhs.xyz_ecef[2]<<delim<<rhs.Q<<delim<<
-         rhs.ns<<delim<<rhs.sdxyz[0]<<delim<<rhs.sdxyz[1]<<delim<<rhs.sdxyz[2]<<
-         delim<<rhs.sdxy_yz_zx[0]<<delim<<rhs.sdxy_yz_zx[1]<<delim<<rhs.sdxy_yz_zx[2]<<
-         delim<<rhs.age<<delim<<rhs.ratio;
-    return os;
-}
-std::istream & operator>>(std::istream &is, GPSGrabber::RtklibPosPattern &rhs)
-{
-    is>> rhs.GPS_Week>>rhs.GPS_TOW>>rhs.xyz_ecef[0]>>
-         rhs.xyz_ecef[1]>>rhs.xyz_ecef[2]>>rhs.Q>>
-         rhs.ns>>rhs.sdxyz[0]>>rhs.sdxyz[1]>>rhs.sdxyz[2]>>
-         rhs.sdxy_yz_zx[0]>>rhs.sdxy_yz_zx[1]>>rhs.sdxy_yz_zx[2]>>
-         rhs.age>>rhs.ratio;
-    return is;
-}
 
+IMUGrabber::IMUGrabber(const std::string file, IMUFileType ft, double sample_interval):
+    DataGrabber(file, sample_interval), file_type(ft)
+{
+    int header_lines=1;
+    if(file_type==PlainText)
+        header_lines=1;
+    std::string tempStr;
+    for(int i=0; i<header_lines;++i)
+        getline(stream, tempStr);           //remove explanatory header
+}
 //get next bundle of imu observations given t(k), for the first frame startIndex, no measurement should be returned
+// assume the starting time is larger than the first epoch of imu data
 bool IMUGrabber::getObservation(double tk)
 {
     int lineNum=0;      //how many lines have been read in
@@ -243,7 +234,7 @@ bool IMUGrabber::getObservation(double tk)
                     transMat[j]=pat.awxyz[j-1];
             }
 
-            ++lineNum;       
+            ++lineNum;
             if(transMat[0]>tk)
                 break;
             measurement.push_back(transMat);
@@ -262,7 +253,7 @@ bool IMUGrabber::getObservation(double tk)
             getline(stream, tempStr);
             if(stream.fail())
                 break;
-            stringstream line_str(tempStr);          
+            stringstream line_str(tempStr);
             if(file_type==MicroStrainCSV){
                 IMUGrabber::MicroStrainCSVPattern pat;
                 line_str>>pat;
@@ -281,7 +272,7 @@ bool IMUGrabber::getObservation(double tk)
                 transMat[0]=pat.GPS_TOW;
                 for (int j=1; j<transMat.rows(); ++j)
                     transMat[j]=pat.awxyz[j-1];
-            }           
+            }
             ++lineNum;
             if(transMat[0]>tk)
                 break;
@@ -310,18 +301,19 @@ bool IMUGrabber::getObservation(double tk)
 bool StatesGrabber::getObservation(double tk)
 {
     //Assume each line in States file: GPS TOW, i.e., t(k), position of sensor in world frame,
-    // quaternion from sensor to world frame, velocity of sensor in world frame, accelerometer biases, and gyro biases
+    // quaternion wxyz from sensor to world frame, velocity of sensor in world frame, accelerometer biases, and gyro biases
+    // diagnoal elements of the shape matrices S_a, and S_g, where S_a + I= T_a, a_m = T_a*a +b_a +n_a, w_m = T_g*w +b_g +n_g
     double precursor=0; //used to read in something tentatively
-    string tempStr;  
+    string tempStr;
     if(!stream.eof()){
-            stream>>precursor;
-            if(stream.fail())
-                return false;
-            measurement[0]=precursor;
-            for (int j=1; j<measurement.rows(); ++j)
-                stream>>measurement[j];
-            getline(stream, tempStr);       //remove the remaining part, this works even when it is empty
-            is_measurement_good=true;
+        stream>>precursor;
+        if(stream.fail())
+            return false;
+        measurement[0]=precursor;
+        for (int j=1; j<measurement.rows(); ++j)
+            stream>>measurement[j];
+        getline(stream, tempStr);       //remove the remaining part, this works even when it is empty
+        is_measurement_good=true;
     }
     tkm1=tk;
     return is_measurement_good;

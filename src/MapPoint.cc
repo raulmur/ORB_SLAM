@@ -21,7 +21,7 @@
 #include "MapPoint.h"
 #include "ORBmatcher.h"
 #include "vikit/math_utils.h"
-#include "g2o_types/global.h" //EPS
+#include "global.h" //EPS
 #include "config.h"
 //#include "ros/ros.h"
 
@@ -110,7 +110,7 @@ map<KeyFrame*, size_t> MapPoint::GetObservations(bool left)
 {
     boost::mutex::scoped_lock lock(mMutexFeatures);
     if(left)
-    return mObservations;
+        return mObservations;
     else
         return mRightObservations;
 }
@@ -365,14 +365,12 @@ void MapPoint::UpdateNormalAndDepth()
     }
 
     const int level = pRefKF->GetKeyPointScaleLevel(observations[pRefKF]);
-    const float scaleFactor = pRefKF->GetScaleFactor();
     const float levelScaleFactor =  pRefKF->GetScaleFactor(level);
 
     {
-        boost::mutex::scoped_lock lock3(mMutexPos);
-        mfMinDistance = (1.0f/scaleFactor)*dist / levelScaleFactor;
-        // huai: $d_{min}=d/(1.2)^(k+1)$, $d_{max}=d*1.2^(8-k)$, $k \in [0, 7]$ by default
-        mfMaxDistance = scaleFactor*dist * pRefKF->GetScaleFactor(nLevels-1-level);
+        boost::mutex::scoped_lock lock3(mMutexPos);     
+        mfMaxDistance = dist*levelScaleFactor;
+        mfMinDistance = mfMaxDistance/pRefKF->GetScaleFactor(nLevels-1);
         mNormalVector = normal/n;
     }
 }
@@ -402,73 +400,75 @@ void MapPoint::Release()
 //    mNormalVector.release();
 //    mDescriptor.release();
 }
+
 // 4 obs, each is observations in image plane z=1, (\bar{x}, \bar{y}, 1), each of 4 frame_poses is Tw2c(i)
 // old_point stores initial position and optimized position, pdop is position dilution of precision
-void MapPoint::optimize(const std::vector< Eigen::Vector3d> & obs,
-                        const std::vector<Sophus::SE3d> & frame_poses,
-                        Eigen::Vector3d& old_point, double & pdop,
-                        vk::PinholeCamera* cam, size_t n_iter)
-{
-  Eigen::Vector3d pos = old_point;
-  double chi2 = 0.0;
-  Eigen::Matrix3d A;
-  Eigen::Vector3d b;
-    const double pixel_variance=1.0;
-  for(size_t i=0; i<n_iter; ++i)
-  {
-    A.setZero();
-    b.setZero();
-    double new_chi2 = 0.0;
 
-    // compute residuals
-    std::vector<Sophus::SE3d>::const_iterator it_poses= frame_poses.begin();
-    for(std::vector< Eigen::Vector3d>::const_iterator it=obs.begin();
-        it!=obs.end(); ++it, ++it_poses)
-    {
-      Matrix23d J;
-      const Eigen::Vector3d p_in_f( (*it_poses) * pos);
-      MapPoint::jacobian_xyz2uv(p_in_f, it_poses->rotationMatrix(), J);
-      const Eigen::Vector2d e(vk::project2d(*it) - vk::project2d(p_in_f));
-      new_chi2 += e.squaredNorm();
-      A.noalias() += J.transpose() * J;
-      b.noalias() -= J.transpose() * e;
-    }
-    pdop= pixel_variance*sqrt(A.inverse().trace())/cam->errorMultiplier2();
-    if(pdop> Config::PDOPThresh()) break;
-    // solve linear system
-    const Eigen::Vector3d dp(A.ldlt().solve(b));
+//void MapPoint::optimize(const std::vector< Eigen::Vector3d> & obs,
+//                        const std::vector<Sophus::SE3d> & frame_poses,
+//                        Eigen::Vector3d& old_point, double & pdop,
+//                        vk::PinholeCamera* cam, size_t n_iter)
+//{
+//  Eigen::Vector3d pos = old_point;
+//  double chi2 = 0.0;
+//  Eigen::Matrix3d A;
+//  Eigen::Vector3d b;
+//    const double pixel_variance=1.0;
+//  for(size_t i=0; i<n_iter; ++i)
+//  {
+//    A.setZero();
+//    b.setZero();
+//    double new_chi2 = 0.0;
 
-    // check if error increased
-    if((i > 0 && new_chi2 > chi2) || (bool) std::isnan((double)dp[0]))
-    {
-#ifdef POINT_OPTIMIZER_DEBUG
-      cout << "it " << i
-           << "\t FAILURE \t new_chi2 = " << new_chi2 << endl;
-#endif
-      pos = old_point; // roll-back
-      break;
-    }
+//    // compute residuals
+//    std::vector<Sophus::SE3d>::const_iterator it_poses= frame_poses.begin();
+//    for(std::vector< Eigen::Vector3d>::const_iterator it=obs.begin();
+//        it!=obs.end(); ++it, ++it_poses)
+//    {
+//      Matrix23d J;
+//      const Eigen::Vector3d p_in_f( (*it_poses) * pos);
+//      MapPoint::jacobian_xyz2uv(p_in_f, it_poses->rotationMatrix(), J);
+//      const Eigen::Vector2d e(vk::project2d(*it) - vk::project2d(p_in_f));
+//      new_chi2 += e.squaredNorm();
+//      A.noalias() += J.transpose() * J;
+//      b.noalias() -= J.transpose() * e;
+//    }
+//    pdop= pixel_variance*sqrt(A.inverse().trace())/cam->errorMultiplier2();
+//    if(pdop> Config::PDOPThresh()) break;
+//    // solve linear system
+//    const Eigen::Vector3d dp(A.ldlt().solve(b));
 
-    // update the model
-    Eigen::Vector3d new_point = pos + dp;
-    old_point = pos;
-    pos = new_point;
-    chi2 = new_chi2;
-#ifdef POINT_OPTIMIZER_DEBUG
-    cout << "it " << i
-         << "\t Success \t new_chi2 = " << new_chi2
-         << "\t norm(b) = " << vk::norm_max(b)
-         << endl;
-#endif
+//    // check if error increased
+//    if((i > 0 && new_chi2 > chi2) || (bool) std::isnan((double)dp[0]))
+//    {
+//#ifdef POINT_OPTIMIZER_DEBUG
+//      cout << "it " << i
+//           << "\t FAILURE \t new_chi2 = " << new_chi2 << endl;
+//#endif
+//      pos = old_point; // roll-back
+//      break;
+//    }
 
-    // stop when converged
-    if(vk::norm_max(dp) <= ORB_SLAM::EPS)
-      break;
-  }
-  old_point =pos;
-#ifdef POINT_OPTIMIZER_DEBUG
-  cout << endl;
-#endif
-}
+//    // update the model
+//    Eigen::Vector3d new_point = pos + dp;
+//    old_point = pos;
+//    pos = new_point;
+//    chi2 = new_chi2;
+//#ifdef POINT_OPTIMIZER_DEBUG
+//    cout << "it " << i
+//         << "\t Success \t new_chi2 = " << new_chi2
+//         << "\t norm(b) = " << vk::norm_max(b)
+//         << endl;
+//#endif
+
+//    // stop when converged
+//    if(vk::norm_max(dp) <= ORB_SLAM::EPS)
+//      break;
+//  }
+//  old_point =pos;
+//#ifdef POINT_OPTIMIZER_DEBUG
+//  cout << endl;
+//#endif
+//}
 
 } //namespace ORB_SLAM

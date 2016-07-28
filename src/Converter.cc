@@ -59,6 +59,15 @@ Sophus::Sim3d Converter::toSim3d(const g2o::Sim3 &se3q)
 {
    return Sophus::Sim3d(Sophus::RxSO3d(se3q.scale(), Sophus::SO3d(se3q.rotation())),se3q.translation());
 }
+
+Eigen::Vector4d Converter::toScaleTrans(const g2o::Sim3 & se3q)
+{
+    Eigen::Vector4d v4;
+    v4[0]= se3q.scale();
+    v4.tail<3>()= se3q.translation();
+    return v4;
+}
+
 Sophus::Sim3d Converter::toSim3d(const Sophus::SE3d &se3)
 {
    return Sophus::Sim3d(Sophus::RxSO3d(1.0, Sophus::SO3d(se3.unit_quaternion())),se3.translation());

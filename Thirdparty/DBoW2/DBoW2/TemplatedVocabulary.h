@@ -1384,7 +1384,7 @@ bool TemplatedVocabulary<TDescriptor,F>::loadFromTextFile(const std::string &fil
 
         int nid = m_nodes.size();
         m_nodes.resize(m_nodes.size()+1);
-
+		m_nodes[nid].id = nid;
         int pid ;
         ssnode >> pid;
         m_nodes[nid].parent = pid;
@@ -1393,10 +1393,14 @@ bool TemplatedVocabulary<TDescriptor,F>::loadFromTextFile(const std::string &fil
         int nIsLeaf;
         ssnode >> nIsLeaf;
 
-        string sd;
+        stringstream ssd;
         for(int iD=0;iD<F::L;iD++)
-            ssnode >> sd;
-        F::fromString(m_nodes[nid].descriptor, sd);
+        {
+            string sElement;
+            ssnode >> sElement;
+            ssd << sElement << " ";
+		}
+        F::fromString(m_nodes[nid].descriptor, ssd.str());
 
         ssnode >> m_nodes[nid].weight;
 

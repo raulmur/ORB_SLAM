@@ -23,7 +23,7 @@
 namespace ORB_SLAM
 {
 
-Map::Map()
+Map::Map():mbFinishedLoopClosing(false)
 {
     mbMapUpdated= false;
     mnMaxKFid = 0;

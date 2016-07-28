@@ -23,17 +23,7 @@
 
 #include "MotionModel.hpp"
 #include "config.h"
-#include "g2o_types/anchored_points.h"
-#include "g2o_types/IMU_constraint.h"
-#include <g2o/core/block_solver.h> //for sparseoptimizer
-
-#include <viso2/p_match.h> //for matches adopted from libviso2
-#include <viso2/viso_stereo.h>//for viso2
-
 #include "stereoSFM.h"
-#include<opencv2/core/core.hpp>
-#include<opencv2/features2d/features2d.hpp>
-
 #include"FramePublisher.h"
 #include"Map.h"
 #include"LocalMapping.h"
@@ -45,6 +35,18 @@
 #include "Initializer.h"
 #include "MapPublisher.h"
 
+#include "sophus/sim3.hpp"
+
+#include "g2o_types/anchored_points.h"
+#include "g2o_types/IMU_constraint.h"
+#include <g2o/core/block_solver.h> //for sparseoptimizer
+
+#include <viso2/p_match.h> //for matches adopted from libviso2
+#include <viso2/viso_stereo.h>//for viso2
+
+#include<opencv2/core/core.hpp>
+#include<opencv2/features2d/features2d.hpp>
+
 #ifdef SLAM_USE_ROS
 #include<sensor_msgs/Image.h>
 #include<sensor_msgs/image_encodings.h>
@@ -55,7 +57,6 @@
 
 namespace ORB_SLAM
 {
-
 class FramePublisher;
 class Map;
 class LocalMapping;
@@ -81,6 +82,7 @@ public:
         LOST=4
     };
     double GetFPS() const {return (double)mFps;}
+    int GetRegNumFeatures() const {return mnFeatures;}
     void SetLocalMapper(LocalMapping* pLocalMapper);
     void SetLoopClosing(LoopClosing* pLoopClosing);
     void SetKeyFrameDatabase(KeyFrameDatabase* pKFDB);
@@ -116,8 +118,6 @@ public:
     std::vector<cv::Point3f> mvIniP3D;
     Frame* mpInitialFrame;
 protected:
-    // monocular processing
-    void GrabImage(cv::Mat& im, double timeStampSec);
 
     //process stereo image pair, left_img and right_img, they shared the same time in seconds,
     //time_pair[1], time_pair[0] is for the previous frame
@@ -129,12 +129,6 @@ protected:
     void ProcessFrameQCV(cv::Mat &left_img, cv::Mat &right_img, double timeStampSec,
                       const std::vector<Eigen::Matrix<double, 7,1> >& imu_measurements = std::vector<Eigen::Matrix<double, 7,1> >(),
                       const Sophus::SE3d * pTcp=NULL, const Eigen::Matrix<double, 9,1> sb=Eigen::Matrix<double, 9,1>::Zero());
-/// cam_id =0 left image, 1, right image, identity the camera sensor that captures im,
-/// pTcp is predicted transform to current image from previous image
-/// imu_measurements are the measurements between previous image epoch and current image epoch (k+1)
-    void  ProcessFrameSVO(cv::Mat &im, cv::Mat & right_im, double timeStampSec,
-                          const std::vector<Eigen::Matrix<double, 7,1> >& imu_measurements = std::vector<Eigen::Matrix<double, 7,1> >(),
-                          const Sophus::SE3d * pTcp=NULL, const Eigen::Matrix<double, 9,1> sb=Eigen::Matrix<double, 9,1>::Zero());
 
     // monocular and imu integration
     void  ProcessFrameMono(cv::Mat &im, double timeStampSec,
@@ -166,34 +160,9 @@ protected:
     int SearchReferencePointsInFrustum();
     int SearchReferencePointsInFrustumStereo();
 
-    void setupG2o(ScaViSLAM::G2oCameraParameters * g2o_cam,
-                  ScaViSLAM::G2oCameraParameters * g2o_cam_right,
-               ScaViSLAM::G2oIMUParameters * g2o_imu,
-               g2o::SparseOptimizer * optimizer) const;
-    ScaViSLAM::G2oVertexSE3* addPoseToG2o(const Sophus::SE3d & T_me_from_w,
-                   int pose_id,
-                   bool fixed,
-                   g2o::SparseOptimizer * optimizer,
-                      const Sophus::SE3d* first_estimate=NULL) const;
-    ScaViSLAM::G2oVertexSpeedBias* addSpeedBiasToG2o(const Eigen::Matrix<double, 9,1> & vinw_bias,
-                   int sb_id,
-                   bool fixed,
-                   g2o::SparseOptimizer * optimizer,
-                           const Eigen::Matrix<double, 9,1> * first_estimate= NULL) const;
-    size_t copyAllPosesToG2o(g2o::SparseOptimizer * optimizer);
-
- 	ScaViSLAM::G2oVertexPointXYZ* addPointToG2o( MapPoint* pPoint,
-                    int g2o_point_id, bool fixed,
-                    g2o::SparseOptimizer * optimizer) const;
-
-    ScaViSLAM::G2oEdgeProjectXYZ2UV* addObsToG2o(const Eigen::Vector2d & obs, const Eigen::Matrix2d & Lambda,
-                  ScaViSLAM::G2oVertexPointXYZ*, ScaViSLAM::G2oVertexSE3*, bool robustify,  double huber_kernel_width,
-                  g2o::SparseOptimizer * optimizer, Sophus::SE3d * pTs2c=NULL);
-    int  LocalOptimize();
-    int  LocalOptimizeSVO();
     bool NeedNewKeyFrame();
     bool NeedNewKeyFrameStereo();
-    void CreateNewKeyFrame();
+
     void CreateNewMapPoints(const std::vector<p_match>& vQuadMatches);
     void CreateNewMapPoints(KeyFrame* pPenultimateKF, KeyFrame* pLastKF);
     //Other Thread Pointers
@@ -282,10 +251,10 @@ protected:
     bool mbUseIMUData;
     double imu_sample_interval;             //sampling interval in second
     ScaViSLAM::G2oIMUParameters imu_;
-    static const int MAGIC2=2;         //we use 2*i to identify pose vertices and 2*i+1 for speeb bias vertices in g2o optimizer
+
     int mnStartId; // used to offset the ID of frames
 
-    const int mnFeatures;// how many point features in a frame
+    const int mnFeatures;// how many point features to detect in a frame, for the initial keyframes, 2 times points
 
     PointStatistics point_stats;
     std::vector<KeyFrame*> core_kfs_;                      //!< Keyframes in the closer neighbourhood.

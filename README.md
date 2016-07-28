@@ -1,6 +1,6 @@
 # ORB-SLAM-DWO
 
-ORB-SLAM-DWO is an adapted version of ORB-SLAM with double window optimization by Jianzhu Huai. In contrast to ORB-SLAM, (1) it does not rely on ROS, (2) it does not use the modified version of g2o shipped in ORB-SLAM, instead it used the g2o from github, (3) it used Eigen vectors and Sophus members instead of Opencv Mat to represent pose entities, and (4) it also incorporate a camera model from vikit of SVO and a motion model of Stereo PTAM for KITTI.
+ORB-SLAM-DWO is an adapted version of ORB-SLAM with double window optimization by Jianzhu Huai. In contrast to ORB-SLAM, (1) it does not rely on ROS, (2) it does not use the modified version of g2o shipped in ORB-SLAM, instead it used the g2o from github, (3) it used Eigen vectors and Sophus members instead of Opencv Mat to represent pose entities, and (4) it also incorporate a camera model from vikit of SVO and a motion model of Stereo PTAM for KITTI, (5) currently, it supported stereo SLAM, monocular SLAM, and stereo + inertial SLAM. The program may also run without ROS, but this is not well tested.
 
 ORB-SLAM is a versatile and accurate Monocular SLAM solution able to compute in real-time the camera trajectory and a sparse 3D reconstruction of the scene in a wide variety of environments, ranging from small hand-held sequences to a car driven around several city blocks. It is able to close large loops and perform global relocalisation in real-time and from wide baselines.
 
@@ -86,7 +86,7 @@ For vikit, it is not necessary to install it. But you need to set its path in th
 
 2. Clone this ORB_SLAM into your project folder
 
-3. Build DBoW2. Go into Thirdparty/DBoW2/ and execute:
+3. Build DBoW2. Go into Thirdparty/DBoW2/ and execute the following to compile DBoW2 with ROS OpenCV (if you want to build this package using independent OpenCV instead of ROS OpenCV, in line "SET(USE_ROS True)", Set False):
 
 		mkdir build
 		cd build
@@ -96,7 +96,7 @@ For vikit, it is not necessary to install it. But you need to set its path in th
 	Tip: Set your favorite compilation flags in line 4 and 5 of Thirdparty/DBoW2/CMakeLists.txt
 		  (by default -03 -march=native)
 
-4. Build ORB_SLAM. In the ORB-SLAM-DWO root execute:
+4. Build ORB_SLAM. In the ORB-SLAM-DWO root execute the following to compile with catkin (if you want to build this package without ROS, in line "SET(USE_ROS True)", Set False, but this is not well tested.) If to build this package for monocular SLAM, in line "SET(MONO_SLAM FALSE)" set MONO_SLAM true. Whether to use IMU data is determined by the use_imu_data member in the yaml setting file.
 
 		mkdir build
 		cd build
@@ -108,12 +108,14 @@ For vikit, it is not necessary to install it. But you need to set its path in th
 
 #4. Usage
 
-1. Launch ORB-SLAM-DWO from the terminal:
-
-		test_orbslam PATH_TO_SETTINGS_FILE
+1. Launch ORB-SLAM-DWO:
+	launch ROS in a terminal: roscore
+	launch image view in another terminal: rosrun image_view image_view image:=/ORBSLAM_DWO/Frame _autosize:=true
+	launch rviz in another terminal: rosrun rviz rviz -d /home/jhuai/catkin_ws/src/orbslam_dwo/data/rviz.rviz
+	and finally in another terminal: test_orbslam PATH_TO_SETTINGS_FILE
 
 	You have to provide the path to the settings file which contains path to the vocabulary file. The paths must be absolute or relative to the ORB_SLAM directory. We already provide the vocabulary file we use in ORB_SLAM/Data. Uncompress the file, as it will be loaded much faster.
-
+	
 2. The settings File
 
 	We provide the settings of example sequences in Data folder, KITTI odometry and Tsukuba CG Stereo dataset daylight.

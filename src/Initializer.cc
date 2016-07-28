@@ -32,7 +32,7 @@ namespace ORB_SLAM
 
 Initializer::Initializer(const Frame &ReferenceFrame, float sigma, int iterations)
 {
-    mK = Converter::toCvMat(ReferenceFrame.cam_->K());
+    mK = Converter::toCvMat(ReferenceFrame.cam_.K());
 
     mvKeys1 = ReferenceFrame.mvKeysUn;
 

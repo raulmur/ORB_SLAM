@@ -39,7 +39,6 @@
 #include "KeyFrameDatabase.h"
 #include "ORBVocabulary.h"
 
-
 #include "Converter.h"
 
 
@@ -72,7 +71,7 @@ int main(int argc, char **argv)
     cv::FileStorage fsSettings(strSettingsFile.c_str(), cv::FileStorage::READ);
     if(!fsSettings.isOpened())
     {
-        cerr<<("Wrong path to settings. Path must be absolut or relative to ORB_SLAM package directory.");
+        cerr<<("Wrong path to settings. Path must be absolute or relative to ORB_SLAM package directory.");
  #ifdef SLAM_USE_ROS
         ros::shutdown();
 #endif
@@ -95,7 +94,7 @@ int main(int argc, char **argv)
         cv::FileStorage fsVoc(strVocFile.c_str(), cv::FileStorage::READ);
         if(!fsVoc.isOpened())
         {
-            cerr << "Wrong path to vocabulary. Path must be absolut or relative to ORB_SLAM package directory." << endl;
+            cerr << "Wrong path to vocabulary. Path must be absolute or relative to ORB_SLAM package directory." << endl;
             cerr << "Falied to open at: " << strVocFile << endl;
 #ifdef SLAM_USE_ROS
             ros::shutdown();
@@ -110,7 +109,7 @@ int main(int argc, char **argv)
         bool bVocLoad = Vocabulary.loadFromTextFile(strVocFile);
         if(!bVocLoad)
         {
-            cerr << "Wrong path to vocabulary. Path must be absolut or relative to ORB_SLAM package directory." << endl;
+            cerr << "Wrong path to vocabulary. Path must be absolute or relative to ORB_SLAM package directory." << endl;
             cerr << "Falied to open at: " << strVocFile << endl;
 #ifdef SLAM_USE_ROS
             ros::shutdown();
@@ -118,7 +117,7 @@ int main(int argc, char **argv)
             return 1;
         }
     }else {
-        cerr << "Wrong path to vocabulary. Path must be absolut or relative to ORB_SLAM package directory." << endl;
+        cerr << "Wrong path to vocabulary. Path must be absolute or relative to ORB_SLAM package directory." << endl;
         cerr << "Falied to open at: " << strVocFile << endl;
 #ifdef SLAM_USE_ROS
         ros::shutdown();

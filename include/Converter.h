@@ -40,9 +40,12 @@ class Converter
 public:
     static std::vector<cv::Mat> toDescriptorVector(const cv::Mat &Descriptors);
 
+
     static g2o::SE3Quat toSE3Quat(const cv::Mat &cvT);
     static Sophus::Sim3d toSim3d(const Sophus::SE3d &se3);
     static Sophus::Sim3d toSim3d(const g2o::Sim3 &se3q);
+    static Eigen::Vector4d toScaleTrans(const g2o::Sim3 & se3q);
+
     static Sophus::SE3d toSE3d(const Sophus::Sim3d &sim3);
     static Sophus::SE3d toSE3d(const cv::Mat &cvT);
     static g2o::SE3Quat toSE3Quat(const Sophus::SE3d &se3d);

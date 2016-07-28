@@ -1,0 +1,131 @@
+%YAML:1.0
+startIndex: 0
+finishIndex: 1060
+dataset: "KITTIOdoSeq" # choose one of KITTIOdoSeq, Tsukuba, MalagaUrbanExtract6
+use_imu_data:false
+
+input_path: /media/jhuai/Mag/kitti/dataset/sequences/12
+time_file: /media/jhuai/Mag/kitti/dataset/sequences/12/times.txt
+qcv_tracks: /home/jhuai/qcv/qcv-mods/build/kittisettings/result_scale06/12_tracks.txt
+qcv_deltas: /home/jhuai/qcv/qcv-mods/build/kittisettings/result_scale06/12_Tci2cip1.txt
+voc_file_path: /home/jhuai/orbslam_dwo/Data/ORBvoc.yml
+output_file: /home/jhuai/orbslam_dwo/Data/result/KITTISeq12.txt
+output_point_file: /home/jhuai/orbslam_dwo/Data/result/KITTISeq12_points.txt
+imu_file: ""
+# where to put the slam profiled time
+trace_dir: /home/jhuai/orbslam_dwo/Data/result
+
+sample_interval: 0.01
+na: !!opencv-matrix
+   rows: 3
+   cols: 1
+   dt: d
+   data: [80e-5, 80e-5, 80e-5 ] # 80 ug with 1 Hz 
+# q_na=na^2
+nw: !!opencv-matrix
+   rows: 3
+   cols: 1
+   dt: d
+   data: [0.03, 0.03, 0.03] # 0.03 deg/sec/sqrt(Hz) 
+#q_nw=(nw*pi/180)^2
+acc_bias_Tc: 1800       #sec
+acc_bias_var: !!opencv-matrix
+   rows: 3
+   cols: 1
+   dt: d
+   data: [.04e-2, .04e-2, .04e-2]#bias drift variability, 0.04 mg
+#q_n_ba=(.04e-2)^2*(2/acc_bias_Tc);
+gyro_bias_Tc: 1800 #sec
+gyro_bias_var: !!opencv-matrix
+   rows: 3
+   cols: 1
+   dt: d
+   data: [5e-3, 5e-3, 5e-3]#bias drift variability, 18 deg/hour
+#q_n_bw=(18*(pi/180.0)/3600)^2*(2/gyro_bias_Tc); # 18deg/hr  
+
+Rs2c: !!opencv-matrix
+   rows: 3
+   cols: 3
+   dt: d
+   data: [ 0, 1, 0, 0, 0, 1, 1, 0, 0 ]
+tsinc: !!opencv-matrix
+   rows: 3
+   cols: 1
+   dt: d
+   data: [ 0.05, 0.1, -0.1]#the coordinate of sensor frame origin in left P0 camera frame
+gw: !!opencv-matrix # gravity in the local world frame
+   rows: 3
+   cols: 1
+   dt: f
+   data: [   -0.000391708956131998,    9.78093956865728, 6.81059618015123e-05]
+wiew: !!opencv-matrix # earth rotation in the local world frame
+   rows: 3
+   cols: 1
+   dt: f
+   data: [ -1.86714087981123e-05,  -1.06396154889527e-05,  6.96826462834436e-05]
+# the world frame is the LEFT camera frame at startIndex
+vs0inw: !!opencv-matrix
+   rows: 3
+   cols: 1
+   dt: d
+   data: [  -0.441011,   -0.268243, 8.28043 ]
+
+# Camera calibration parameters (OpenCV)
+Camera.width: 1241
+Camera.height: 376
+Camera.fx: 718.856
+Camera.fy: 718.856
+Camera.cx: 607.1928
+Camera.cy: 185.2157
+
+
+# Camera distortion paremeters (OpenCV) --
+Camera.k1: 0
+Camera.k2: 0
+Camera.p1: 0.0
+Camera.p2: 0.0
+
+Stereo.se3Left2Right: !!opencv-matrix
+   rows: 4
+   cols: 4
+   dt: f
+   data: [ 1, 0, 0, -0.5372, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
+
+Stereo.matRightK: !!opencv-matrix
+   rows: 3
+   cols: 3
+   dt: f
+   data: [ 718.856, 0, 607.1928, 0, 718.856, 185.2157, 0, 0, 1]
+# Stereo.matRightDistCoef: k1 k2 p1 p2 (Opencv)
+Stereo.matRightDistCoef: !!opencv-matrix
+   rows: 4
+   cols: 1
+   dt: f
+   data: [ 0, 0, 0, 0]
+
+# Camera frames per second 
+Camera.fps: 10.0
+
+# Color order of the images (0: BGR, 1: RGB. It is ignored if images are grayscale)
+Camera.RGB: 1
+
+#--------------------------------------------------------------------------------------------
+### Changing the parameters below could seriously degradate the performance of the system
+
+# ORB Extractor: Number of features per image
+ORBextractor.nFeatures: 600
+
+# ORB Extractor: Scale factor between levels in the scale pyramid 	
+ORBextractor.scaleFactor: 1.2
+
+# ORB Extractor: Number of levels in the scale pyramid	
+ORBextractor.nLevels: 1
+
+# ORB Extractor: Fast threshold (lower less restrictive)			
+ORBextractor.fastTh: 20
+
+# ORB Extractor: Score to sort features. 0 -> Harris Score, 1 -> FAST Score			
+ORBextractor.nScoreType: 1
+
+# Constant Velocity Motion Model (0 - disabled, 1 - enabled [recommended])
+UseMotionModel: 1

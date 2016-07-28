@@ -1,22 +1,12 @@
-// This file is part of ScaViSLAM.
-//
-// Copyright 2011 Hauke Strasdat (Imperial College London)
-//
-// ScaViSLAM is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Lesser General Public License as published
-// by the Free Software Foundation, either version 3 of the License, or
-// any later version.
-//
-// ScaViSLAM is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Lesser General Public License for more details.
-//
-// You should have received a copy of the GNU Lesser General Public License
-// along with ScaViSLAM.  If not, see <http://www.gnu.org/licenses/>.
-
 #ifndef SCAVISLAM_G2O_ANCHORED_POINTS_H
 #define SCAVISLAM_G2O_ANCHORED_POINTS_H
+
+#include "maths_utils.h" //for project2d
+
+#include <sophus/se3.hpp>
+#ifdef MONO
+#include <sophus/sim3.hpp>
+#endif
 
 #include <g2o/core/base_vertex.h>
 #include <g2o/core/base_binary_edge.h>
@@ -26,15 +16,106 @@
 #include <g2o/types/sba/types_six_dof_expmap.h> //EdgeSE3ProjectXYZ
 #include <g2o/types/sim3/types_seven_dof_expmap.h> //EdgeInverseSim3ProjectXYZ
 
-#include <sophus/se3.hpp>
-#ifdef MONO
-#include <sophus/sim3.hpp>
-#endif
-#include "global.h"
-#include "maths_utils.h" //for project2d
+#include<Eigen/Core>
+
 namespace ScaViSLAM{
 
-Matrix6d third(const Sophus::SE3d & A, const Vector6d & d);
+Eigen::Matrix<double, 6,6> third(const Sophus::SE3d & A, const Eigen::Matrix<double,6,1> & d);
+
+//$\frac{\partial Kproj(X)}{\partial X}$
+inline Eigen::Matrix<double,2,3>
+d_proj_d_y(const Eigen::Vector2d & f, const Eigen::Vector3d & xyz)
+{
+  double z_sq = xyz[2]*xyz[2];
+  Eigen::Matrix<double,2,3> J;
+  J << f[0]/xyz[2], 0,           -(f[0]*xyz[0])/z_sq,
+      0,           f[1]/xyz[2], -(f[1]*xyz[1])/z_sq;
+  return J;
+}
+//$\frac{\partial Kproj(X)}{\partial X}$
+inline Eigen::Matrix<double,2,3>
+d_proj_d_y(const double & f, const Eigen::Vector3d & xyz)
+{
+  double z_sq = xyz[2]*xyz[2];
+  Eigen::Matrix<double,2,3> J;
+  J << f/xyz[2], 0,           -(f*xyz[0])/z_sq,
+      0,           f/xyz[2], -(f*xyz[1])/z_sq;
+  return J;
+}
+
+// this d_expy_d_y definition follows Strasdat's derivation in his dissertation
+// It is also confirmed in github g2o: g2o/types/sba/types_six_dof_expmap.cpp
+// though N.B. g2o used SE3Quat::exp([\omega, \upsilon]), Strasdat used SE3d::exp([\upsilon, \omega])
+// compute $\frac{\partial proj(exp(\epsilon)y)}{\partial \epsilon}$
+inline Eigen::Matrix<double,3,6>
+d_expy_d_y(const Eigen::Vector3d & y)
+{
+  Eigen::Matrix<double,3,6> J;
+  J.topLeftCorner<3,3>().setIdentity();
+  J.bottomRightCorner<3,3>() = -Sophus::SO3::hat(y);
+  return J;
+}
+// $\frac{\partial proj(T \psi^{-1})}{\partial \psi}$
+inline Eigen::Matrix3d
+d_Tinvpsi_d_psi(const Sophus::SE3d & T, const Eigen::Vector3d & psi)
+{
+  Eigen::Matrix3d R = T.rotationMatrix();
+  Eigen::Vector3d x = invert_depth(psi);
+  Eigen::Vector3d r1 = R.col(0);
+  Eigen::Vector3d r2 = R.col(1);
+  Eigen::Matrix3d J;
+  J.col(0) = r1;
+  J.col(1) = r2;
+  J.col(2) = -R*x;
+  J*=1./psi.z();
+  return J;
+}
+//$\frac{\partial \tilde{u}- Kproj(RX+t)}{\partial X}$
+inline void
+point_jac_xyz2uv(const Eigen::Vector3d & xyz,
+                 const Eigen::Matrix3d & R,
+                 const double & focal_length,
+                 Eigen::Matrix<double,2,3> & point_jac)
+{
+  double x = xyz[0];
+  double y = xyz[1];
+  double z = xyz[2];
+  Eigen::Matrix<double,2,3> tmp;
+  tmp(0,0) = focal_length;
+  tmp(0,1) = 0;
+  tmp(0,2) = -x/z*focal_length;
+  tmp(1,0) = 0;
+  tmp(1,1) = focal_length;
+  tmp(1,2) = -y/z*focal_length;
+  point_jac =  -1./z * tmp * R;
+}
+
+//$\frac{\partial \tilde{u}- Kproj(exp(\hat{\epsilon}))X)}{\partial \epsilon}$
+inline void
+frame_jac_xyz2uv(const Eigen::Vector3d & xyz,
+                 const double & focal_length,
+                 Eigen::Matrix<double,2,6> & frame_jac)
+{
+  double x = xyz[0];
+  double y = xyz[1];
+  double z = xyz[2];
+  double z_2 = z*z;
+
+  frame_jac(0,0) = -1./z *focal_length;
+  frame_jac(0,1) = 0;
+  frame_jac(0,2) = x/z_2 *focal_length;
+  frame_jac(0,3) =  x*y/z_2 * focal_length;
+  frame_jac(0,4) = -(1+(x*x/z_2)) *focal_length;
+  frame_jac(0,5) = y/z *focal_length;
+
+  frame_jac(1,0) = 0;
+  frame_jac(1,1) = -1./z *focal_length;
+  frame_jac(1,2) = y/z_2 *focal_length;
+  frame_jac(1,3) = (1+y*y/z_2) *focal_length;
+  frame_jac(1,4) = -x*y/z_2 *focal_length;
+  frame_jac(1,5) = -x/z *focal_length;
+}
+
 g2o::OptimizableGraph::Vertex*  GET_MAP_ELEM(const int & key,
                             const g2o::OptimizableGraph::VertexIDMap & m);
 
@@ -52,20 +133,31 @@ public:
   Eigen::Vector2d
   cam_map                    (const Eigen::Vector3d & trans_xyz) const;
 
+  Eigen::Vector2d
+  normalize                    (const Eigen::Vector2d & uv) const;
+
   virtual bool
   read                       (std::istream& is)
   {
-    assert(false);
-    return false;
+    is>>focal_length_[0] >> focal_length_[1] >> principle_point_[0] >> principle_point_[1];
+    return is.good();
   }
 
   virtual bool
   write                      (std::ostream& os) const
   {
-    assert(false);
-    return false;
+      os<<"focal length xy:"<<focal_length_[0] <<" "<< focal_length_[1] <<
+          " principle point xy:"<< principle_point_[0] <<" "<< principle_point_[1]<<std::endl;
+      return os.good();
+
   }
 
+  Eigen::Matrix<double,2,6>
+  frameJac(const Sophus::SE3d & se3,
+           const Eigen::Vector3d & xyz)const;
+  Eigen::Matrix<double,2,3>
+  pointJac(const Sophus::SE3d & T_cw,
+            const Eigen::Vector3d & xyz_w) const;
 
   Eigen::Vector2d principle_point_;
   Eigen::Vector2d focal_length_;
@@ -172,7 +264,8 @@ public:
       return (Ts2c*v1->estimate()*v2->estimate())(2)>0.0;
     }
     void linearizeOplus();
-    Sophus::SE3d Ts2c; // transformation from reference sensor frame to this camera frame into which the point is projected
+    Sophus::SE3d Ts2c; // transformation from a reference sensor frame (e.g., the left camera)
+    //to this camera (e.g., the right camera)frame into which the point is projected
 };
 
 class G2oEdgeSim3ProjectUVQ : public  g2o::BaseMultiEdge<2, Eigen::Vector2d>
@@ -261,7 +354,7 @@ class VertexSim3Expmap : public g2o::BaseVertex<7, g2o::Sim3>
 
    bool read(std::istream& is)
    {
-     Vector7d cam2world;
+     Eigen::Matrix<double,7,1> cam2world;
      for (int i=0; i<6; i++){
        is >> cam2world[i];
      }
@@ -288,7 +381,7 @@ class VertexSim3Expmap : public g2o::BaseVertex<7, g2o::Sim3>
    bool write(std::ostream& os) const
    {
      g2o::Sim3 cam2world(estimate().inverse());
-     Vector7d lv=cam2world.log();
+     Eigen::Matrix<double,7,1> lv=cam2world.log();
      for (int i=0; i<7; i++){
        os << lv[i] << " ";
      }
@@ -309,7 +402,7 @@ class VertexSim3Expmap : public g2o::BaseVertex<7, g2o::Sim3>
 
    virtual void oplusImpl(const double* update_)
    {
-     Eigen::Map<Vector7d> update(const_cast<double*>(update_));
+     Eigen::Map<Eigen::Matrix<double,7,1> > update(const_cast<double*>(update_));
 
      if (_fix_scale)
        update[6] = 0;
@@ -353,7 +446,7 @@ class VertexSim3Expmap : public g2o::BaseVertex<7, g2o::Sim3>
     }
    bool read(std::istream& is)
     {
-      Vector7d v7;
+      Eigen::Matrix<double,7,1> v7;
       for (int i=0; i<7; i++){
         is >> v7[i];
       }
@@ -374,7 +467,7 @@ class VertexSim3Expmap : public g2o::BaseVertex<7, g2o::Sim3>
     bool write(std::ostream& os) const
     {
       g2o::Sim3 cam2world(measurement().inverse());
-      Vector7d v7 = cam2world.log();
+      Eigen::Matrix<double,7,1> v7 = cam2world.log();
       for (int i=0; i<7; i++)
       {
         os  << v7[i] << " ";

@@ -18,7 +18,9 @@
 * along with ORB-SLAM. If not, see <http://www.gnu.org/licenses/>.
 */
 
+
 #include "LocalMapping.h"
+#include "global.h" //timer
 #include "config.h"
 #include "LoopClosing.h"
 #include "ORBmatcher.h"
@@ -98,7 +100,7 @@ void LocalMapping::Run()
                 // Tracking will see Local Mapping idle
                 if(!CheckNewKeyFrames())
                     SetAcceptKeyFrames(true);
-            }
+            }          
 
             mpLoopCloser->InsertKeyFrame(mpCurrentKeyFrame);
             SLAM_STOP_TIMER("local_mapper");
@@ -237,14 +239,14 @@ void LocalMapping::CreateNewMapPoints()
     Eigen::Matrix3d Rwc1 = Rcw1.transpose();
     Eigen::Vector3d tcw1 = mpCurrentKeyFrame->GetTranslation();
     Eigen::Matrix<double,3,4> Tcw1;
-    Tcw1.topLeftCorner(3,3)=Rcw1;
+    Tcw1.topLeftCorner<3,3>()=Rcw1;
     Tcw1.col(3)= tcw1;
     Eigen::Vector3d Ow1 = mpCurrentKeyFrame->GetCameraCenter();
 
-    const float fx1 = mpCurrentKeyFrame->cam_->fx();
-    const float fy1 = mpCurrentKeyFrame->cam_->fy();
-    const float cx1 = mpCurrentKeyFrame->cam_->cx();
-    const float cy1 = mpCurrentKeyFrame->cam_->cy();
+    const float fx1 = mpCurrentKeyFrame->cam_.fx();
+    const float fy1 = mpCurrentKeyFrame->cam_.fy();
+    const float cx1 = mpCurrentKeyFrame->cam_.cx();
+    const float cy1 = mpCurrentKeyFrame->cam_.cy();
     const float invfx1 = 1.0f/fx1;
     const float invfy1 = 1.0f/fy1;
 
@@ -280,13 +282,13 @@ void LocalMapping::CreateNewMapPoints()
         Eigen::Matrix3d Rwc2 = Rcw2.transpose();
         Eigen::Vector3d tcw2 = pKF2->GetTranslation();
         Eigen::Matrix<double,3,4> Tcw2;
-        Tcw2.topLeftCorner(3,3)=Rcw2;
+        Tcw2.topLeftCorner<3,3>()=Rcw2;
         Tcw2.col(3)=tcw2;
 
-        const float fx2 = pKF2->cam_->fx();
-        const float fy2 = pKF2->cam_->fy();
-        const float cx2 = pKF2->cam_->cx();
-        const float cy2 = pKF2->cam_->cy();
+        const float fx2 = pKF2->cam_.fx();
+        const float fy2 = pKF2->cam_.fy();
+        const float cx2 = pKF2->cam_.cx();
+        const float cy2 = pKF2->cam_.cy();
         const float invfx2 = 1.0f/fx2;
         const float invfy2 = 1.0f/fy2;
 
@@ -420,10 +422,10 @@ void LocalMapping::CreateNewMapPointsStereo()
     frame_poses[0]= Sophus::SE3d(Tw2c1.topLeftCorner<3,3>(), Tw2c1.col(3));
     frame_poses[1]= Sophus::SE3d(Tw2c1r.topLeftCorner<3,3>(), Tw2c1r.col(3));
 
-    const float fx1 = mpCurrentKeyFrame->cam_->fx();
-    const float fy1 = mpCurrentKeyFrame->cam_->fy();
-    const float cx1 = mpCurrentKeyFrame->cam_->cx();
-    const float cy1 = mpCurrentKeyFrame->cam_->cy();
+    const float fx1 = mpCurrentKeyFrame->cam_.fx();
+    const float fy1 = mpCurrentKeyFrame->cam_.fy();
+    const float cx1 = mpCurrentKeyFrame->cam_.cx();
+    const float cy1 = mpCurrentKeyFrame->cam_.cy();
    
     const float invfx1 = 1.0f/fx1;
     const float invfy1 = 1.0f/fy1;
@@ -465,10 +467,10 @@ void LocalMapping::CreateNewMapPointsStereo()
         frame_poses[2]= Sophus::SE3d(Tw2c2.topLeftCorner<3,3>(), Tw2c2.col(3));
         frame_poses[3]= Sophus::SE3d(Tw2c2r.topLeftCorner<3,3>(), Tw2c2r.col(3));
 
-        const float fx2 = pKF2->cam_->fx();
-        const float fy2 = pKF2->cam_->fy();
-        const float cx2 = pKF2->cam_->cx();
-        const float cy2 = pKF2->cam_->cy();
+        const float fx2 = pKF2->cam_.fx();
+        const float fy2 = pKF2->cam_.fy();
+        const float cx2 = pKF2->cam_.cx();
+        const float cy2 = pKF2->cam_.cy();
         const float invfx2 = 1.0f/fx2;
         const float invfy2 = 1.0f/fy2;
 
@@ -498,11 +500,11 @@ void LocalMapping::CreateNewMapPointsStereo()
                     && (kp1.pt.x -kp2.pt.x< Config::triangMinDisp()))
                 continue;
             // Linear Triangulation Method
-            Eigen::Vector3d xn2((kp2.pt.x-mpCurrentKeyFrame->right_cam_->cx())/mpCurrentKeyFrame->right_cam_->fx(),
-                                (kp2.pt.y-mpCurrentKeyFrame->right_cam_->cy())/mpCurrentKeyFrame->right_cam_->fy(), 1.0 );
+            Eigen::Vector3d xn2((kp2.pt.x-mpCurrentKeyFrame->right_cam_.cx())/mpCurrentKeyFrame->right_cam_.fx(),
+                                (kp2.pt.y-mpCurrentKeyFrame->right_cam_.cy())/mpCurrentKeyFrame->right_cam_.fy(), 1.0 );
 
-            Eigen::Vector3d xn4((kp4.pt.x-pKF2->right_cam_->cx())/pKF2->right_cam_->fx(),
-                                (kp4.pt.y-pKF2->right_cam_->cy())/pKF2->right_cam_->fy(), 1.0 );
+            Eigen::Vector3d xn4((kp4.pt.x-pKF2->right_cam_.cx())/pKF2->right_cam_.fx(),
+                                (kp4.pt.y-pKF2->right_cam_.cy())/pKF2->right_cam_.fy(), 1.0 );
 
             Eigen::Matrix<double, 8,4> A;
             A.row(0) = xn1(0)*Tw2c1.row(2)-Tw2c1.row(0);
@@ -525,12 +527,6 @@ void LocalMapping::CreateNewMapPointsStereo()
             x3D = x3D.rowRange(0,3)/x3D.at<double>(3);
             Eigen::Vector3d x3Dt;
             cv::cv2eigen(x3D, x3Dt);
-
- /*           obs[0]= xn1; obs[1]= xn2; obs[2]= xn3; obs[3]= xn4;
-            double pdop=0;
-            MapPoint::optimize(obs,frame_poses,  x3Dt, pdop, mpCurrentKeyFrame->cam_, 5);
-            if(pdop> Config::PDOPThresh())
-                continue;*/
 
             //Check triangulation in front of cameras
             float z1 = Rw2c1.row(2)*x3Dt+ twinc1(2);

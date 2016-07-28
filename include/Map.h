@@ -39,7 +39,7 @@ class Map
 {
 public:
     Map();
- 	~Map();
+    ~Map();
     void AddKeyFrame(KeyFrame* pKF);
     void AddMapPoint(MapPoint* pMP);
     void EraseMapPoint(MapPoint* pMP);
@@ -75,6 +75,14 @@ protected:
 
     boost::mutex mMutexMap;
     bool mbMapUpdated;
+public:
+    // external lock, make sure that the points' positions and keyframe poses are consistent
+    // during this lock period, used in reading and writing data between the map and an optimizer of the map
+    // TODO: Does map point observations needs to be protected? For now, I assume no.
+    boost::mutex mPointPoseConsistencyMutex;
+    // does loop closing optimization just finished? This boolean prevent other optimization functions
+    // from restoring their results if loop closing is just finished. It is also pretected by mPointPoseConsistencyMutex
+    bool mbFinishedLoopClosing;
 };
 
 } //namespace ORB_SLAM

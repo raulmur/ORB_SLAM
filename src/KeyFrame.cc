@@ -21,7 +21,7 @@
 #include "KeyFrame.h"
 #include "Converter.h"
 #include "g2o_types/eigen_utils.h"
-#include "g2o_types/global.h" //for debugging output
+#include "global.h" //for debugging output
 #include <vikit/math_utils.h>
 //#include <ros/ros.h>
 
@@ -307,7 +307,7 @@ vector<cv::KeyPoint> KeyFrame::GetKeyPointsUn() const
 
 Eigen::Matrix3d KeyFrame::GetCalibrationMatrix() const
 {
-    return cam_->K();
+    return cam_.K();
 }
 
 DBoW2::FeatureVector KeyFrame::GetFeatureVector()
@@ -724,8 +724,8 @@ Eigen::Matrix3d ComputeF12(KeyFrame *&pKF1, KeyFrame *&pKF2)
     Sophus::SE3d T12= pKF1->GetPose()*(pKF2->GetPose().inverse());
     Eigen::Matrix3d R12 = T12.rotationMatrix();
     Eigen::Vector3d t12 = T12.translation();
-    Eigen::Matrix3d t12x = skew(t12);
-    return (pKF1->cam_->K_inv().transpose())*t12x*R12*(pKF2->cam_->K_inv());
+    Eigen::Matrix3d t12x = skew3d(t12);
+    return (pKF1->cam_.K_inv().transpose())*t12x*R12*(pKF2->cam_.K_inv());
 }
 
 
