@@ -77,8 +77,6 @@ public:
     // Matching for the Map Initialization
     int SearchForInitialization(Frame &F1, Frame &F2, std::vector<cv::Point2f> &vbPrevMatched, std::vector<int> &vnMatches12, int windowSize=10);
 
-    // search stereo correspondences
-    int SearchForStereoMatching(Frame *pF);
     // search stereo matches by klt tracking
     int SearchForStereoMatching(Frame *pF, Frame *pRightF, const Sophus::SE3d & Tl2r, vector<int> &);
     // Matching to triangulate new MapPoints. Check Epipolar Constraint

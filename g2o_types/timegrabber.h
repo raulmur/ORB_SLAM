@@ -52,37 +52,28 @@ protected:
     double tkm1; // t(k-1), timestamp of last frame
     const double interval; //maximum allowed difference between retrieved and expected timestamp
 };
-class GPSGrabber:DataGrabber{
-public:
-    struct RtklibPosPattern{
-        int GPS_Week;
-        double GPS_TOW;
-        double xyz_ecef[3];
-        int Q;
-        int ns;
-        double sdxyz[3];
-        double sdxy_yz_zx[3];//square root of the absolute values of xy, yz, zx components of the covariance matrix,
-        // their signs represents the sign of these components
-        double age;
-        double ratio;
-    };
 
-    GPSGrabber(const std::string file, double interval=1e-5):DataGrabber(file, interval){
-        transMat[0]=-1;
-        measurement[0]=-1;
-        std::string tempStr;
-        getline(stream,tempStr); //remove header part
-        //N.B. we also delete the first line of observation
-        while(tempStr.find('%')!=std::string::npos)
+class CSFMDataPattern{
+        virtual std::ostream& print(std::ostream &) const;
+        virtual std::istream& read(std::istream &);
+    public:
+        friend std::ostream& operator << (std::ostream &os, const CSFMDataPattern & rhs)
         {
-            getline(stream,tempStr);
+            return rhs.print(os);
         }
-    }
-    bool getObservation(double tk);
+        friend std::istream & operator>>(std::istream &is, CSFMDataPattern &rhs)
+        {
+            return rhs.read(is);
+        }
+        ~CSFMDataPattern(){}
+    public:        
+        double timestamp;
+        double txyz[3];
+        double qxyzw[4];
+    };
+void loadCSFMOutput(std::string csfmFile, std::vector<std::pair<double, Eigen::Vector3d> > & vTimeAndPose);
+void saveCSFMOutput(std::string csfmFile, const std::vector<std::pair<double, Eigen::Vector3d> > & vTimeAndPose);
 
-    Eigen::Matrix<double, 7,1> transMat; //temporary sensor reading which also holds data at t(p(k)-1);
-    Eigen::Matrix<double, 7,1> measurement; //GPS TOW, XYZ ECEF, Q, number of satellites, std XYZ in ECEF
-};
 enum IMUFileType {MicroStrainCSV=0, PlainText};
 class IMUGrabber:DataGrabber{
 public:
@@ -108,15 +99,7 @@ public:
         double awxyz[6];
     };
 
-    IMUGrabber(const std::string file, IMUFileType ft, double sample_interval=0.01):DataGrabber(file, sample_interval), file_type(ft)
-    {
-        int header_lines=16;
-        if(file_type==PlainText)
-            header_lines=1;
-        std::string tempStr;
-        for(int i=0; i<header_lines;++i)
-            getline(stream, tempStr);           //remove explanatory header
-    }
+    IMUGrabber(const std::string file, IMUFileType ft, double sample_interval=0.01);
 
     bool getObservation(double tk);
 
@@ -128,8 +111,7 @@ std::ostream& operator << (std::ostream &os, const IMUGrabber::MicroStrainCSVPat
 std::istream & operator>>(std::istream &is, IMUGrabber::MicroStrainCSVPattern &rhs);
 std::ostream& operator << (std::ostream &os, const IMUGrabber::PlainTextPattern & rhs);
 std::istream & operator>>(std::istream &is, IMUGrabber::PlainTextPattern &rhs);
-std::ostream& operator << (std::ostream &os, const GPSGrabber::RtklibPosPattern & rhs);
-std::istream & operator>>(std::istream &is, GPSGrabber::RtklibPosPattern &rhs);
+
 
 class StatesGrabber:DataGrabber{
 public:
@@ -139,7 +121,7 @@ public:
         getline(stream, tempStr);//remove first explanatary line
     }
     bool getObservation(double tk);
-    Eigen::Matrix<double, 17,1> measurement;  //states at t(k): t(k), position of sensor in world frame,
+    Eigen::Matrix<double, 17+6,1> measurement;  //states at t(k): t(k), position of sensor in world frame,
     // quaternion from sensor to world frame, velocity of sensor in world frame, accelerometer biases, and gyro biases
 };
 

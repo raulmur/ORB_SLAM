@@ -1,5 +1,5 @@
 SET(TRACE TRUE)
-SET(MONO_SLAM TRUE)
+SET(MONO_SLAM FALSE)
 SET(USE_ROS TRUE)
 
 SET(PROJECT_NAME orbslam_dwo)
@@ -51,8 +51,8 @@ find_package(Boost 1.45.0 COMPONENTS system thread REQUIRED)
 SET(vikit_common_INCLUDE_DIRS $ENV{HOME}/SVO/rpg_vikit/vikit_common/include)
 SET(vikit_common_LIBRARIES $ENV{HOME}/SVO/rpg_vikit/vikit_common/lib/libvikit_common.so)
 
-
-SET(g2o_INCLUDE_DIR $ENV{HOME}/ScaViSLAM/svslocal/include) # g2o, sophus, maybe opencv
+SET(g2o_INCLUDE_DIR $ENV{HOME}/ScaViSLAM/svslocal/include) # g2o, sophus, viso2, ceres autodiff
+SET(OPENCV_INCLUDE_DIR $ENV{HOME}/OpenCV/local_install/include) # opencv
 
 IF(USE_ROS)
   FIND_PACKAGE(OpenCV REQUIRED) # do not put findOpencv.cmake in cmake_module_path which causes an error
@@ -68,7 +68,8 @@ ELSE()
   set(OpenCV_LIBS opencv_core opencv_features2d opencv_flann opencv_gpu
                opencv_nonfree opencv_highgui opencv_imgproc opencv_calib3d opencv_video)
   SET(g2o_LIBRARY_DIR $ENV{HOME}/ScaViSLAM/svslocal/lib)
-  link_directories(${g2o_LIBRARY_DIR})
+  SET(OPENCV_LIBRARY_DIR $ENV{HOME}/OpenCV/local_install/lib)
+  link_directories(${g2o_LIBRARY_DIR} ${OPENCV_LIBRARY_DIR})
   SET(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
   SET(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/build)
 ENDIF()
@@ -81,6 +82,7 @@ ${CHOLMOD_INCLUDE_DIR}
 ${CSPARSE_INCLUDE_DIR}
 ${Boost_INCLUDE_DIRS}
 ${g2o_INCLUDE_DIR}
+${OPENCV_INCLUDE_DIR}
 ${vikit_common_INCLUDE_DIRS}
 )
 
@@ -106,25 +108,15 @@ src/Initializer.cc
 src/stereoSFM.cpp
 src/MotionModel.cpp
 src/utils.cpp
-viso2/filter.cpp
-viso2/matcher.cpp
-viso2/matrix.cpp
-#viso2/MEstimator.cpp
-viso2/p_match.h
-#viso2/timer.h
-#viso2/TrackerData.cpp
-viso2/triangle.cpp
-viso2/viso.cpp
-viso2/viso_stereo.cpp
-viso2/ptsetreg.cpp
-viso2/five-point.cpp
-g2o_types/global.h
+
 g2o_types/maths_utils.cpp
 g2o_types/eigen_utils.h
 g2o_types/eigen_utils.cpp
 g2o_types/anchored_points.cpp
 g2o_types/IMU_constraint.cpp
 g2o_types/timegrabber.cpp
+g2o_types/rand_sampler.cpp
+g2o_types/scale_solver.cpp
 )
 
 IF(USE_ROS)
@@ -146,8 +138,10 @@ ${g2o_LIBRARY_DIR}/libg2o_csparse_extension.so
 ${g2o_LIBRARY_DIR}/libg2o_types_sba.so
 ${g2o_LIBRARY_DIR}/libg2o_types_sim3.so
 ${g2o_LIBRARY_DIR}/libg2o_types_slam3d.so
+
 ${PROJECT_SOURCE_DIR}/Thirdparty/DBoW2/lib/libDBoW2.so
-${vikit_common_LIBRARIES} #for logging and timing
+$ENV{HOME}/ScaViSLAM/svslocal/lib/libviso2.so
+${vikit_common_LIBRARIES}
 )
 
 IF(USE_ROS)

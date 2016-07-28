@@ -20,15 +20,7 @@
 #include "Tracking.h"
 #include "config.h"
 #include "utils.h"
-#include "g2o_types/global.h" //performance monitor
-#include "g2o_types/IMU_constraint.h"
-
-#include <g2o/core/block_solver.h>
-#include <g2o/core/optimization_algorithm_levenberg.h>
-#include <g2o/solvers/csparse/linear_solver_csparse.h>
-#include <g2o/solvers/cholmod/linear_solver_cholmod.h> //for cholmod
-#include <g2o/core/robust_kernel_impl.h>
-#include <g2o/solvers/structure_only/structure_only_solver.h>
+#include "global.h" //performance monitor
 
 #include <opencv2/core/eigen.hpp>
 #ifdef SLAM_USE_ROS
@@ -71,6 +63,7 @@ static bool to_bool(std::string str) {
     is >> std::boolalpha >> b;
     return b;
 }
+
 #ifdef SLAM_USE_ROS
 Tracking::Tracking(ORBVocabulary* pVoc, FramePublisher*pFramePublisher, MapPublisher *pMapPublisher, Map *pMap, string strSettingPath):
     mState(NO_IMAGES_YET),mpCurrentFrame(NULL),mpLastFrame(NULL), mpInitialFrame(NULL), mpORBVocabulary(pVoc), mpInitializer(NULL),
@@ -193,10 +186,10 @@ Tracking::Tracking(ORBVocabulary* pVoc, FramePublisher*pFramePublisher, /*MapPub
         q_noise_gyrbias=q_noise_gyrbias.cwiseAbs2();
         q_noise_gyrbias*=(2/gyro_bias_Tc);
 
-        imu_.q_n_aw_babw.head(3)=q_noise_acc;
-        imu_.q_n_aw_babw.segment(3,3)=q_noise_gyr;
-        imu_.q_n_aw_babw.segment(6,3)=q_noise_accbias;
-        imu_.q_n_aw_babw.tail(3)=q_noise_gyrbias;
+        imu_.q_n_aw_babw.head<3>()=q_noise_acc;
+        imu_.q_n_aw_babw.segment<3>(3)=q_noise_gyr;
+        imu_.q_n_aw_babw.segment<3>(6)=q_noise_accbias;
+        imu_.q_n_aw_babw.tail<3>()=q_noise_gyrbias;
 
         cv::Mat Rs2c, tsinc;
         mfsSettings["Rs2c"]>>Rs2c; mfsSettings["tsinc"]>>tsinc;
@@ -213,9 +206,9 @@ Tracking::Tracking(ORBVocabulary* pVoc, FramePublisher*pFramePublisher, /*MapPub
 
         imu_.gwomegaw.setZero();
         cv::cv2eigen(matGinw, ginw);
-        imu_.gwomegaw.head(3)=ginw;
+        imu_.gwomegaw.head<3>()=ginw;
         cv::cv2eigen(omegaew, tempVec3d);
-        imu_.gwomegaw.tail(3)=tempVec3d;
+        imu_.gwomegaw.tail<3>()=tempVec3d;
     }
 
     // set most important visual odometry parameters
@@ -339,6 +332,8 @@ void Tracking::Run()
     string output_file=mfsSettings["output_file"];
     string output_point_file= mfsSettings["output_point_file"];
     ofstream out_stream(output_file.c_str(), std::ios::out);
+    if(!out_stream.is_open())
+        SLAM_ERROR_STREAM("Error opening output file "<<output_file);
     out_stream<<"%Each row is timestamp, pos of camera in world frame, rotation to world from camera frame in quaternion xyzw format"<<endl;
     out_stream << fixed;
 
@@ -475,8 +470,6 @@ void Tracking::Run()
         string left_img_file_name;
         string right_img_file_name;
 
-
-
 #ifdef SLAM_USE_ROS
         ros::Rate r(mFps);
         while(ros::ok()&& numImages<=totalImages)
@@ -610,22 +603,23 @@ void Tracking::Run()
             r.sleep();
 #endif
         }
-    }
 #ifdef SLAM_OUTPUT_VISO2
     viso2_stream.close();
 #endif
+    }
+
     //do we need to wait for loop closing
     while(mpLocalMapper->isStopped() || mpLocalMapper->stopRequested()){
         boost::this_thread::sleep(boost::posix_time::milliseconds(5));
     }
     double calc_time =  timer_.stop();
     double time_per_frame=calc_time/(numImages-mnStartId+1);
-    cout<<"Calc_time:"<<calc_time<<";"<<"time per frame:"<<time_per_frame<<endl;
+    cout<<"Calc_time:"<<calc_time<<";"<<"time per frame:"<<time_per_frame<<endl; //do not use ROS_INFO because ros::shutdown may be already invoked
     // Save keyframe poses at the end of the execution
     vector<ORB_SLAM::KeyFrame*> vpKFs = mpMap->GetAllKeyFrames();
     sort(vpKFs.begin(),vpKFs.end(),ORB_SLAM::KeyFrame::lId);
 
-    SLAM_INFO_STREAM("Saving Keyframe Trajectory to "<<output_file);
+    cout<<"Saving Keyframe Trajectory to "<<output_file<<endl; //do not use ROS_INFO because ros::shutdown may be already invoked
     for(size_t i=0; i<vpKFs.size(); i++)
     {
         ORB_SLAM::KeyFrame* pKF = vpKFs[i];
@@ -650,134 +644,9 @@ void Tracking::Run()
         out_stream << setprecision(6) << pMP->mnId<< " " << t.transpose()<<endl;
     }
     out_stream.close();
-    SLAM_INFO_STREAM("Saved MapPoints to "<<output_point_file);
+    cout<<"Saved MapPoints to "<<output_point_file<<endl;
 }
 
-void Tracking::GrabImage(cv::Mat& im, double timeStampSec)
-{
-    if(im.channels()==3)
-    {
-        cv::Mat temp;
-        if(mbRGB)
-            cvtColor(im, temp, CV_RGB2GRAY);
-        else
-            cvtColor(im, temp, CV_BGR2GRAY);
-        im=temp;
-    }
-    if(mState==WORKING || mState==LOST)
-        mpCurrentFrame=new Frame(im,timeStampSec,mpORBextractor,mpORBVocabulary, cam_);
-    else
-        mpCurrentFrame=new Frame(im,timeStampSec,mpIniORBextractor,mpORBVocabulary, cam_);
-
-    // Depending on the state of the Tracker we perform different tasks
-
-    if(mState==NO_IMAGES_YET)
-    {
-        mState = NOT_INITIALIZED;
-    }
-
-    mLastProcessedState=mState;
-
-    if(mState==NOT_INITIALIZED)
-    {
-        FirstInitialization();
-    }
-    else if(mState==INITIALIZING)
-    {
-        Initialize();
-    }
-    else
-    {
-        // System is initialized. Track Frame.
-        bool bOK;
-        bool bForcedReloc = RelocalisationRequested();
-        // Initial Camera Pose Estimation from Previous Frame (Motion Model or Coarse) or Relocalisation
-        if(mState==WORKING && !bForcedReloc)
-        {
-            //huai: TODO: predict poses from an IMU thread
-            if(!Config::useDecayVelocityModel() || mpMap->KeyFramesInMap()<4 || mpCurrentFrame->mnId<mnLastRelocFrameId+2)
-                bOK = TrackPreviousFrame();
-            else
-            {
-                bOK = TrackWithMotionModel();
-                if(!bOK)
-                    bOK = TrackPreviousFrame();
-            }
-        }
-        else
-        {            
-            bOK = Relocalisation();
-        }
-
-        // If we have an initial estimation of the camera pose and matching. Track the local map.
-        if(bOK)
-            bOK = TrackLocalMap();
-
-        // If tracking were good, check if we insert a keyframe
-        if(bOK)
-        {
-#ifdef SLAM_USE_ROS
-            mpMapPublisher->SetCurrentCameraPose(mpCurrentFrame->mTcw);
-#endif
-            if(NeedNewKeyFrame())
-                CreateNewKeyFrame();
-
-            // We allow points with high innovation (considererd outliers by the Huber Function)
-            // pass to the new keyframe, so that bundle adjustment will finally decide
-            // if they are outliers or not. We don't want next frame to estimate its position
-            // with those points so we discard them in the frame.
-            for(size_t i=0; i<mpCurrentFrame->mvbOutlier.size();i++)
-            {
-                if(mpCurrentFrame->mvpMapPoints[i] && mpCurrentFrame->mvbOutlier[i])
-                    mpCurrentFrame->mvpMapPoints[i]=NULL;
-            }
-        }
-
-        if(bOK)
-            mState = WORKING;
-        else
-            mState=LOST;
-
-        // Reset if the camera get lost soon after initialization
-        if(mState==LOST)
-        {
-            if(mpMap->KeyFramesInMap()<=5)
-            {
-                Reset();
-                return;
-            }
-        }
-
-        // Update motion model
-      /*  if(mbMotionModel)
-        {
-            if(bOK)
-            {
-                //huai: TODO: use a Kalman filter to update se3 velocity
-                mVelocity = mpCurrentFrame->mTcw*mpLastFrame->mTcw.inverse();
-            }
-            else
-                mVelocity = Sophus::SE3d();
-        }*/
-        delete mpLastFrame;
-        mpLastFrame = mpCurrentFrame;
-    }
-
-    // Update drawer
-    mpFramePublisher->Update(this, im);
-#ifdef SLAM_USE_ROS
-
-    Eigen::Matrix3d Rwc = mpCurrentFrame->mTcw.rotationMatrix().transpose();
-    Eigen::Vector3d twc = -Rwc*mpCurrentFrame->mTcw.translation();
-    tf::Matrix3x3 M(Rwc(0,0),Rwc(0,1),Rwc(0,2),
-                    Rwc(1,0),Rwc(1,1),Rwc(1,2),
-                    Rwc(2,0),Rwc(2,1),Rwc(2,2));
-    tf::Vector3 V(twc(0), twc(1), twc(2));
-
-    tf::Transform tfTcw(M,V);
-    mTfBr.sendTransform(tf::StampedTransform(tfTcw,ros::Time::now(), "ORBSLAM_DWO/World", "ORBSLAM_DWO/Camera"));
-#endif
-}
 
 // Triangulate new map points based on quadmatches between current frame and its preceding frame which is a new keyframe
 // a grid is used to ensure uniform distribution of map points in the new keyframe,
@@ -836,12 +705,12 @@ void Tracking::CreateNewMapPoints(const std::vector<p_match>& vQuadMatches)
             const cv::KeyPoint &kp3 = pCurrFrame->mvKeysUn[qMatch.i1c];
             const cv::KeyPoint &kp4 = pCurrFrame->mvRightKeysUn[qMatch.i1c];
             // Check parallax between left and right rays
-            Vector3d xn1((kp1.pt.x-mpLastKeyFrame->cam_->cx())/mpLastKeyFrame->cam_->fx(),
-                         (kp1.pt.y-mpLastKeyFrame->cam_->cy())/mpLastKeyFrame->cam_->fy(), 1.0 ),
+            Vector3d xn1((kp1.pt.x-mpLastKeyFrame->cam_.cx())/mpLastKeyFrame->cam_.fx(),
+                         (kp1.pt.y-mpLastKeyFrame->cam_.cy())/mpLastKeyFrame->cam_.fy(), 1.0 ),
                     ray1(xn1);
 
-            Vector3d xn3((kp3.pt.x-pCurrFrame->cam_->cx())/pCurrFrame->cam_->fx(),
-                         (kp3.pt.y-pCurrFrame->cam_->cy())/pCurrFrame->cam_->fy(), 1.0 );
+            Vector3d xn3((kp3.pt.x-pCurrFrame->cam_.cx())/pCurrFrame->cam_.fx(),
+                         (kp3.pt.y-pCurrFrame->cam_.cy())/pCurrFrame->cam_.fy(), 1.0 );
 
             Vector3d ray3 = Rw2c1*Rw2c2.transpose()*xn3;
             float cosParallaxRays = ray1.dot(ray3)/(ray1.norm()*ray3.norm());
@@ -853,11 +722,11 @@ void Tracking::CreateNewMapPoints(const std::vector<p_match>& vQuadMatches)
                     continue;
             }
             // Linear Triangulation Method
-            Vector3d xn2((kp2.pt.x-mpLastKeyFrame->right_cam_->cx())/mpLastKeyFrame->right_cam_->fx(),
-                         (kp2.pt.y-mpLastKeyFrame->right_cam_->cy())/mpLastKeyFrame->right_cam_->fy(), 1.0 );
+            Vector3d xn2((kp2.pt.x-mpLastKeyFrame->right_cam_.cx())/mpLastKeyFrame->right_cam_.fx(),
+                         (kp2.pt.y-mpLastKeyFrame->right_cam_.cy())/mpLastKeyFrame->right_cam_.fy(), 1.0 );
 
-            Vector3d xn4((kp4.pt.x-pCurrFrame->right_cam_->cx())/pCurrFrame->right_cam_->fx(),
-                         (kp4.pt.y-pCurrFrame->right_cam_->cy())/pCurrFrame->right_cam_->fy(), 1.0 );
+            Vector3d xn4((kp4.pt.x-pCurrFrame->right_cam_.cx())/pCurrFrame->right_cam_.fx(),
+                         (kp4.pt.y-pCurrFrame->right_cam_.cy())/pCurrFrame->right_cam_.fy(), 1.0 );
 
             Eigen::Matrix<double,8,4> A;
             A.row(0) = xn1(0)*Tw2c1.row(2)-Tw2c1.row(0);
@@ -885,13 +754,6 @@ void Tracking::CreateNewMapPoints(const std::vector<p_match>& vQuadMatches)
             Eigen::Vector3d x3Dt;
             cv::cv2eigen (x3D, x3Dt);
 
-       /*     obs[0]= xn1; obs[1]= xn2; obs[2]= xn3; obs[3]= xn4;
-            double pdop=0;
-            MapPoint::optimize(obs,frame_poses,  x3Dt, pdop,mpCurrentFrame->cam_, 5);
-            if(pdop> Config::PDOPThresh()){
-                 ++rejectHisto[3];
-                continue;
-            }*/
             //Check triangulation in front of cameras
             float z1 = Rw2c1.row(2)*x3Dt+ twinc1(2);
             if(z1<=0)
@@ -911,8 +773,8 @@ void Tracking::CreateNewMapPoints(const std::vector<p_match>& vQuadMatches)
             float x1 = Rw2c1.row(0)*x3Dt+twinc1(0);
             float y1 = Rw2c1.row(1)*x3Dt+twinc1(1);
             float invz1 = 1.0/z1;
-            float u1 = mpLastKeyFrame->cam_->fx()*x1*invz1+mpLastKeyFrame->cam_->cx();
-            float v1 = mpLastKeyFrame->cam_->fy()*y1*invz1+mpLastKeyFrame->cam_->cy();
+            float u1 = mpLastKeyFrame->cam_.fx()*x1*invz1+mpLastKeyFrame->cam_.cx();
+            float v1 = mpLastKeyFrame->cam_.fy()*y1*invz1+mpLastKeyFrame->cam_.cy();
             float errX1 = u1 - kp1.pt.x;
             float errY1 = v1 - kp1.pt.y;
             if((errX1*errX1+errY1*errY1)>Config::reprojThresh2()*sigmaSquare1)
@@ -926,8 +788,8 @@ void Tracking::CreateNewMapPoints(const std::vector<p_match>& vQuadMatches)
             float x2 = Rw2c2.row(0)*x3Dt+twinc2(0);
             float y2 = Rw2c2.row(1)*x3Dt+twinc2(1);
             float invz2 = 1.0/z2;
-            float u2 = pCurrFrame->cam_->fx()*x2*invz2+pCurrFrame->cam_->cx();
-            float v2 = pCurrFrame->cam_->fy()*y2*invz2+pCurrFrame->cam_->cy();
+            float u2 = pCurrFrame->cam_.fx()*x2*invz2+pCurrFrame->cam_.cx();
+            float v2 = pCurrFrame->cam_.fy()*y2*invz2+pCurrFrame->cam_.cy();
             float errX2 = u2 - kp3.pt.x;
             float errY2 = v2 - kp3.pt.y;
             if((errX2*errX2+errY2*errY2)>Config::reprojThresh2()*sigmaSquare2)
@@ -992,10 +854,10 @@ void Tracking::CreateNewMapPoints(KeyFrame* pKF2, KeyFrame* pCurrentKeyFrame)
     Eigen::Vector3d twinc1= Tw2c1.col(3);
 
     Eigen::Vector3d Ow1 = pCurrentKeyFrame->GetCameraCenter();
-    const float fx1 = pCurrentKeyFrame->cam_->fx();
-    const float fy1 = pCurrentKeyFrame->cam_->fy();
-    const float cx1 = pCurrentKeyFrame->cam_->cx();
-    const float cy1 = pCurrentKeyFrame->cam_->cy();
+    const float fx1 = pCurrentKeyFrame->cam_.fx();
+    const float fy1 = pCurrentKeyFrame->cam_.fy();
+    const float cx1 = pCurrentKeyFrame->cam_.cx();
+    const float cy1 = pCurrentKeyFrame->cam_.cy();
     const float invfx1 = 1.0f/fx1;
     const float invfy1 = 1.0f/fy1;
     const float ratioFactor = 1.5f*pCurrentKeyFrame->GetScaleFactor();
@@ -1008,7 +870,11 @@ void Tracking::CreateNewMapPoints(KeyFrame* pKF2, KeyFrame* pCurrentKeyFrame)
     const float baseline = vBaseline.norm();
     const float medianDepthKF2 = pKF2->ComputeSceneMedianDepth(2);
 
-    assert(baseline/medianDepthKF2>=0.002);//ratio between Baseline and Depth
+
+    if(baseline/medianDepthKF2<0.002)//ratio between Baseline and Depth
+    {
+        SLAM_ERROR_STREAM("too small baseline between kfs "<<baseline<< " "<< medianDepthKF2);
+    }
 
     // Compute Fundamental Matrix
     Eigen::Matrix3d F12 = ComputeF12(pCurrentKeyFrame,pKF2);
@@ -1024,10 +890,10 @@ void Tracking::CreateNewMapPoints(KeyFrame* pKF2, KeyFrame* pCurrentKeyFrame)
     Eigen::Matrix3d Rw2c2= Tw2c2.topLeftCorner<3,3>();
     Eigen::Vector3d twinc2=Tw2c2.col(3);
 
-    const float fx2 = pKF2->cam_->fx();
-    const float fy2 = pKF2->cam_->fy();
-    const float cx2 = pKF2->cam_->cx();
-    const float cy2 = pKF2->cam_->cy();
+    const float fx2 = pKF2->cam_.fx();
+    const float fy2 = pKF2->cam_.fy();
+    const float cx2 = pKF2->cam_.cx();
+    const float cy2 = pKF2->cam_.cy();
     const float invfx2 = 1.0f/fx2;
     const float invfy2 = 1.0f/fy2;
     //use a grid to control point initialization
@@ -1142,324 +1008,9 @@ void Tracking::CreateNewMapPoints(KeyFrame* pKF2, KeyFrame* pCurrentKeyFrame)
             ++counter;
         }
     }
-    cout<< "created new points in cur KF "<<counter<<" out of matches:"<<vMatchedKeysUn1.size()<<endl;
+    SLAM_DEBUG_STREAM("created new points in cur KF "<<counter<<" out of matches:"<<vMatchedKeysUn1.size());
 }
 
-//using semi direct visual odometry for stereo cameras
-// for right image, we only do map point reprojection
-// assume exactly two stereo cameras, scale factor is 2 in building pyramid
-void  Tracking::ProcessFrameSVO(cv::Mat &im, cv::Mat& right_im, double timeStampSec,                               
-                                const std::vector<Eigen::Matrix<double, 7,1> >& imu_measurements,
-                                const Sophus::SE3d *pred_Tr_delta, const Eigen::Matrix<double, 9,1> sb)
-{
-    /*    Sophus::SE3d Tcp =(pred_Tr_delta==NULL? Sophus::SE3d(): (*pred_Tr_delta)); // current left frame from previous frame
-
-    // compute gravity direction in current camera frame
-    Eigen::Vector3d ginc= ginw;
-    if(mpLastFrame!=NULL && ginw.norm()>1e-6){
-        Eigen::Matrix3d Rw2p= mpLastFrame->GetRotation();
-        ginc= Tcp.rotationMatrix()*Rw2p*ginw;
-    }
-    // Depending on the state of the Tracker we perform different tasks
-    if(mState==NO_IMAGES_YET)
-    {
-        mState = NOT_INITIALIZED;
-    }
-    mpCurrentFrame=new Frame(im, timeStampSec, 0, mpORBextractor, mpORBVocabulary, cam_, ginc, sb);
-    mpCurrentFrame->SetIMUObservations(imu_measurements);
-
-    mLastProcessedState=mState;
-    if(mState==NOT_INITIALIZED)
-    {
-        //extract uniform keypoints
-        mpCurrentFrame->mpORBextractor->ComputeBlurredPyramid(mpCurrentFrame->img_pyr_, mpCurrentFrame->blurred_img_pyr_);
-        // create keyframe and initializeSeeds
-        mpCurrentFrame->SetPose( Sophus::SE3d());
-        mState = INITIALIZING;
-        mpLastKeyFrame=new KeyFrame(*mpCurrentFrame,mpMap,mpKeyFrameDB);
-        mnLastKeyFrameId= mpLastKeyFrame->mnId;
-
-        mpCurrentRightFrame.reset(new Frame(right_im, timeStampSec, 1, mpORBextractor, mpORBVocabulary, right_cam_, mTl2r.rotationMatrix()*ginc, NULL));
-        mpCurrentRightFrame->SetPose(mTl2r);
-
-        std::vector<cv::KeyPoint> vNewRightKeys=
-                mpLocalMapper->initializeSeeds(mpLastKeyFrame, mpCurrentRightFrame.get(), mvIniMatches);
-
-#if 0
-        cv::Mat outimg;
-        cv::drawKeypoints(im, mpLastKeyFrame->mvKeys,outimg);
-        cv::imshow("candidate points of first frame", outimg);
-        cv::waitKey();
-#endif
-        // Check if current frame has enough keypoints, otherwise reset initialization process
-        if(mpLastKeyFrame->mvKeysUn.size()<=100)
-        {
-            fill(mvIniMatches.begin(),mvIniMatches.end(),-1);
-            mState = NOT_INITIALIZED;
-            return;
-        }
-        assert(mpCurrentRightFrame->mvKeys.size()==0 && mpLastKeyFrame->mvKeys.size()==mvIniMatches.size());
-        mpCurrentRightFrame->mvKeys= vNewRightKeys;
-        // keys(Un) without angle are computed, we need to compute angle, descriptors, and fts_
-        mpCurrentRightFrame->CreateFtsFromKPs(true);
-#if 0
-        int nmatches= mvIniMatches.size();
-        cv::Mat drawImg3;
-        vector<cv::DMatch> matches122_cv; matches122_cv.reserve(nmatches);
-        for(size_t i=0; i<mvIniMatches.size(); ++i)
-        {
-            if(mvIniMatches[i]==-1) continue;
-            cv::DMatch temp;
-            temp.queryIdx= i;
-            temp.trainIdx= mvIniMatches[i];
-            temp.distance =1;
-            matches122_cv.push_back(temp);
-        }
-        drawMatches(im, mpLastKeyFrame->mvKeys,
-                    right_im, mpCurrentRightFrame->mvKeys, matches122_cv,
-                    drawImg3, cv::Scalar(255, 0, 0), cv::Scalar(0, 0, 255));
-        cv::imshow("matched", drawImg3);
-        cv::waitKey();
-#endif
-        // Check if there are enough correspondences
-        if(vNewRightKeys.size()<100)
-        {
-            mState = NOT_INITIALIZED;
-            return;
-        }
-
-        mpReferenceKF= mpLastKeyFrame;
-        delete mpLastFrame;
-        mpLastFrame=new Frame(*mpLastKeyFrame);
-        mpLastKeyFrame->ComputeBoW();
-        mpMap->AddKeyFrame(mpLastKeyFrame);
-
-        mvpTemporalFrames.push_back(mpLastKeyFrame);
-        mvpTemporalFrames.push_back(new Frame(*mpCurrentRightFrame));
-        mState = WORKING;
-    }
-    else
-    {
-
-    //    mpMap->point_candidates_.emptyTrash();
-        // System is initialized. Track Frame.
-        bool bOK(false);
-        // Initial Camera Pose Estimation from Previous Frame (Motion Model or Coarse) or Relocalisation
-        // Huai: if loop closure is just finished, relocalize
-        if(mState==WORKING && !RelocalisationRequested())
-        {
-            // Set initial pose use prior
-            if(!Config::useDecayVelocityModel() || mpMap->KeyFramesInMap()<4 || mpCurrentFrame->mnId<mnLastRelocFrameId+4)
-                mpCurrentFrame->SetPose(mpLastFrame->GetPose());
-            else
-            {
-                mVelocity= Tcp;// use IMU prediction or stereo relative pose
-                mpCurrentFrame->SetPose(mVelocity*mpLastFrame->GetPose());
-            }
-            // sparse image align for left image
-            SLAM_START_TIMER("sparse_img_align");
-            SparseImgAlign img_align(Config::kltMaxLevel(), Config::kltMinLevel(),
-                                     30, SparseImgAlign::GaussNewton, false, false);
-            size_t img_align_n_tracked = img_align.run(mpLastFrame, mpCurrentFrame);
-            SLAM_STOP_TIMER("sparse_img_align");
-            SLAM_LOG(img_align_n_tracked);
-            SLAM_DEBUG_STREAM("Img Align:\t Tracked = " << img_align_n_tracked);
-
-            // This is for visualization
-            mpMap->SetReferenceMapPoints(mvpLocalMapPoints);
-            // Update Local Map only for left image
-            UpdateReferenceKeyFramesAndPoints();
-            setCoreKfs(core_kfs_);
-
-            // map reprojection & feature alignment for left frame
-            SLAM_START_TIMER("reproject");
-            reprojector_->reprojectMap(mpCurrentFrame, mvpLocalMapPoints);
-            SLAM_STOP_TIMER("reproject");
-            size_t repr_n_new_references = reprojector_->n_matches_;
-            size_t repr_n_mps = reprojector_->n_trials_;
-            SLAM_LOG2(repr_n_mps, repr_n_new_references);
-            SLAM_DEBUG_STREAM("Reprojection left image:\t nPoints = "<<repr_n_mps<<"\t \t nMatches = "<<repr_n_new_references);
-
-            if(repr_n_new_references < Config::qualityMinFts())
-            {
-                SLAM_WARN_STREAM_THROTTLE(1.0, "Not enough matched features.");
-
-                mpCurrentFrame->SetPose( mpLastFrame->GetPose()); // reset to avoid crazy pose jumps
-                mState=LOST;
-                if(mpMap->KeyFramesInMap()<=5)
-                {
-                    Reset();
-                }
-                return;
-            }
-            bOK=true;
-            // pose optimization for left image
-            SLAM_START_TIMER("pose_optimizer");
-            size_t sfba_n_edges_final;
-            double sfba_thresh, sfba_error_init, sfba_error_final;
-            pose_optimizer::optimizeGaussNewton(
-                        Config::poseOptimThresh(), Config::poseOptimNumIter(), false,
-                        mpCurrentFrame, sfba_thresh, sfba_error_init, sfba_error_final, sfba_n_edges_final);
-            SLAM_STOP_TIMER("pose_optimizer");
-            SLAM_LOG4(sfba_thresh, sfba_error_init, sfba_error_final, sfba_n_edges_final);
-            SLAM_DEBUG_STREAM("PoseOptimizer:\t ErrInit = "<<sfba_error_init<<"px\t thresh = "<<sfba_thresh);
-            SLAM_DEBUG_STREAM("PoseOptimizer:\t ErrFin. = "<<sfba_error_final<<"px\t nObsFin. = "<<sfba_n_edges_final);
-            mnMatchesInliers= sfba_n_edges_final;
-            if(sfba_n_edges_final < 20)
-            {
-                mState=LOST;
-                if(mpMap->KeyFramesInMap()<=5)
-                {
-                    Reset();
-                }
-                return;
-            }
-            mpCurrentFrame->CreateKPsFromFts();
-            // structure optimization with left image
-            if((!mpLocalMapper->isStopped()) && (!mpLocalMapper->stopRequested()))
-            {
-                SLAM_START_TIMER("point_optimizer");
-                optimizeStructure(mpCurrentFrame, Config::structureOptimMaxPts(), Config::structureOptimNumIter());
-                SLAM_STOP_TIMER("point_optimizer");
-            }
-            //process right image
-            mpCurrentRightFrame.reset(new Frame(right_im, timeStampSec, 1, mpORBextractor, mpORBVocabulary, right_cam_, mTl2r.rotationMatrix()*ginc, NULL));
-            mpCurrentRightFrame->SetPose(mTl2r*mpCurrentFrame->GetPose());
-            // map reprojection & feature alignment for right frame
-            SLAM_START_TIMER("reproject");
-            reprojector_->reprojectMap(mpCurrentRightFrame, mvpLocalMapPoints);
-            SLAM_STOP_TIMER("reproject");
-            repr_n_new_references = reprojector_->n_matches_;
-            repr_n_mps = reprojector_->n_trials_;
-            SLAM_LOG2(repr_n_mps, repr_n_new_references);
-            SLAM_DEBUG_STREAM("Right reprojection:\t nPoints = "<<repr_n_mps<<"\t \t nMatches = "<<repr_n_new_references);
-
-            mpCurrentRightFrame->CreateKPsFromFts();
-            if((!mpLocalMapper->isStopped()) && (!mpLocalMapper->stopRequested()))
-            {
-                int nBad = LocalOptimizeSVO();
-                mnMatchesInliers= repr_n_new_references-nBad;
-                SLAM_DEBUG_STREAM("Inliers after LO:"<< mnMatchesInliers);
-
-                // Decide if the tracking was successful
-                // More restrictive if there was a relocalization recently
-                if(mpCurrentFrame->mnId<mnLastRelocFrameId+mMaxFrames && mnMatchesInliers<50)
-                    bOK= false;
-
-                if(mnMatchesInliers<12)
-                    bOK=false;
-            }
-            point_stats.updatePointStatistics(mpCurrentFrame);
-        }
-        else
-        {
-            // only use left image
-            //TODO: use semi direct approach for relocalisation
-            //extract uniform keypoints
-            mpCurrentFrame->mpORBextractor->ComputeBlurredPyramid(mpCurrentFrame->img_pyr_, mpCurrentFrame->blurred_img_pyr_);
-
-            (*(mpCurrentFrame->mpORBextractor))(mpCurrentFrame->mvKeys,mpCurrentFrame->img_pyr_,
-                                                mpCurrentFrame->blurred_img_pyr_, mpCurrentFrame->mDescriptors, 20.0);
-
-            // keys with angle and descriptors are computed, we only need to compute fts_
-            mpCurrentFrame->CreateFtsFromKPs(false);
-            bOK = Relocalisation();
-        }
-
-        // If tracking were good, check if we insert a keyframe
-        if(bOK)
-        {
-#ifdef SLAM_USE_ROS
-            mpMapPublisher->SetCurrentCameraPose(mpCurrentFrame->mTcw);
-#endif
-            Frame * pLastFrame(NULL), *pLastRightFrame(NULL);
-            bool bNeedMorePoints= NeedNewKeyFrameStereo();
-
-            if(bNeedMorePoints){
-                mpCurrentFrame->MakeKeyFrame_Rest();
-                CreateNewKeyFrame();
-                pLastFrame=mpLastKeyFrame;
-
-                // add observations for points observed by the new keyframe
-                size_t jack=0, zinc=0;
-                for(auto it=mpCurrentFrame->mvpMapPoints.begin();
-                    it!=mpCurrentFrame->mvpMapPoints.end(); ++it, ++jack){
-                    if(*it){
-                        (*it)->AddObservation(mpLastKeyFrame, jack);
-                        if((*it)->GetType()==MapPoint::TYPE_CANDIDATE)
-                            ++zinc;
-                    }
-                }
-                cout<<"add observations for candiate points:"<< zinc<<endl;
-                //we also update reference map points which are used in double window optimizer
-                mpMap->point_candidates_.addCandidatePointToFrame(mpLastKeyFrame);
-
-                // optional bundle adjustment
-                if(Config::lobaNumIter() > 0 && mvpLocalMapPoints.size())
-                {
-                    SLAM_START_TIMER("local_ba");
-                    core_kfs_.push_back(mpLastKeyFrame);
-                    size_t loba_n_erredges_init, loba_n_erredges_fin;
-                    double loba_err_init, loba_err_fin;
-                    ba::localBA(mpLastKeyFrame, &core_kfs_,mvpLocalMapPoints, mpMap,
-                                loba_n_erredges_init, loba_n_erredges_fin,
-                                loba_err_init, loba_err_fin);
-                    SLAM_STOP_TIMER("local_ba");
-                    SLAM_LOG4(loba_n_erredges_init, loba_n_erredges_fin, loba_err_init, loba_err_fin);
-                    SLAM_DEBUG_STREAM("Local BA:\t RemovedEdges {"<<loba_n_erredges_init<<", "<<loba_n_erredges_fin<<"} \t "
-                                                                                                                     "Error {"<<loba_err_init<<", "<<loba_err_fin<<"}");
-                }
-                pLastRightFrame= new Frame(*mpCurrentRightFrame);
-                mpLocalMapper->addFrame(pLastRightFrame);
-                // init new depth-filters
-                double depth_mean, depth_min;
-                getSceneDepth(*mpLastKeyFrame, depth_mean, depth_min);
-                mpLocalMapper->addKeyframe(mpLastKeyFrame, depth_mean, 0.5*depth_min);
-
-            }
-            else{
-                pLastFrame= new Frame(*mpCurrentFrame);
-                pLastRightFrame= new Frame(*mpCurrentRightFrame);
-            }
-            if(mvpTemporalFrames.size()>=2){
-                Frame * pTempF=*(++mvpTemporalFrames.rbegin());
-                assert( pTempF->cam_id_ ==0);
-                pLastFrame->SetPrevNextFrame( pTempF);
-            }
-            mvpTemporalFrames.push_back(pLastFrame);
-            mvpTemporalFrames.push_back(pLastRightFrame);
-        }
-
-        if(bOK)
-            mState = WORKING;
-        else
-            mState=LOST;
-
-        // Reset if the camera get lost soon after initialization
-        if(mState==LOST)
-        {
-            if(mpMap->KeyFramesInMap()<=5)
-            {
-                Reset();
-                return;
-            }
-        }      
-        delete mpLastFrame;
-        mpLastFrame = mpCurrentFrame;
-    }*/
-    // Update drawer
-    mpFramePublisher->Update(this, im);
-#ifdef SLAM_USE_ROS
-    Eigen::Matrix3d Rwc = mpCurrentFrame->mTcw.rotationMatrix().transpose();
-    Eigen::Vector3d twc = -Rwc*mpCurrentFrame->mTcw.translation();
-    tf::Matrix3x3 M(Rwc(0,0),Rwc(0,1),Rwc(0,2),
-                    Rwc(1,0),Rwc(1,1),Rwc(1,2),
-                    Rwc(2,0),Rwc(2,1),Rwc(2,2));
-    tf::Vector3 V(twc(0), twc(1), twc(2));
-    tf::Transform tfTcw(M,V);
-    mTfBr.sendTransform(tf::StampedTransform(tfTcw,ros::Time::now(), "ORBSLAM_DWO/World", "ORBSLAM_DWO/Camera"));
-#endif
-}
 // im is left image at frame k+1, imu_measurements from k to k+1,
 // sb(speed of imu sensor in world frame and bias) are predicted values
 // use only ORB features and stereo matches based on ORB, drawback: few matches
@@ -1532,8 +1083,13 @@ void  Tracking::ProcessFrameMono(cv::Mat &im, double timeStampSec,
                 }
             }
             double scale=0;
-            if(mbUseIMUData)
-                scale= Tcp.inverse().translation().norm();
+            if(mbUseIMUData){
+#ifdef SLAM_DEBUG_OUTPUT
+             SLAM_INFO_STREAM("Please define the distance between the first two keyframes which is to determine the proper scale");
+             Vector3d initTrans(0.048, -0.057, 0.034);
+             scale= initTrans.norm()*2;
+#endif
+            }
             CreateInitialMap(Converter::toMatrix3d(Rcw),Converter::toVector3d(tcw), scale);
         }
     }
@@ -1608,6 +1164,7 @@ void  Tracking::ProcessFrameMono(cv::Mat &im, double timeStampSec,
             bool bNeedMorePoints=NeedNewKeyFrameStereo();
 
             if(bNeedMorePoints){
+                mpLastFrame->PartialRelease();
                 KeyFrame* pKF = new KeyFrame(*mpCurrentFrame,mpMap,mpKeyFrameDB);
                 pKF->SetNotErase(DoubleWindowKF);//because we want to ensure that keyframes in temporal window are not bad
                 pKF->ComputeBoW();
@@ -1867,6 +1424,7 @@ void  Tracking::ProcessFrameQCV(cv::Mat &im, cv::Mat &right_img, double timeStam
             }
             else{
                 assert(mpLastFrame->mnId>1);//because we added second frame as keyframe
+                mpLastFrame->PartialRelease();
                 KeyFrame* pKF = new KeyFrame(*mpLastFrame,mpMap,mpKeyFrameDB);
                 pKF->SetNotErase(DoubleWindowKF);//because we want to ensure that keyframes in temporal window are not bad
                 mnLastKeyFrameId = mpLastFrame->mnId;
@@ -1998,7 +1556,7 @@ void  Tracking::ProcessFrame(cv::Mat &im, cv::Mat &right_img, double timeStampSe
 
     SLAM_START_TIMER("track_previous_frame");
     vector<double> tr_delta = mVisoStereo.transformationMatrixToVector (Converter::toViso2Matrix(Tcp));
-    const enum Optimizer {RANSAC_Geiger, RANSAC_5Point, ROBUST_Klein} approach=RANSAC_5Point;
+    const enum Optimizer {RANSAC_Geiger, RANSAC_5Point, ROBUST_Klein} approach=RANSAC_Geiger;
     switch (approach){
     case RANSAC_Geiger:
         tr_delta= mVisoStereo.estimateMotion(p_matched, tr_delta);
@@ -2156,6 +1714,7 @@ void  Tracking::ProcessFrame(cv::Mat &im, cv::Mat &right_img, double timeStampSe
             }
             else{
                 assert(mpLastFrame->mnId>1);//because we added second frame as keyframe
+                mpLastFrame->PartialRelease();
                 KeyFrame* pKF = new KeyFrame(*mpLastFrame,mpMap,mpKeyFrameDB);
                 pKF->SetNotErase(DoubleWindowKF);//because we want to ensure that keyframes in temporal window are not bad
                 mnLastKeyFrameId = mpLastFrame->mnId;
@@ -2333,20 +1892,20 @@ void Tracking::CreateInitialMapStereo(const Sophus::SE3d &Tcw, const std::vector
     Eigen::Matrix3d Rw2c1= Tw2c1.topLeftCorner<3,3>();
     Eigen::Vector3d twinc1=Tw2c1.col(3);
 
-    const float fx1 = pKFcur->cam_->fx();
-    const float fy1 = pKFcur->cam_->fy();
-    const float cx1 = pKFcur->cam_->cx();
-    const float cy1 = pKFcur->cam_->cy();
+    const float fx1 = pKFcur->cam_.fx();
+    const float fy1 = pKFcur->cam_.fy();
+    const float cx1 = pKFcur->cam_.cx();
+    const float cy1 = pKFcur->cam_.cy();
 
     proxy= pPrevFrame->GetPose();
     Eigen::Matrix<double,3,4> Tw2c2= proxy.matrix3x4();
     Eigen::Matrix3d Rw2c2= Tw2c2.topLeftCorner<3,3>();
     Eigen::Vector3d twinc2=Tw2c2.col(3);
 
-    const float fx2 = pPrevFrame->cam_->fx();
-    const float fy2 = pPrevFrame->cam_->fy();
-    const float cx2 = pPrevFrame->cam_->cx();
-    const float cy2 = pPrevFrame->cam_->cy();
+    const float fx2 = pPrevFrame->cam_.fx();
+    const float fy2 = pPrevFrame->cam_.fy();
+    const float cx2 = pPrevFrame->cam_.cx();
+    const float cy2 = pPrevFrame->cam_.cy();
 
     Eigen::Matrix<double,3,4> Tw2c1r= pKFcur->GetPose(false).matrix3x4();
     Eigen::Matrix<double,3,4> Tw2c2r= pPrevFrame->GetPose(false).matrix3x4();
@@ -2388,11 +1947,11 @@ void Tracking::CreateInitialMapStereo(const Sophus::SE3d &Tcw, const std::vector
                 continue;
 
             // Linear Triangulation Method
-            Vector3d xn2((kp2.pt.x-pKFcur->right_cam_->cx())/pKFcur->right_cam_->fx(),
-                         (kp2.pt.y-pKFcur->right_cam_->cy())/pKFcur->right_cam_->fy(), 1.0 );
+            Vector3d xn2((kp2.pt.x-pKFcur->right_cam_.cx())/pKFcur->right_cam_.fx(),
+                         (kp2.pt.y-pKFcur->right_cam_.cy())/pKFcur->right_cam_.fy(), 1.0 );
 
-            Vector3d xn4((kp4.pt.x-pPrevFrame->right_cam_->cx())/pPrevFrame->right_cam_->fx(),
-                         (kp4.pt.y-pPrevFrame->right_cam_->cy())/pPrevFrame->right_cam_->fy(), 1.0 );
+            Vector3d xn4((kp4.pt.x-pPrevFrame->right_cam_.cx())/pPrevFrame->right_cam_.fx(),
+                         (kp4.pt.y-pPrevFrame->right_cam_.cy())/pPrevFrame->right_cam_.fy(), 1.0 );
 
             Eigen::Matrix<double,8,4> A;
             A.row(0) = xn1(0)*Tw2c1.row(2)-Tw2c1.row(0);
@@ -2414,12 +1973,6 @@ void Tracking::CreateInitialMapStereo(const Sophus::SE3d &Tcw, const std::vector
             x3D = x3D.rowRange(0,3)/x3D.at<double>(3);
             Eigen::Vector3d x3Dt;
             cv::cv2eigen (x3D, x3Dt);
-
-       /*     obs[0]= xn1; obs[1]= xn2; obs[2]= xn3; obs[3]= xn4;
-            double pdop=0;
-            MapPoint::optimize(obs,frame_poses,  x3Dt, pdop,pPrevFrame->cam_, 5);
-            if(pdop> Config::PDOPThresh())
-                continue;*/
 
             //Check triangulation in front of cameras
             float z1 = Rw2c1.row(2)*x3Dt+ twinc1(2);
@@ -2710,7 +2263,7 @@ bool Tracking::TrackPreviousFrame()
     if(nmatches>=10)
     {
         // Optimize pose with correspondences
-        Optimizer::PoseOptimization(mpCurrentFrame);
+        Optimizer::PoseOptimization(mpCurrentFrame, mpMap);
 
         for(size_t i =0; i<mpCurrentFrame->mvbOutlier.size(); i++)
             if(mpCurrentFrame->mvbOutlier[i])
@@ -2733,7 +2286,7 @@ bool Tracking::TrackPreviousFrame()
         return false;
 
     // Optimize pose again with all correspondences
-    Optimizer::PoseOptimization(mpCurrentFrame);
+    Optimizer::PoseOptimization(mpCurrentFrame, mpMap);
 
     // Discard outliers
     for(size_t i =0; i<mpCurrentFrame->mvbOutlier.size(); i++)
@@ -2764,7 +2317,7 @@ bool Tracking::TrackWithMotionModel()
         return false;
 
     // Optimize pose with all correspondences
-    Optimizer::PoseOptimization(mpCurrentFrame);
+    Optimizer::PoseOptimization(mpCurrentFrame, mpMap);
 
     // Discard outliers
     for(size_t i =0; i<mpCurrentFrame->mvpMapPoints.size(); i++)
@@ -2796,7 +2349,7 @@ bool Tracking::TrackLocalMap()
     SearchReferencePointsInFrustum();
 
     // Optimize Pose
-    mnMatchesInliers = Optimizer::PoseOptimization(mpCurrentFrame);
+    mnMatchesInliers = Optimizer::PoseOptimization(mpCurrentFrame, mpMap);
 
     // Update MapPoints Statistics
     for(size_t i=0; i<mpCurrentFrame->mvpMapPoints.size(); i++)
@@ -2816,1011 +2369,9 @@ bool Tracking::TrackLocalMap()
     else
         return true;
 }
-void Tracking::setupG2o(G2oCameraParameters * g2o_cam,
-                        G2oCameraParameters*g2o_cam_right,
-                        G2oIMUParameters * g2o_imu,
-                        g2o::SparseOptimizer * optimizer) const
-{
-    if(mbUseIMUData)
-    {   //block solver_6_3 has errors in eigen in optimizing stereo+IMU observations,
-        // About choosing block solvers, g2o has some examples
-        //in g2o/examples/ba_anchored_inverse_depth/ba_anchored_inverse_depth_demo.cpp,
-        // schur trick case: BlockSolver_6_3 and marginalizing 3D point vertices
-        // otherwise: BlockSolverX and no marginalization
-        // in g2o/examples/ba/ba_demo.cpp, BlockSolver_6_3 and marginalizing 3D point vertices
-        //in g2o/examples/icp/gicp_sba_demo.cpp, BlockSolverX are used together with marginalizing 3D point vertices
-        // in g2o/examples/bal/bal_example.cpp, g2o::BlockSolver< g2o::BlockSolverTraits<9, 3> > is used with marginalization
-        // About linear solvers, g2o provides LinearSolverDense, LinearSolverCSparse, LinearSolverCholmod, and LinearSolverPCG
 
-        optimizer->setVerbose(false);
-        g2o::BlockSolverX::LinearSolverType * linearSolver=
-                new g2o::LinearSolverCholmod<g2o::BlockSolverX::PoseMatrixType>();
-        g2o::BlockSolverX * block_solver =
-                new g2o::BlockSolverX(linearSolver);
-        g2o::OptimizationAlgorithmLevenberg* lm =
-                new g2o::OptimizationAlgorithmLevenberg(block_solver);
 
-        lm->setMaxTrialsAfterFailure(5);
-        optimizer->setAlgorithm(lm);
-    }else{
-        optimizer->setVerbose(false);
-        typename g2o::BlockSolver_6_3::LinearSolverType * linearSolver
-                = new g2o::LinearSolverCSparse<g2o::BlockSolver_6_3::PoseMatrixType>();
 
-        g2o::BlockSolver_6_3 * block_solver
-                = new g2o::BlockSolver_6_3(linearSolver);
-        g2o::OptimizationAlgorithmLevenberg * lm
-                = new g2o::OptimizationAlgorithmLevenberg(block_solver);
-        lm->setMaxTrialsAfterFailure(5);
-        optimizer->setAlgorithm(lm);
-    }
-    if (!optimizer->addParameter(g2o_cam))
-    {
-        assert(false);
-    }
-#ifndef MONO
-    assert(g2o_cam_right!=NULL);
-
-    if (!optimizer->addParameter(g2o_cam_right))
-    {
-        assert(false);
-    }
-#endif
-    if(mbUseIMUData&&g2o_imu!=NULL){
-        if (!optimizer->addParameter(g2o_imu))
-        {
-            assert(false);
-        }
-    }
-}
-
-G2oVertexSE3* Tracking::addPoseToG2o(const SE3d & T_me_from_w,
-                                     int pose_id,
-                                     bool fixed,
-                                     g2o::SparseOptimizer * optimizer,
-                                     const Sophus::SE3d* first_estimate) const
-{
-    G2oVertexSE3 * v_se3 = new G2oVertexSE3();
-
-    v_se3->setId(pose_id);
-    v_se3->setEstimate(T_me_from_w);
-    v_se3->setFixed(fixed);
-    if(first_estimate!=NULL)
-        v_se3->setFirstEstimate(*first_estimate);
-    optimizer->addVertex(v_se3);
-    return v_se3;
-}
-G2oVertexSpeedBias* Tracking::addSpeedBiasToG2o(const Matrix<double, 9,1> & vinw_bias,
-                                                int sb_id,
-                                                bool fixed,
-                                                g2o::SparseOptimizer * optimizer,
-                                                const Eigen::Matrix<double, 9,1> * first_estimate) const
-{
-    G2oVertexSpeedBias * v_sb = new G2oVertexSpeedBias();
-    v_sb->setId(sb_id);
-    v_sb->setEstimate(vinw_bias);
-    v_sb->setFixed(fixed);
-    // v_sb->setMarginalized(true); // this line causes error
-    if(first_estimate!=NULL)
-        v_sb->setFirstEstimate(*first_estimate);
-    optimizer->addVertex(v_sb);
-    return v_sb;
-}
-
-//N.B. g2o refuses negative indices
-// copy frames in temporal and spatial window and the previous and current frame to g2o
-// return next unused possible vertex id
-// i found that fix the first frame does not have much effect
-size_t Tracking::copyAllPosesToG2o(g2o::SparseOptimizer * optimizer)
-{
-    size_t max_vertex_id=0;
-    size_t vertexid= 0;
-    for (vector <KeyFrame*>::const_iterator  it_win = mvpLocalKeyFrames.begin(), it_end_win=mvpLocalKeyFrames.end();
-         it_win!=it_end_win; ++it_win)
-    {
-        SE3d Tw2cref= (*it_win)->GetPose(); //transform from world to reference camera (i.e. left camera) frame
-        vertexid= (*it_win)->mnId*MAGIC2;
-        if(max_vertex_id< vertexid)
-            max_vertex_id=vertexid;
-        if((*it_win)->mbFixedLinearizationPoint){
-            SE3d Tw2cref_fe=(*it_win)->mTcw_first_estimate;
-            (*it_win)->v_kf_ = addPoseToG2o(Tw2cref, vertexid, false, optimizer, &Tw2cref_fe);
-        }
-        else
-        {
-            (*it_win)->v_kf_ = addPoseToG2o(Tw2cref, vertexid, false, optimizer);
-        }
-    }
-    for (deque<Frame*>::const_iterator  it_win = mvpTemporalFrames.begin(), it_end_win=mvpTemporalFrames.end();
-         it_win!=it_end_win; ++it_win)
-    {
-        SE3d Tw2cref= (*it_win)->GetPose();  //transform from world to reference camera (i.e. left camera) frame
-        vertexid= (*it_win)->mnId*MAGIC2;
-        if(max_vertex_id< vertexid)
-            max_vertex_id=vertexid;
-
-        if((*it_win)->mbFixedLinearizationPoint){
-            SE3d Tw2cref_fe=(*it_win)->mTcw_first_estimate;
-            (*it_win)->v_kf_ = addPoseToG2o(Tw2cref, vertexid, false,  optimizer, &Tw2cref_fe);
-            if(mbUseIMUData)
-            {
-                (*it_win)->v_sb_=addSpeedBiasToG2o((*it_win)->speed_bias, vertexid+1, false,
-                                                   optimizer, &(*it_win)->speed_bias_first_estimate);
-            }
-        }
-        else
-        {
-            (*it_win)->v_kf_ = addPoseToG2o(Tw2cref, vertexid,  false, optimizer);
-            if(mbUseIMUData)
-            {
-                (*it_win)->v_sb_=addSpeedBiasToG2o((*it_win)->speed_bias, vertexid+1, false,
-                                                   optimizer);
-            }
-        }
-    }
-    SE3d Tw2cref;
-    // previous frame
-#ifndef MONO
-        assert( mvpTemporalFrames.size()==0 || mvpTemporalFrames.back()->mnId+1== mpLastFrame->mnId);
-        Tw2cref= mpLastFrame->mTcw; //transform from world to reference camera (i.e. left camera) frame
-        vertexid= mpLastFrame->mnId*MAGIC2;
-        if(max_vertex_id< vertexid)
-            max_vertex_id=vertexid;
-        assert(!mpLastFrame->mbFixedLinearizationPoint);
-        mpLastFrame->v_kf_=addPoseToG2o(Tw2cref, vertexid, false, optimizer);
-        if(mbUseIMUData)
-        {
-            mpLastFrame->v_sb_=addSpeedBiasToG2o(mpLastFrame->speed_bias, vertexid+1, false,
-                                                 optimizer);
-        }
-#endif
-    //current frame
-    Tw2cref= mpCurrentFrame->mTcw; //transform from world to reference camera (i.e. left camera) frame
-    vertexid= mpCurrentFrame->mnId*MAGIC2;
-    if(max_vertex_id< vertexid)
-        max_vertex_id=vertexid;
-    mpCurrentFrame->v_kf_=addPoseToG2o(Tw2cref, vertexid, false, optimizer);
-    if(mbUseIMUData)
-    {
-        mpCurrentFrame->v_sb_=addSpeedBiasToG2o(mpCurrentFrame->speed_bias, vertexid+1, false,
-                                                optimizer);
-    }
-    return max_vertex_id+2;
-}
-
-inline G2oVertexPointXYZ* Tracking::addPointToG2o( MapPoint* pPoint,
-                                                   int g2o_point_id, bool fixed,
-                                                   g2o::SparseOptimizer * optimizer) const
-{
-    G2oVertexPointXYZ * v_point = new G2oVertexPointXYZ;
-    v_point->setId(g2o_point_id);
-    v_point->setFixed(fixed);
-    v_point->setEstimate(pPoint->GetWorldPos());
-    v_point->setMarginalized(true);//if true, Schur trick is used to marginalize this vertex during optimization
-    if(pPoint->mbFixedLinearizationPoint)
-        v_point->setFirstEstimate(pPoint->mWorldPos_first_estimate);
-    optimizer->addVertex(v_point);
-    return v_point;
-}
-
-G2oEdgeProjectXYZ2UV* Tracking::addObsToG2o(const Vector2d & obs,
-                                            const Matrix2d & Lambda,
-                                            ScaViSLAM::G2oVertexPointXYZ* point_vertex,
-                                            ScaViSLAM::G2oVertexSE3* pose_vertex,
-                                            bool robustify,
-                                            double huber_kernel_width,
-                                            g2o::SparseOptimizer * optimizer, SE3d * pTs2c)
-{
-    G2oEdgeProjectXYZ2UV * e=NULL;
-    if(pTs2c)
-        e = new G2oExEdgeProjectXYZ2UV(*pTs2c);
-    else
-        e = new G2oEdgeProjectXYZ2UV();
-    e->resize(2);
-
-    assert(point_vertex->dimension()==3);
-    e->vertices()[0] = point_vertex;
-
-    assert(pose_vertex->dimension()==6);
-    e->vertices()[1] = pose_vertex;
-
-    e->setMeasurement(obs);
-    e->information() = Lambda;
-
-    g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
-    e->setRobustKernel(rk);
-    rk->setDelta(huber_kernel_width);
-
-    e->resizeParameters(1);
-    bool param_status = e->setParameterId(0, pTs2c==NULL ? 0:1);
-    assert(param_status);
-    optimizer->addEdge(e);
-    return e;
-}
-/// Temporary container to hold the g2o edge with reference to frame and point.
-struct EdgeContainerSE3d
-{
-    G2oEdgeProjectXYZ2UV*     edge;
-    Frame*          frame;
-    size_t id_; // id in frame feature vector
-    bool            is_deleted;
-    EdgeContainerSE3d(G2oEdgeProjectXYZ2UV* e, Frame* frame, size_t id) :
-        edge(e), frame(frame),id_(id),is_deleted(false)
-    {}
-};
-// given the local temporal frames (left and right frame in stereo case), the local keyframes,
-// and the current frame, optimize poses of left frames of temporal frames and local keyframes,
-// and positions of points observed in both windows.
-// we do not need to check pMP->isBad() or pKF->isBad,
-// because localMapper will not setbadflag for points and keyframes in double window
-//note this function only works for stereo case
-int Tracking::LocalOptimizeSVO()
-{
- /*   g2o::SparseOptimizer optimizer;
-    ScaViSLAM::G2oCameraParameters  * g2o_cam
-            = new G2oCameraParameters(Vector2d(cam_->cx(), cam_->cy()),
-                                      Vector2d(cam_->fx(), cam_->fy()));
-    g2o_cam->setId(0);
-    ScaViSLAM::G2oCameraParameters  * g2o_cam_right
-            = new G2oCameraParameters(Vector2d(right_cam_->cx(), right_cam_->cy()),
-                                      Vector2d(right_cam_->fx(), right_cam_->fy()));
-    g2o_cam_right->setId(1);
-    G2oIMUParameters  * g2o_imu  = new  G2oIMUParameters(imu_);
-    g2o_imu->setId(2);
-    setupG2o(g2o_cam, g2o_cam_right, g2o_imu, &optimizer);
-    std::map<unsigned int, Frame*> vertexid_2_frame;
-    std::map<unsigned int, MapPoint*> vertexid_2_mappoint;
-    size_t nOffset=copyAllPosesToG2o(&optimizer, vertexid_2_frame);
-#ifdef SLAM_DEBUG_OUTPUT
-    map<MapPoint*, size_t> histogram;
-#endif    
-    // add constraint by IMU observations for frames in the temporal window and the current frame
-    if(mbUseIMUData){
-        for (std::deque<Frame*>::const_iterator  it_win = mvpTemporalFrames.begin(), it_end_win=mvpTemporalFrames.end();
-             it_win!=it_end_win; ++it_win)
-        {
-            if((*it_win)->cam_id_!=0 ) continue;
-            G2oEdgeIMUConstraint * e = new G2oEdgeIMUConstraint();
-            e->setParameterId(0,2);
-            e->resize(4);
-            if((*it_win)->next_frame ==NULL) // the last frame in the temporal window
-            {
-                e->vertices()[0]
-                        = (*it_win)->v_kf_;
-                e->vertices()[1]
-                        = (*it_win)->v_sb_;
-                e->vertices()[2]
-                        = mpCurrentFrame->v_kf_;
-                e->vertices()[3]
-                        = mpCurrentFrame->v_sb_;
-                e->time_frames[0]= (*it_win)->mTimeStamp;
-                e->time_frames[1]= mpCurrentFrame->mTimeStamp;
-                e->setMeasurement(mpCurrentFrame->imu_observ);
-            }
-            else{
-                assert((*it_win)->next_frame== (*(it_win+2)));
-                e->vertices()[0]
-                        = (*it_win)->v_kf_;
-                e->vertices()[1]
-                        = (*it_win)->v_sb_;
-                e->vertices()[2]
-                        = (*it_win)->next_frame->v_kf_;
-                e->vertices()[3]
-                        = (*it_win)->next_frame->v_sb_;
-                e->time_frames[0]= (*it_win)->mTimeStamp;
-                e->time_frames[1]= (*it_win)->next_frame->mTimeStamp;
-                e->setMeasurement((*it_win)->next_frame->imu_observ);
-            }
-            e->calcAndSetInformation(*g2o_imu);
-            optimizer.addEdge(e);
-        }
-    }
-
-    // Now go throug all the points and add a measurement. Add a fixed neighbour
-    // Keyframe if it is not in the set of core kfs
-    // TODO: check that mvpLocalMapPoints contains all mappoints observed in double window
-
-    int nInitialCorrespondences=0; //how many map points are tracked in current frame
-
-    list<EdgeContainerSE3d> edges;
-
-    const double delta2 = 5.991;
-    const double delta = sqrt(delta2);
-
-    size_t n_mps = 0;
-    size_t n_fix_kfs=0;
-    list<KeyFrame*> neib_kfs;
-    for(auto it_pt = mvpLocalMapPoints.begin(), ite=mvpLocalMapPoints.end(); it_pt!=ite; ++it_pt)
-    {
-        // Create point vertex
-        MapPoint* pMP = *it_pt;
-        if(pMP->isBad()) continue;
-        G2oVertexPointXYZ*v_pt= addPointToG2o( pMP, pMP->mnId + nOffset, false, &optimizer, vertexid_2_mappoint);
-        pMP->v_pt_= v_pt;
-        ++n_mps;
-        // Add edges
-        std::map<KeyFrame*, size_t> obs_copy= (*it_pt)->GetObservations();
-        std::map<KeyFrame*, size_t>::const_iterator mit_obs=obs_copy.begin();
-        while(mit_obs!=obs_copy.end())
-        {
-            KeyFrame * pKF= mit_obs->first;
-            if(pKF->v_kf_ == NULL)
-            {
-                // frame does not have a vertex yet -> it belongs to the neib kfs and
-                // is fixed. create one:
-                ++n_fix_kfs;
-                SE3d Tw2cref= pKF->GetPose(); //transform from world to reference camera (i.e. left camera) frame
-                size_t vertexid= pKF->mnId*MAGIC2;
-
-                if( pKF->mbFixedLinearizationPoint){
-                    SE3d Tw2cref_fe= pKF->mTcw_first_estimate;
-                    pKF->v_kf_=addPoseToG2o(Tw2cref, vertexid, true, &optimizer, &Tw2cref_fe);
-                }
-                else
-                {
-                    pKF->v_kf_=addPoseToG2o(Tw2cref, vertexid, true, &optimizer);
-                }
-                neib_kfs.push_back(pKF);
-            }
-            // create edge
-            Eigen::Matrix<double,2,1> obs;
-            cv::KeyPoint kpUn = pKF->mvKeysUn[mit_obs->second];
-            obs << kpUn.pt.x, kpUn.pt.y;
-            const float invSigma2 = pKF->GetInvSigma2(kpUn.octave);
-
-            G2oEdgeProjectXYZ2UV* porter=addObsToG2o(obs, Eigen::Matrix2d::Identity()*invSigma2,
-                                                     v_pt, pKF->v_kf_, true, delta, &optimizer);
-            histogram[pMP]++;
-            edges.push_back(EdgeContainerSE3d(porter, pKF, mit_obs->second));
-            ++mit_obs;
-        }
-    }
-
-    // add points' observations for each non keyframe in the temporal window and the current frame
-    // add observations of frames in the temporal window
-    Frame * pLastRefFrame=NULL;
-    for(deque<Frame*>::const_iterator qIt= mvpTemporalFrames.begin(), qItEnd=mvpTemporalFrames.end();
-        qIt!=qItEnd; ++qIt)
-    {
-        if((*qIt)->isKeyFrame())
-        {
-            assert((*qIt)->cam_id_==0);
-            pLastRefFrame= *qIt;
-            continue; //keyframe observations are already added for mappoints
-        }
-        vector<MapPoint*> vpMPs = (*qIt)->GetMapPointMatches();
-        size_t jim=0;
-        if((*qIt)->cam_id_==0){
-            pLastRefFrame= *qIt;
-            for(vector<MapPoint*>::const_iterator itMP=vpMPs.begin(), itEndMP=vpMPs.end();
-                itMP!=itEndMP; ++itMP, ++jim)
-            {
-                MapPoint* pMP = *itMP;
-                if(pMP && (!pMP->isBad()) && pMP->v_pt_!=NULL)
-                    // if valid pointer, and not marked as bad by optimizer,
-                    // and has been added to optimizer, i.e., in mvpLocalMapPoints and is used as track reference for current frame
-                {
-                    Eigen::Matrix<double,2,1> obs;
-                    cv::KeyPoint kpUn = pLastRefFrame->mvKeysUn[jim];
-                    obs << kpUn.pt.x, kpUn.pt.y;
-                    const float invSigma2 = pLastRefFrame->GetInvSigma2(kpUn.octave);
-                    G2oEdgeProjectXYZ2UV* porter=addObsToG2o(obs, Eigen::Matrix2d::Identity()*invSigma2,
-                                                             pMP->v_pt_, pLastRefFrame->v_kf_, true, delta, &optimizer);
-                    histogram[pMP]++;
-                    edges.push_back(EdgeContainerSE3d(porter, pLastRefFrame, jim));
-                }
-            }
-        }
-        else
-        {
-            assert((*qIt)->mnId-1==pLastRefFrame->mnId);
-            for(vector<MapPoint*>::const_iterator itMP=vpMPs.begin(), itEndMP=vpMPs.end();
-                itMP!=itEndMP; ++itMP, ++jim)
-            {
-                MapPoint* pMP = *itMP;
-                if(pMP && !pMP->isBad() && pMP->v_pt_!=NULL)
-                    // if valid pointer, and not marked as bad by optimizer, and has been added to optimizer
-                {
-                    Eigen::Matrix<double,2,1> obs;
-                    cv::KeyPoint kpUn = (*qIt)->mvKeysUn[jim];
-                    obs << kpUn.pt.x, kpUn.pt.y;
-                    const float invSigma2 = (*qIt)->GetInvSigma2(kpUn.octave);
-                    G2oEdgeProjectXYZ2UV* porter=addObsToG2o(obs, Eigen::Matrix2d::Identity()*invSigma2, pMP->v_pt_,
-                                                             pLastRefFrame->v_kf_, true, delta, &optimizer, &mTl2r );
-                    histogram[pMP]++;
-                    edges.push_back(EdgeContainerSE3d(porter, *qIt, jim));
-                }
-            }
-        }
-    }
-    assert(mpCurrentFrame->cam_id_==0);
-    pLastRefFrame= mpCurrentFrame;
-
-    vector<MapPoint*> vpMPs = mpCurrentFrame->GetMapPointMatches();
-    size_t jim=0;
-    for(vector<MapPoint*>::const_iterator itMP=vpMPs.begin(), itEndMP=vpMPs.end();
-        itMP!=itEndMP; ++itMP, ++jim)
-    {
-        MapPoint* pMP = *itMP;
-        if(pMP && (!(pMP->isBad())))// if valid pointer, and not marked as bad by optimizer
-        {
-            Eigen::Matrix<double,2,1> obs;
-            cv::KeyPoint kpUn = pLastRefFrame->mvKeysUn[jim];
-            obs << kpUn.pt.x, kpUn.pt.y;
-            const float invSigma2 = pLastRefFrame->GetInvSigma2(kpUn.octave);
-            G2oEdgeProjectXYZ2UV* porter=addObsToG2o(obs, Eigen::Matrix2d::Identity()*invSigma2,
-                                                     pMP->v_pt_, pLastRefFrame->v_kf_, true, delta, &optimizer);
-            histogram[pMP]++;
-            edges.push_back(EdgeContainerSE3d(porter, pLastRefFrame, jim));
-            ++nInitialCorrespondences;
-        }
-    }
-    vpMPs = mpCurrentRightFrame->GetMapPointMatches();
-    jim=0;
-    for(vector<MapPoint*>::const_iterator itMP=vpMPs.begin(), itEndMP=vpMPs.end();
-        itMP!=itEndMP; ++itMP, ++jim)
-    {
-        MapPoint* pMP = *itMP;
-        if(pMP && (!(pMP->isBad())))
-            // if valid pointer, and not marked as bad by optimizer
-        {
-            Eigen::Matrix<double,2,1> obs;
-            cv::KeyPoint kpUn = mpCurrentRightFrame->mvKeysUn[jim];
-            obs << kpUn.pt.x, kpUn.pt.y;
-            const float invSigma2 = mpCurrentRightFrame->GetInvSigma2(kpUn.octave);
-            Eigen::Matrix2d infoMat=Eigen::Matrix2d::Identity()*invSigma2;
-
-            // set right edge
-            G2oEdgeProjectXYZ2UV* porter=addObsToG2o(obs, infoMat, pMP->v_pt_,
-                                                     pLastRefFrame->v_kf_, true, delta, &optimizer, &mTl2r );
-            histogram[pMP]++;
-            edges.push_back(EdgeContainerSE3d(porter, mpCurrentRightFrame.get(), jim));
-
-        }
-    }
-#if 1
-    for(auto it= histogram.begin(), ite=histogram.end(); it!=ite; ++it)
-    {
-        MapPoint *pMP=it->first;
-        assert(it->second>=2);
-    }
-#endif
-    optimizer.initializeOptimization();
-
-    //    cout << "Performing structure-only BA:" << endl;
-    g2o::StructureOnlySolver<3> structure_only_ba;
-    g2o::OptimizableGraph::VertexContainer points;
-    for (g2o::OptimizableGraph::VertexIDMap::const_iterator it = optimizer.vertices().begin(); it != optimizer.vertices().end(); ++it) {
-        g2o::OptimizableGraph::Vertex* v = static_cast<g2o::OptimizableGraph::Vertex*>(it->second);
-        if (v->dimension() == 3)
-            points.push_back(v);
-    }
-    structure_only_ba.calc(points, 5);
-
-    optimizer.optimize(5);
-
-    int nBad=0;
-    // Check inlier observations, this section draws inspiration from LocalBundleAdjustment and PoseOptimization by Raul
-#ifdef MONO
-    for(size_t i=0, iend=vpEdges.size(); i<iend;i++)
-    {
-        G2oEdgeProjectXYZ2UV* e = vpEdges[i];
-        MapPoint* pMP = vpMapPointEdge[i];
-        if(!e)
-            continue;
-        if(pMP->isBad())
-            continue;
-        Frame* pFi = vnIndexEdge[i].first;
-        int idx= vnIndexEdge[i].second;
-        if(pFi==mpCurrentFrame)
-        {
-            if(pFi->mvbOutlier[idx]){
-                const float invSigma2 = pFi->GetInvSigma2(0);
-                e->setInformation(Eigen::Matrix2d::Identity()*invSigma2);
-                e->computeError();
-            }
-            if(e->chi2()>delta2)
-            {
-                pFi->mvbOutlier[idx]=true;
-                // e->setInformation(Eigen::Matrix2d::Identity()*1e-10);
-                nBad++;
-            }
-            else
-            {
-                pFi->mvbOutlier[idx]=false;
-            }
-        }
-        else{
-            if(e->chi2()>delta2 || !e->isDepthPositive())
-            {
-                pFi->EraseMapPointMatch(idx);
-                pMP->EraseObservation(pFi);
-            }
-        }
-    }
-#else   
-    for(list<EdgeContainerSE3d>::iterator it = edges.begin(); it != edges.end(); ++it)
-    {
-        G2oEdgeProjectXYZ2UV* e = it->edge;
-        if(e->chi2()>delta2)// || !e->isDepthPositive())
-        {
-            Frame* pFi = it->frame;
-            cout<< it->id_<<" "<< pFi->mvpMapPoints.size()<<endl;
-            MapPoint* pMP= pFi->GetMapPoint(it->id_);
-            if(pMP==NULL || (pMP->isBad()))
-                continue;
-
-            if(pFi->isKeyFrame())
-            {
-                pFi->EraseMapPointMatch(it->id_);
-                pMP->EraseObservation((KeyFrame*)pFi);
-            }
-            else{
-                pFi->EraseMapPointMatch(it->id_);
-                if(pFi==mpCurrentFrame)
-                    ++nBad;
-            }
-        }
-    }
-#endif    
-    //update current frame and current right frame
-    mpCurrentFrame->SetPose((static_cast<G2oVertexSE3*>(mpCurrentFrame->v_kf_))->estimate());
-    mpCurrentFrame->v_kf_ = NULL;
-    mpCurrentFrame->speed_bias = (static_cast<G2oVertexSpeedBias*>(mpCurrentFrame->v_sb_))->estimate();
-    mpCurrentFrame->v_sb_=NULL;
-    if(mpLocalMapper->isStopped() || mpLocalMapper->stopRequested())
-        return nBad;
-    // Update Keyframes
-    for(deque<Frame*>::iterator it = mvpTemporalFrames.begin(); it != mvpTemporalFrames.end(); ++it)
-    {
-        if((*it)->v_kf_==NULL) continue;
-        (*it)->SetPose((static_cast<G2oVertexSE3*>((*it)->v_kf_))->estimate());
-        (*it)->v_kf_ = NULL;
-        if((*it)->v_sb_!=NULL)
-        {
-            (*it)->speed_bias = (static_cast<G2oVertexSpeedBias*>((*it)->v_sb_))->estimate();
-            (*it)->v_sb_=NULL;
-        }
-    }
-    for(vector<KeyFrame*>::iterator it = mvpLocalKeyFrames.begin(); it != mvpLocalKeyFrames.end(); ++it)
-    {
-        (*it)->SetPose((static_cast<G2oVertexSE3*>((*it)->v_kf_))->estimate());
-        (*it)->v_kf_ = NULL;
-        assert((*it)->v_sb_==NULL);
-    }
-    for(list<KeyFrame*>::iterator it = neib_kfs.begin(); it != neib_kfs.end(); ++it)
-        (*it)->v_kf_ = NULL;
-
-    // Update Mappoints
-    for(vector<MapPoint*>::iterator it = mvpLocalMapPoints.begin(); it != mvpLocalMapPoints.end(); ++it)
-    {
-        if(((*it)==NULL) || ((*it)->isBad())) continue;
-        (*it)->SetWorldPos((static_cast<G2oVertexPointXYZ*>((*it)->v_pt_))->estimate());
-        (*it)->v_pt_ = NULL;
-    }
-    return nBad;*/
-    return 0;
-    //N.B. g2o will delete _algorithm, _parameters, EdgeSet and VertexIDMap upon destruction of SparseOptimizer
-}
-
-// For all map points in the local map, add them into the optimizer if they are observed by at least 2 keyframes
-// return the number of outlier/bad observations made by the current frame
-// we do not need to check pKF->isBad, because localMapper will not setbadflag for keyframes in double window
-int Tracking::LocalOptimize()
-{
-    g2o::SparseOptimizer optimizer;
-    ScaViSLAM::G2oCameraParameters  * g2o_cam
-            = new G2oCameraParameters(Vector2d(cam_->cx(), cam_->cy()),
-                                      Vector2d(cam_->fx(), cam_->fy()));
-    g2o_cam->setId(0);
-    ScaViSLAM::G2oCameraParameters  * g2o_cam_right=NULL;
-#ifndef MONO
-    g2o_cam_right
-            = new G2oCameraParameters(Vector2d(right_cam_->cx(), right_cam_->cy()),
-                                      Vector2d(right_cam_->fx(), right_cam_->fy()));
-    g2o_cam_right->setId(1);
-#endif
-    G2oIMUParameters  * g2o_imu  = new  G2oIMUParameters(imu_);
-    g2o_imu->setId(2);
-    setupG2o(g2o_cam, g2o_cam_right, g2o_imu, &optimizer);
-    size_t nOffset=copyAllPosesToG2o(&optimizer);
-    // add constraint by IMU observations for frames in the temporal window and the current frame
-    if(mbUseIMUData){
-        for (std::deque<Frame*>::const_iterator  it_win = mvpTemporalFrames.begin(), it_end_win=mvpTemporalFrames.end();
-             it_win!=it_end_win; ++it_win)
-        {
-            G2oEdgeIMUConstraint * e = new G2oEdgeIMUConstraint();
-            e->setParameterId(0,2);
-            e->resize(4);
-            if((*it_win)->next_frame ==NULL)//must be the last frame in the temporal window
-            {
-                e->vertices()[0]
-                        = (*it_win)->v_kf_;
-                e->vertices()[1]
-                        = (*it_win)->v_sb_;
-#ifdef MONO
-                e->vertices()[2]
-                        = mpCurrentFrame->v_kf_;
-                e->vertices()[3]
-                        = mpCurrentFrame->v_sb_;
-                e->time_frames[0]= (*it_win)->mTimeStamp;
-                e->time_frames[1]= mpCurrentFrame->mTimeStamp;
-                assert(mpCurrentFrame->imu_observ.size());
-                e->setMeasurement(mpCurrentFrame->imu_observ);
-#else
-                e->vertices()[2]
-                        = mpLastFrame->v_kf_;
-                e->vertices()[3]
-                        = mpLastFrame->v_sb_;
-                e->time_frames[0]= (*it_win)->mTimeStamp;
-                e->time_frames[1]= mpLastFrame->mTimeStamp;
-                assert(mpLastFrame->imu_observ.size());
-                e->setMeasurement(mpLastFrame->imu_observ);
-#endif
-
-            }
-            else{
-                e->vertices()[0]
-                        = (*it_win)->v_kf_;
-                e->vertices()[1]
-                        = (*it_win)->v_sb_;
-                e->vertices()[2]
-                        = (*it_win)->next_frame->v_kf_;
-                e->vertices()[3]
-                        = (*it_win)->next_frame->v_sb_;
-                e->time_frames[0]= (*it_win)->mTimeStamp;
-                e->time_frames[1]= (*it_win)->next_frame->mTimeStamp;
-#ifdef SLAM_DEBUG_OUTPUT
-                if((*it_win)->next_frame->isKeyFrame())
-                {
-                    KeyFrame * larry= (KeyFrame*)((*it_win)->next_frame);
-                    if(larry->isBad()){
-                        SLAM_DEBUG_STREAM("Bad keyframe in temporal window mnId,N, mbNotErase, keys size:"
-                                          <<larry->mnId<<" "<<larry->N<<" "<<larry->GetNotErase()<<" "<< larry->mvKeys.size());
-
-//                        assert(false);
-                    }
-                }
-#endif
-                e->setMeasurement((*it_win)->next_frame->imu_observ);
-            }
-            e->calcAndSetInformation(*g2o_imu);
-            optimizer.addEdge(e);
-        }
-#ifndef MONO
-        // the previous frame and current frame
-        G2oEdgeIMUConstraint * e = new G2oEdgeIMUConstraint();
-        e->setParameterId(0,2);
-        e->resize(4);   
-        e->vertices()[0]
-                = mpLastFrame->v_kf_;
-        e->vertices()[1]
-                = mpLastFrame->v_sb_;
-        e->vertices()[2]
-                = mpCurrentFrame->v_kf_;
-        e->vertices()[3]
-                = mpCurrentFrame->v_sb_;
-        e->time_frames[0]= mpLastFrame->mTimeStamp;
-        e->time_frames[1]= mpCurrentFrame->mTimeStamp;
-        e->setMeasurement(mpCurrentFrame->imu_observ);
-        e->calcAndSetInformation(*g2o_imu);
-        optimizer.addEdge(e);
-#endif
-    }
-    // Now go throug all the points and add observations. Add a fixed neighbour
-    // Keyframe if it is not in the set of core kfs
-    const double delta2 = 5.991;
-    const double delta = sqrt(delta2);
-    int nInitialCorrespondences=0; //how many map points are tracked in current frame
-    list<EdgeContainerSE3d> edges;
-    size_t n_mps = 0;
-    size_t n_fix_kfs=0;
-
-    list<KeyFrame*> neib_kfs;
-    for(auto it_pt = mvpLocalMapPoints.begin(), ite=mvpLocalMapPoints.end(); it_pt!=ite; ++it_pt)
-    {
-        // Create point vertex
-        MapPoint* pMP = *it_pt;
-        if(pMP->isBad()) { (*it_pt)=NULL; continue;}
-        std::map<KeyFrame*, size_t> obs_copy= pMP->GetObservations();
-        if(obs_copy.size()<2) { (*it_pt)=NULL; continue;}
-        G2oVertexPointXYZ*v_pt= addPointToG2o(pMP, pMP->mnId + nOffset, false, &optimizer);
-        pMP->v_pt_= v_pt;
-        ++n_mps;
-        // Add edges
-        std::map<KeyFrame*, size_t>::const_iterator mit_obs=obs_copy.begin();
-        while(mit_obs!=obs_copy.end())
-        {
-            KeyFrame * pKF= mit_obs->first;
-            if(pKF->v_kf_ == NULL)
-            {
-                // frame does not have a vertex yet -> it belongs to the neib kfs and
-                // is fixed. create one:
-                ++n_fix_kfs;
-                SE3d Tw2cref= pKF->GetPose(); //transform from world to reference camera (i.e. left camera) frame
-                size_t vertexid= pKF->mnId*MAGIC2;
-
-                if( pKF->mbFixedLinearizationPoint){
-                    SE3d Tw2cref_fe= pKF->mTcw_first_estimate;
-                    pKF->v_kf_=addPoseToG2o(Tw2cref, vertexid, true, &optimizer, &Tw2cref_fe);
-                }
-                else
-                {
-                    pKF->v_kf_=addPoseToG2o(Tw2cref, vertexid, true, &optimizer);
-                }
-                neib_kfs.push_back(pKF);
-            }
-            // create edge
-            Eigen::Matrix<double,2,1> obs;
-            cv::KeyPoint kpUn = pKF->mvKeysUn[mit_obs->second];
-            obs << kpUn.pt.x, kpUn.pt.y;
-            const float invSigma2 = pKF->GetInvSigma2(kpUn.octave);
-            Eigen::Matrix2d infoMat=Eigen::Matrix2d::Identity()*invSigma2;
-            G2oEdgeProjectXYZ2UV* porter=addObsToG2o(obs, infoMat,
-                                                     v_pt, pKF->v_kf_, true, delta, &optimizer);
-            edges.push_back(EdgeContainerSE3d(porter, pKF, mit_obs->second));
-
-#ifndef MONO
-            // set right edge
-            kpUn = pKF->mvRightKeysUn[mit_obs->second];
-            obs << kpUn.pt.x, kpUn.pt.y;
-            assert(kpUn.octave==0);
-            porter=addObsToG2o(obs, infoMat, v_pt, pKF->v_kf_, true, delta, &optimizer, &mTl2r );
-            edges.push_back(EdgeContainerSE3d(porter, pKF,  mit_obs->second));
-#endif
-            ++mit_obs;
-        }
-    }
-
-    // add points' observations for each non keyframe in the temporal window and the previous and current frame
-    // add observations of frames in the temporal window
-    for(deque<Frame*>::const_iterator qIt= mvpTemporalFrames.begin(), qItEnd=mvpTemporalFrames.end();
-        qIt!=qItEnd; ++qIt)
-    {
-        if((*qIt)->isKeyFrame())
-        {
-            continue; //keyframe observations are already added for mappoints
-        }
-        size_t jim=0;
-        for(vector<MapPoint*>::const_iterator itMP=(*qIt)->mvpMapPoints.begin(), itEndMP=(*qIt)->mvpMapPoints.end();
-            itMP!=itEndMP; ++itMP, ++jim)
-        {
-            MapPoint* pMP = *itMP;
-            if(pMP && pMP->v_pt_!=NULL)    // if valid pointer, and has been added to optimizer
-            {
-                //SET left EDGE
-                Eigen::Matrix<double,2,1> obs;
-                cv::KeyPoint kpUn = (*qIt)->mvKeysUn[jim];
-                obs << kpUn.pt.x, kpUn.pt.y;
-                const float invSigma2 = (*qIt)->GetInvSigma2(kpUn.octave);
-                Eigen::Matrix2d infoMat=Eigen::Matrix2d::Identity()*invSigma2;
-                G2oEdgeProjectXYZ2UV* porter=addObsToG2o(obs, infoMat,
-                                                         pMP->v_pt_, (*qIt)->v_kf_, true, delta, &optimizer);
-
-                edges.push_back(EdgeContainerSE3d(porter, *qIt, jim));
-#ifndef MONO
-                // set right edge
-                kpUn = (*qIt)->mvRightKeysUn[jim];
-                obs << kpUn.pt.x, kpUn.pt.y;
-                assert(kpUn.octave==0);
-                porter=addObsToG2o(obs, infoMat,
-                                   pMP->v_pt_, (*qIt)->v_kf_, true, delta, &optimizer, &mTl2r );
-                edges.push_back(EdgeContainerSE3d(porter, *qIt, jim));
-#endif
-            }
-        }
-    }
-    size_t jim=0;
-#ifndef MONO
-    for(vector<MapPoint*>::const_iterator itMP=mpLastFrame->mvpMapPoints.begin(), itEndMP=mpLastFrame->mvpMapPoints.end();
-        itMP!=itEndMP; ++itMP, ++jim)
-    {
-        MapPoint* pMP = *itMP;
-        if(pMP && pMP->v_pt_!=NULL)
-        {
-            Eigen::Matrix<double,2,1> obs;
-            cv::KeyPoint kpUn = mpLastFrame->mvKeysUn[jim];
-            obs << kpUn.pt.x, kpUn.pt.y;
-            const float invSigma2 = mpLastFrame->GetInvSigma2(kpUn.octave);
-            Eigen::Matrix2d infoMat=Eigen::Matrix2d::Identity()*invSigma2;
-            G2oEdgeProjectXYZ2UV* porter=addObsToG2o(obs, infoMat,
-                                                     pMP->v_pt_, mpLastFrame->v_kf_, true, delta, &optimizer);
-            edges.push_back(EdgeContainerSE3d(porter, mpLastFrame, jim));
-
-            // set right edge
-            kpUn = mpLastFrame->mvRightKeysUn[jim];
-            obs << kpUn.pt.x, kpUn.pt.y;
-            assert(kpUn.octave==0);
-            porter=addObsToG2o(obs, infoMat, pMP->v_pt_, mpLastFrame->v_kf_, true, delta, &optimizer, &mTl2r );
-            edges.push_back(EdgeContainerSE3d(porter, mpLastFrame, jim));
-
-        }
-    }
-#endif
-    jim=0;
-    for(vector<MapPoint*>::const_iterator itMP=mpCurrentFrame->mvpMapPoints.begin(),
-        itEndMP=mpCurrentFrame->mvpMapPoints.end(); itMP!=itEndMP; ++itMP, ++jim)
-    {
-        MapPoint* pMP = *itMP;
-        if(pMP && pMP->v_pt_!=NULL)
-        {
-            //SET left EDGE
-            Eigen::Matrix<double,2,1> obs;
-            cv::KeyPoint kpUn = mpCurrentFrame->mvKeysUn[jim];
-            obs << kpUn.pt.x, kpUn.pt.y;
-            const float invSigma2 = mpCurrentFrame->GetInvSigma2(kpUn.octave);
-            Eigen::Matrix2d infoMat=Eigen::Matrix2d::Identity()*invSigma2;
-
-            G2oEdgeProjectXYZ2UV* porter=addObsToG2o(obs, infoMat, pMP->v_pt_,
-                                                     mpCurrentFrame->v_kf_, true, delta, &optimizer );
-            edges.push_back(EdgeContainerSE3d(porter, mpCurrentFrame, jim));
-
-#ifndef MONO
-            // set right edge
-            kpUn = mpCurrentFrame->mvRightKeysUn[jim];
-            obs << kpUn.pt.x, kpUn.pt.y;
-            assert(kpUn.octave==0);
-            porter=addObsToG2o(obs, infoMat, pMP->v_pt_, mpCurrentFrame->v_kf_, true, delta, &optimizer, &mTl2r );
-            edges.push_back(EdgeContainerSE3d(porter, mpCurrentFrame, jim));
-#endif
-            mpCurrentFrame->mvbOutlier[jim] = false;
-            ++nInitialCorrespondences;
-        }
-    }
-    if(edges.size()==0)
-    {
-        cout<<"Graph with no edges."<<endl;
-        return 0;
-    }
-    optimizer.initializeOptimization();
-
-    //    cout << "Performing structure-only BA:" << endl;
-    g2o::StructureOnlySolver<3> structure_only_ba;
-    g2o::OptimizableGraph::VertexContainer points;
-    for (g2o::OptimizableGraph::VertexIDMap::const_iterator it = optimizer.vertices().begin(); it != optimizer.vertices().end(); ++it) {
-        g2o::OptimizableGraph::Vertex* v = static_cast<g2o::OptimizableGraph::Vertex*>(it->second);
-        if (v->dimension() == 3)
-            points.push_back(v);
-    }
-    structure_only_ba.calc(points, 5);
-#ifndef MONO
-// remove the right observations, because the extrinsic calibration error often causes drift
-    for(auto it_edge= edges.begin(), ite_edge= edges.end(); it_edge!=ite_edge;)
-    {
-        if(dynamic_cast<G2oExEdgeProjectXYZ2UV*>(it_edge->edge))
-            it_edge= edges.erase(it_edge);
-        else
-            ++it_edge;
-    }
-
-    for(auto eg_it=optimizer.edges().begin(), eg_end= optimizer.edges().end(); eg_it!=eg_end; )
-    {
-        if(dynamic_cast<G2oExEdgeProjectXYZ2UV*>(*eg_it))
-        {
-            eg_it= optimizer.edges().erase(eg_it);
-        }
-        else
-            ++eg_it;
-    }
-#endif
-    optimizer.optimize(5);
-    int nBad=0;
-    /// Emprically the following outlier removal process does not contribute much
-#if 0
-    // Check inlier observations, draw inspiration from LocalBundleAdjustment and PoseOptimization
-    for(list<EdgeContainerSE3d>::iterator it = edges.begin(); it != edges.end();)
-    {
-        G2oEdgeProjectXYZ2UV* e1 = it->edge;
-//N.B. right observations are removed for stereo odometry
-        if(e1->chi2()>delta2)
-        {
-            Frame* pFi = it->frame;
-            MapPoint* pMP= pFi->GetMapPoint(it->id_);
-            if(pMP==NULL || (pMP->isBad())){
-                ++it;
-                continue;
-            }
-            if(pFi->isKeyFrame())
-            {
-                pFi->EraseMapPointMatch(it->id_);
-                pMP->EraseObservation((KeyFrame*)pFi);
-            }
-            else{
-                pFi->EraseMapPointMatch(it->id_);
-                if(pFi==mpCurrentFrame){
-                    pFi->mvbOutlier[it->id_]=true;
-                    ++nBad;
-                }
-            }
-            optimizer.removeEdge(e1);
-            it =edges.erase(it);
-        }
-        else
-            ++it;
-    }
-
-    // Optimize again without the outliers
-    optimizer.initializeOptimization();
-    optimizer.optimize(3);
-#endif    
-    // Check inlier observations, this section draws inspiration from LocalBundleAdjustment and PoseOptimization by Raul
-    for(list<EdgeContainerSE3d>::iterator it = edges.begin(); it != edges.end(); )
-    {
-        G2oEdgeProjectXYZ2UV* e1 = it->edge;
-#if 0 //right observations are removed
-        ++it;
-        G2oExEdgeProjectXYZ2UV* e2 = (G2oExEdgeProjectXYZ2UV*)it->edge;
-        if(e1->chi2()>delta2 || e2->chi2()>delta2)// || !e->isDepthPositive())
-#else
-        if(e1->chi2()>delta2)
-#endif
-        {
-            Frame* pFi = it->frame;
-            MapPoint* pMP= pFi->GetMapPoint(it->id_);
-            if(pMP==NULL || (pMP->isBad()))
-            {
-                ++it;
-                continue;
-            }
-            if(pFi->isKeyFrame())
-            {
-                pFi->EraseMapPointMatch(it->id_);
-                pMP->EraseObservation((KeyFrame*)pFi);
-            }
-            else{
-                pFi->EraseMapPointMatch(it->id_);
-                if(pFi==mpCurrentFrame)
-                    ++nBad;
-            }
-        }
-        ++it;
-    }
-    //update current frame
-    mpCurrentFrame->SetPose(mpCurrentFrame->v_kf_->estimate());
-    mpCurrentFrame->v_kf_ = NULL;
-#ifndef MONO
-    mpLastFrame->SetPose(mpLastFrame->v_kf_->estimate());
-    mpLastFrame->v_kf_ = NULL;
-#endif
-    if(mbUseIMUData){
-        mpCurrentFrame->speed_bias = mpCurrentFrame->v_sb_->estimate();
-        mpCurrentFrame->v_sb_=NULL;
-#ifndef MONO
-        mpLastFrame->speed_bias = mpLastFrame->v_sb_->estimate();
-        mpLastFrame->v_sb_=NULL;
-#endif
-    }
-
-    // Update Keyframes
-    for(deque<Frame*>::iterator it = mvpTemporalFrames.begin(); it != mvpTemporalFrames.end(); ++it)
-    {
-        assert((*it)->v_kf_!=NULL);
-        (*it)->SetPose((*it)->v_kf_->estimate());
-        (*it)->v_kf_ = NULL;
-        if(mbUseIMUData){
-        assert((*it)->v_sb_!=NULL);
-        (*it)->speed_bias = (*it)->v_sb_->estimate();
-        (*it)->v_sb_=NULL;
-        }
-    }
-    for(vector<KeyFrame*>::iterator it = mvpLocalKeyFrames.begin(); it != mvpLocalKeyFrames.end(); ++it)
-    {
-        (*it)->SetPose((*it)->v_kf_->estimate());
-        (*it)->v_kf_ = NULL;
-        assert((*it)->v_sb_==NULL);
-    }
-    for(list<KeyFrame*>::iterator it = neib_kfs.begin(); it != neib_kfs.end(); ++it)
-        (*it)->v_kf_ = NULL;
-    // Update Mappoints
-    for(vector<MapPoint*>::iterator it = mvpLocalMapPoints.begin(); it != mvpLocalMapPoints.end(); ++it)
-    {
-        if((*it)==NULL) continue;
-        (*it)->SetWorldPos((*it)->v_pt_->estimate());
-        (*it)->v_pt_ = NULL;
-    }
-    return nBad;
-    //N.B. g2o will delete _algorithm, _parameters, EdgeSet and VertexIDMap upon destruction of SparseOptimizer
-}
 
 // task:double window optimization to refine poses and points of frames
 // in temporal window of T consecutive frames
@@ -3848,15 +2399,18 @@ bool Tracking::TrackLocalMapDWO()
 #endif
     // Optimize Pose
     if(mnLastRelocFrameId== mpCurrentFrame->mnId || mpLocalMapper->isStopped() || mpLocalMapper->stopRequested()){
-//        mnMatchesInliers = Optimizer::PoseOptimization(mpCurrentFrame);
+//        mnMatchesInliers = Optimizer::PoseOptimization(mpCurrentFrame, mpMap);
         boost::this_thread::sleep(boost::posix_time::milliseconds(5));
         mnMatchesInliers= nObs;
         SLAM_DEBUG_STREAM("Inliers after local search:"<< mnMatchesInliers);
     }
     else{
-        int nBad = LocalOptimize();
+        int nBad = Optimizer::LocalOptimize(cam_, mpMap, mvpLocalKeyFrames,
+                                            mvpLocalMapPoints, mvpTemporalFrames,
+                                            mpCurrentFrame, mpLastFrame, mbUseIMUData?&imu_:NULL, right_cam_, &mTl2r);
+
         mnMatchesInliers= nObs-nBad;
-        SLAM_DEBUG_STREAM("Inliers after LO without bads:"<< mnMatchesInliers<<" "<<nBad);
+        SLAM_DEBUG_STREAM("Inliers after DWO without bads:"<< mnMatchesInliers<<" "<<nBad);
     }
 
 #if 0
@@ -3983,13 +2537,6 @@ bool Tracking::NeedNewKeyFrameStereo()
     }
     else
         return false;
-}
-
-void Tracking::CreateNewKeyFrame()
-{
-    KeyFrame* pKF = new KeyFrame(*mpCurrentFrame,mpMap,mpKeyFrameDB);
-    mnLastKeyFrameId = mpCurrentFrame->mnId;
-    mpLastKeyFrame = pKF;
 }
 
 int Tracking::SearchReferencePointsInFrustum()
@@ -4440,7 +2987,7 @@ bool Tracking::Relocalisation()
     // If enough matches are found we setup a PnP solver
     ORBmatcher matcher(0.75,true);
 
-    vector<PnPsolver*> vpPnPsolvers;
+    std::vector<std::shared_ptr<PnPsolver> > vpPnPsolvers;
     vpPnPsolvers.resize(nKFs);
 
     vector<vector<MapPoint*> > vvpMapPointMatches;
@@ -4468,7 +3015,7 @@ bool Tracking::Relocalisation()
             {
                 PnPsolver* pSolver = new PnPsolver(*mpCurrentFrame,vvpMapPointMatches[i]);
                 pSolver->SetRansacParameters(0.99,10,300,4,0.5,5.991);
-                vpPnPsolvers[i] = pSolver;
+                vpPnPsolvers[i].reset(pSolver);
                 nCandidates++;
             }
         }
@@ -4491,7 +3038,7 @@ bool Tracking::Relocalisation()
             int nInliers;
             bool bNoMore;
 
-            PnPsolver* pSolver = vpPnPsolvers[i];
+            std::shared_ptr<PnPsolver> pSolver = vpPnPsolvers[i];
             cv::Mat Tcw = pSolver->iterate(5,bNoMore,vbInliers,nInliers);
 
             // If Ransac reachs max. iterations discard keyframe
@@ -4519,7 +3066,7 @@ bool Tracking::Relocalisation()
                         mpCurrentFrame->mvpMapPoints[j]=NULL;
                 }
 
-                int nGood = Optimizer::PoseOptimization(mpCurrentFrame);
+                int nGood = Optimizer::PoseOptimization(mpCurrentFrame, mpMap);
 
                 if(nGood<10)
                     continue;
@@ -4535,7 +3082,7 @@ bool Tracking::Relocalisation()
 
                     if(nadditional+nGood>=50)
                     {
-                        nGood = Optimizer::PoseOptimization(mpCurrentFrame);
+                        nGood = Optimizer::PoseOptimization(mpCurrentFrame, mpMap);
 
                         // If many inliers but still not enough, search by projection again in a narrower window
                         // the camera has been already optimized with many points
@@ -4550,7 +3097,7 @@ bool Tracking::Relocalisation()
                             // Final optimization
                             if(nGood+nadditional>=50)
                             {
-                                nGood = Optimizer::PoseOptimization(mpCurrentFrame);
+                                nGood = Optimizer::PoseOptimization(mpCurrentFrame, mpMap);
 
                                 for(size_t io =0; io<mpCurrentFrame->mvbOutlier.size(); io++)
                                     if(mpCurrentFrame->mvbOutlier[io])

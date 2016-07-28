@@ -62,11 +62,28 @@ public:
       cv::OutputArray descriptors, bool bGAFD=false);
     void operator()(std::vector<cv::KeyPoint>& keypoints,cv::OutputArray _descriptors,
                     const float detection_threshold);
- 	int inline GetLevels(){
-        return nlevels;}
+    int inline GetLevels(){
+        return nlevels;
+    }
 
     float inline GetScaleFactor(int level=1)const{
         return mvScaleFactor[level];
+    }
+
+    std::vector<float> inline GetScaleFactors(){
+        return mvScaleFactor;
+    }
+
+    std::vector<float> inline GetInverseScaleFactors(){
+        return mvInvScaleFactor;
+    }
+
+    std::vector<float> inline GetScaleSigmaSquares(){
+        return mvLevelSigma2;
+    }
+
+    std::vector<float> inline GetInverseScaleSigmaSquares(){
+        return mvInvLevelSigma2;
     }
    
     void ComputePyramid(cv::Mat image);

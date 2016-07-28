@@ -64,18 +64,10 @@ public:
           const std::vector<p_match> & vStereoMatches, ORBextractor* extractor, ORBVocabulary* voc,
           vk::PinholeCamera* cam, vk::PinholeCamera* right_cam,
           const Sophus::SE3d& Tl2r, const Eigen::Vector3d &ginc, const Eigen::Matrix<double, 9,1> sb);
-  /*  // stereo and viso2 quad matches
-    Frame(cv::Mat &im , const double &timeStamp, const int num_features_left,
-          cv::Mat &right_img, const int num_features_right,
-           ORBextractor* extractor, ORBVocabulary* voc, vk::PinholeCamera* cam, vk::PinholeCamera* right_cam,
-          std::vector<p_match> & vQuadMatches,
-          const Sophus::SE3d& Tl2r, const Eigen::Vector3d &ginc, const Eigen::Matrix<double, 9,1> sb);*/
-    // for svo
-    Frame(cv::Mat &im , const double &timeStamp, int cam_id,
-          ORBextractor* extractor, ORBVocabulary* voc,
-          vk::PinholeCamera* cam, const Eigen::Vector3d & ginc, const Eigen::Matrix<double, 9,1> sb);
-    void RefillKeyPoints(const cv::Mat & im_, const cv::Mat & right_img,
-             std::vector<p_match> &vQuadMatches, const  Eigen::Vector3d & ginc);
+
+    // Release part of the memory occupied by frame before copying into the base of a new keyframe
+    void PartialRelease();
+
     virtual ~Frame();
     virtual bool isKeyFrame() const {return false;}
     virtual void Release();
@@ -93,9 +85,9 @@ public:
  
     virtual float ComputeSceneMedianDepth(int q = 2);
     /// Projects Point from unit sphere (f) in camera pixels (c).
-    inline Eigen::Vector2d f2c(const Eigen::Vector3d& f) const { return cam_->world2cam( f ); }
+    inline Eigen::Vector2d f2c(const Eigen::Vector3d& f) const { return cam_.world2cam( f ); }
     /// Transforms point coordinates in world-frame (w) to camera pixel coordinates (c).
-    inline Eigen::Vector2d w2c(const Eigen::Vector3d& xyz_w) const { return cam_->world2cam( mTcw * xyz_w ); }
+    inline Eigen::Vector2d w2c(const Eigen::Vector3d& xyz_w) const { return cam_.world2cam( mTcw * xyz_w ); }
 
     /// Frame jacobian for projection of 3D point in (f)rame coordinate to
     /// unit plane coordinates uv (focal length = 1).
@@ -121,7 +113,7 @@ public:
       J(1,2) = y*z_inv_2;           // y/z^2
       J(1,3) = 1.0 + y*J(1,2);      // 1.0 + y^2/z^2
       J(1,4) = -J(0,3);             // -x*y/z^2
-      J(1,5) = -x*z_inv;            // x/z
+      J(1,5) = -x*z_inv;            // -x/z
     }
 
 inline void updatePointStatistics(PointStatistics* stats){
@@ -131,10 +123,10 @@ inline void updatePointStatistics(PointStatistics* stats){
       int half_height = Frame::mnMaxY*0.5;
 
       float third = 1./3.;
-      int third_width = cam_->width()*third;
-      int third_height = cam_->height()*third;
-      int twothird_width = cam_->width()*2*third;
-      int twothird_height = cam_->height()*2*third;
+      int third_width = cam_.width()*third;
+      int third_height = cam_.height()*third;
+      int twothird_width = cam_.width()*2*third;
+      int twothird_height = cam_.height()*2*third;
       size_t jack=0;
       Frame * frame= this;
       for (auto it=frame->mvpMapPoints.begin(), ite= frame->mvpMapPoints.end();
@@ -176,22 +168,27 @@ inline void updatePointStatistics(PointStatistics* stats){
     float inline GetSigma2(int nLevel=1) const{
         if( nLevel==1 && mpORBextractor->nlevels ==1)
             return 1.44f;
-        return mpORBextractor->mvLevelSigma2[nLevel];}
+        return mvLevelSigma2[nLevel];
+    }
 
     float inline GetScaleFactor(int nLevel=1) const{
         if( nLevel==1 && mpORBextractor->nlevels ==1)
             return 1.2f;
-        return mpORBextractor->mvScaleFactor[nLevel];
+        return mvScaleFactors[nLevel];
     }
     std::vector<float> inline GetScaleFactors() const{        
-        return mpORBextractor->mvScaleFactor;}
+        return mvScaleFactors;
+    }
     std::vector<float> inline GetVectorScaleSigma2() const{
-        return mpORBextractor->mvLevelSigma2;}
+        return mvLevelSigma2;
+    }
 
     float inline GetInvSigma2(int nLevel) const{
-        return mpORBextractor->mvInvLevelSigma2[nLevel];}
+        return mvInvLevelSigma2[nLevel];
+    }
     int inline GetScaleLevels() const{
-        return mpORBextractor->GetLevels();}
+        return mnScaleLevels;
+    }
 
     void ComputeBoW();
     void UpdatePoseMatrices();
@@ -225,11 +222,10 @@ inline void updatePointStatistics(PointStatistics* stats){
     Sophus::SE3d mTcw_first_estimate;
 
     // Calibration Matrix and k1,k2,p1,p2 Distortion Parameters
-    vk::PinholeCamera*           cam_;                   //!< Camera model.
-    vk::PinholeCamera*           right_cam_;                   //!< Camera model.
+    vk::PinholeCamera           cam_;                   //!< Camera model.
+    vk::PinholeCamera           right_cam_;             //!< Camera model.
     Sophus::SE3d mTl2r; // transform from left to right camera
-    std::vector<cv::Mat>            img_pyr_;                //!< image pyramid.
-    std::vector<cv::Mat>            blurred_img_pyr_;                //!< Blurred image pyramid, only used for extracting descriptors for features in keyframes
+
     // Number of KeyPoints
     int N;
     // huai: mvKeys, mvKeysUn,mvRightKeys, mvRightKeysUn, mDescriptors,mRightDescriptors, mvpMapPoints, mvbOutliers
@@ -264,11 +260,24 @@ inline void updatePointStatistics(PointStatistics* stats){
     static long unsigned int nNextId;
     long unsigned int mnId; //mnId has the same meaning in derived KeyFrame class and in base Frame class, it is supposed to be continuous for frames
 
+    // Scale pyramid info.
+    int mnScaleLevels;
+    float mfScaleFactor;
+    float mfLogScaleFactor;
+    vector<float> mvScaleFactors;
+    vector<float> mvLevelSigma2;
+    vector<float> mvInvLevelSigma2;
+
     // Undistorted Image Bounds (computed once)
-    static int mnMinX;
-    static int mnMaxX;
-    static int mnMinY;
-    static int mnMaxY;
+    float mnMinX;
+    float mnMaxX;
+    float mnMinY;
+    float mnMaxY;
+
+    static float snMinX;
+    static float snMaxX;
+    static float snMinY;
+    static float snMaxY;
 
     static bool mbInitialComputations;
     vector<int> viso2LeftId2StereoId;
@@ -277,7 +286,6 @@ inline void updatePointStatistics(PointStatistics* stats){
     // Call UpdatePoseMatrices(), before using the following
     Eigen::Matrix3d mRcw;
     Eigen::Vector3d mtcw;
-    Eigen::Matrix<double, 6, 6>          Cov_;                   //!< Covariance.
 
     ScaViSLAM::G2oVertexSE3*                   v_kf_;                  //!< Temporary pointer to the g2o node object of the keyframe.
     ScaViSLAM::G2oVertexSpeedBias*        v_sb_; //!< temporary pointer to g2o speed bias vertex

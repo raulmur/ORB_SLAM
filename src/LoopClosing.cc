@@ -19,21 +19,18 @@
 */
 
 #include "LoopClosing.h"
-
+#include "global.h" //timer
 #include "Sim3Solver.h"
-
 #include "Converter.h"
-
 #include "Optimizer.h"
-
 #include "ORBmatcher.h"
 
+#include "g2o/types/sim3/types_seven_dof_expmap.h"
 #ifdef SLAM_USE_ROS
 #include <ros/ros.h>
 #endif
+#include <cstdlib> //itoa
 
-//#include "Thirdparty/g2o/g2o/types/sim3/types_seven_dof_expmap.h"
-#include "g2o/types/sim3/types_seven_dof_expmap.h"
 namespace ORB_SLAM
 {
 
@@ -55,7 +52,7 @@ void LoopClosing::SetLocalMapper(LocalMapping *pLocalMapper)
     mpLocalMapper=pLocalMapper;
 }
 
-
+// optimizeEssentialGraph uses all keyframes, this is another hurdle for deleting keyframes in other threads
 void LoopClosing::Run()
 {
 #ifdef SLAM_USE_ROS
@@ -72,6 +69,14 @@ void LoopClosing::Run()
             // Detect loop candidates and check covisibility consistency
             if(DetectLoop())
             {
+#ifdef SLAM_DEBUG_OUTPUT
+                string cands;
+                for(size_t jack=0; jack<mvpEnoughConsistentCandidates.size(); ++jack)
+                    cands+= std::to_string(mvpEnoughConsistentCandidates[jack]->mnId) +" ";
+                SLAM_INFO_STREAM("loop cands for kf frame "<<mpCurrentKF->mnId<<" "<< cands);
+//                if(mpCurrentKF->mnId<4000)
+//                    continue;
+#endif
                // Compute similarity transformation [sR|t]
                if(ComputeSim3()) // this work also for stereo case
                {
@@ -79,7 +84,7 @@ void LoopClosing::Run()
 #ifdef MONO
                     CorrectLoop();
 #else
-                    CorrectLoopSE3();// both correctloop and correctloopse3 should work for stereo case
+                    CorrectLoopSE3();
 #endif
                }
             }
@@ -437,6 +442,7 @@ void LoopClosing::CorrectLoop()
 
     KeyFrameAndPose CorrectedSim3, NonCorrectedSim3;
     CorrectedSim3[mpCurrentKF]=mg2oScw;
+    SLAM_INFO_STREAM("mg2oScw.scale() "<< mg2oScw.scale());
     Sophus::SE3d Twc = mpCurrentKF->GetPoseInverse();
 
 
@@ -549,8 +555,6 @@ void LoopClosing::CorrectLoop()
         }
     }
 
-
-
     Optimizer::OptimizeEssentialGraph(mpMap, mpMatchedKF, mpCurrentKF,  mg2oScw, NonCorrectedSim3, CorrectedSim3, LoopConnections);
 
     //Add edge
@@ -597,8 +601,9 @@ void LoopClosing::CorrectLoopSE3()
     mvpCurrentConnectedKFs.push_back(mpCurrentKF);
 
     KeyFrameAndSE3Pose CorrectedSE3, NonCorrectedSE3;
+    SLAM_INFO_STREAM("mg2oScw.scale() "<< mg2oScw.scale());
     assert(abs(mg2oScw.scale()-1.0)<0.2);
-    SLAM_DEBUG_STREAM("mg2oScw.scale() "<< mg2oScw.scale());
+
     Sophus::SE3d g2oTcw(mg2oScw.rotation(), mg2oScw.translation()/mg2oScw.scale());
     CorrectedSE3[mpCurrentKF]=g2oTcw;
     Sophus::SE3d Twc = mpCurrentKF->GetPoseInverse();

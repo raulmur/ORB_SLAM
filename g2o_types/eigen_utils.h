@@ -37,7 +37,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <iostream>
 /// returns the 3D cross product skew symmetric matrix of a given 3D vector
 template<class Derived>
-  inline Eigen::Matrix<typename Derived::Scalar, 3, 3> skew(const Eigen::MatrixBase<Derived> & vec)
+  inline Eigen::Matrix<typename Derived::Scalar, 3, 3> skew3d(const Eigen::MatrixBase<Derived> & vec)
   {
       typedef typename Derived::Scalar Scalar;
     EIGEN_STATIC_ASSERT_VECTOR_SPECIFIC_SIZE(Derived, 3);
@@ -195,8 +195,8 @@ template<class T>
       //dir=0 -> q=qab (vb=Cab*va)
       //dir=1 -> q=qba (vb=Cba'*va)
       Eigen::Matrix<Scalar, 4,1 > va;
-      va[0]=0;
-      va.tail(3)=vain;
+      va[0]=Scalar(0);
+      va.block<3, 1>(1,0)=vain;
       Eigen::Matrix<Scalar, 4,1 > q;
       if (dir == Scalar(0))
       {
@@ -218,7 +218,7 @@ template<class T>
       q[2] = -q[2];
       q[3] = -q[3];
       Eigen::Matrix<Scalar, 4,1 > vb = quatmult(vr_a, q);
-      return vb.tail(3);
+      return vb.block<3,1>(1,0);
   }
 
 
@@ -228,7 +228,9 @@ Eigen::Vector3d rotro2eu(Eigen::Matrix3d R);
 Eigen::Matrix3d roteu2ro(Eigen::Vector3d eul);
   //input: lat, long in radians, height is immaterial
   //output: Ce2n
-Eigen::Matrix3d llh2dcm( Eigen::Vector3d &llh);
+Eigen::Matrix3d llh2dcm(const Eigen::Vector3d llh);
   
+// get the nullspace basis of matrix A_{mxn}, where m>n A=[Q_1, Q_2][R, 0]', return Q_2
+Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> nullspace(Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> A);
 
 #endif /* EIGEN_UTILS_H_ */

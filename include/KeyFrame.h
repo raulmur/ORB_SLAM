@@ -98,6 +98,7 @@ public:
 
     std::set<MapPoint*> GetMapPoints();
     int TrackedMapPoints();
+    Map * GetMap(){ return mpMap;}
     MapPoint* GetMapPoint(const size_t &idx);   
     MapPoint* GetFeaturePoint(const size_t &idx);
     // KeyPoint functions
@@ -126,7 +127,7 @@ public:
 public:
     static long unsigned int nNextKeyId;
     // long unsigned int mnId; //inherit from Frame
-    long unsigned int mnFrameId;
+    long unsigned int mnFrameId; //keyframe id, 0,1,2 for keyframes
 
 //    double mTimeStamp;//inherit from Frame
 
