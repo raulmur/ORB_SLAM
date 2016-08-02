@@ -20,7 +20,7 @@
 
 #include "MapPoint.h"
 #include "ORBmatcher.h"
-#include "vikit/math_utils.h"
+//#include "vikit/math_utils.h"
 #include "global.h" //EPS
 #include "config.h"
 //#include "ros/ros.h"

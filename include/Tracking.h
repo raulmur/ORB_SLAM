@@ -260,6 +260,9 @@ protected:
     std::vector<KeyFrame*> core_kfs_;                      //!< Keyframes in the closer neighbourhood.
     MotionModel mMotionModel;
 
+    ///the following parameters determines necessary conditions to create a new keyframe
+    float mfTrackedFeatureRatio; /// if the current frame tracks less than this ratio of features in the reference keyframe
+    int mnMinTrackedFeatures; /// if the current frame tracks less than this number of features in the reference keyframe
 };
 
 } //namespace ORB_SLAM

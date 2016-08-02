@@ -773,7 +773,6 @@ void Optimizer::OptimizeEssentialGraph(Map* pMap, KeyFrame* pLoopKF, KeyFrame* p
     }
 
     // OPTIMIZE
-    ROS_INFO("opt20 in %s", __func__);
     optimizer.initializeOptimization();
     optimizer.optimize(20);
 

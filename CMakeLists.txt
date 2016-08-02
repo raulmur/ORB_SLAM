@@ -1,6 +1,7 @@
-SET(TRACE TRUE)
-SET(MONO_SLAM FALSE)
-SET(USE_ROS TRUE)
+SET(TRACE FALSE) # record timing of operations
+SET(MONO_SLAM FALSE) # if true stereo SLAM with or without IMU, if false, monocular SLAM
+SET(USE_ROS TRUE) # use ROS for visualization or not
+SET(USE_SYSTEM_OPENCV true) # Set False if you want to build this package using independent OpenCV instead of libopencv-dev
 
 SET(PROJECT_NAME orbslam_dwo)
 PROJECT(${PROJECT_NAME})
@@ -28,7 +29,7 @@ ENDIF()
 IF(MONO_SLAM)
   ADD_DEFINITIONS(-DMONO)
 ELSE()
-  ADD_DEFINITIONS(-DSLAM_OUTPUT_VISO2)
+  ADD_DEFINITIONS(-DSLAM_OUTPUT_VISO2) #output the libviso2 stereo odometry result
 ENDIF()
 IF(USE_ROS)
   add_definitions(-DSLAM_USE_ROS)
@@ -48,16 +49,28 @@ set(Boost_USE_STATIC_LIBS OFF)
 set(Boost_USE_MULTITHREADED ON)
 set(Boost_USE_STATIC_RUNTIME OFF)
 find_package(Boost 1.45.0 COMPONENTS system thread REQUIRED)
-SET(vikit_common_INCLUDE_DIRS $ENV{HOME}/SVO/rpg_vikit/vikit_common/include)
-SET(vikit_common_LIBRARIES $ENV{HOME}/SVO/rpg_vikit/vikit_common/lib/libvikit_common.so)
 
-SET(g2o_INCLUDE_DIR $ENV{HOME}/ScaViSLAM/svslocal/include) # g2o, sophus, viso2, ceres autodiff
-SET(OPENCV_INCLUDE_DIR $ENV{HOME}/OpenCV/local_install/include) # opencv
+IF(USE_SYSTEM_OPENCV)
+  FIND_PACKAGE(OpenCV REQUIRED) # do not put findOpencv.cmake in cmake_module_path which causes an error
+ELSE()
+  SET(OPENCV_INCLUDE_DIR $ENV{HOME}/OpenCV/local_install/include)
+  SET(OPENCV_LIBRARY_DIR $ENV{HOME}/OpenCV/local_install/lib)
+  set(OpenCV_LIBS opencv_core opencv_features2d opencv_flann opencv_gpu
+               opencv_nonfree opencv_highgui opencv_imgproc opencv_calib3d opencv_video)
+  link_directories(${OPENCV_LIBRARY_DIR})
+ENDIF()
+
+
+SET(G2O_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/Thirdparty/g2o/local_install/include) # g2o
+SET(G2O_LIBRARY_DIR ${PROJECT_SOURCE_DIR}/Thirdparty/g2o/local_install/lib)
+
+SET(SOPHUS_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/Thirdparty/Sophus) # sophus
+
+SET(VIKIT_COMMON_INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/Thirdparty/vikit_common/include)
+SET(VIKIT_COMMON_LIBRARIES ${PROJECT_SOURCE_DIR}/Thirdparty/vikit_common/lib/libvikit_common.so)
 
 IF(USE_ROS)
-  FIND_PACKAGE(OpenCV REQUIRED) # do not put findOpencv.cmake in cmake_module_path which causes an error
   FIND_PACKAGE(catkin REQUIRED COMPONENTS roscpp roslib cmake_modules tf cv_bridge)
-  SET(g2o_LIBRARY_DIR $ENV{HOME}/ScaViSLAM/External/g2o/lib) # do not put local opencv and g2o libs together as it confuses catkin
   catkin_package(
       DEPENDS Eigen OpenCV Cholmod SuiteSparse Boost
       CATKIN_DEPENDS roscpp roslib tf cv_bridge
@@ -65,11 +78,6 @@ IF(USE_ROS)
       LIBRARIES ${PROJECT_NAME}
   )
 ELSE()
-  set(OpenCV_LIBS opencv_core opencv_features2d opencv_flann opencv_gpu
-               opencv_nonfree opencv_highgui opencv_imgproc opencv_calib3d opencv_video)
-  SET(g2o_LIBRARY_DIR $ENV{HOME}/ScaViSLAM/svslocal/lib)
-  SET(OPENCV_LIBRARY_DIR $ENV{HOME}/OpenCV/local_install/lib)
-  link_directories(${g2o_LIBRARY_DIR} ${OPENCV_LIBRARY_DIR})
   SET(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
   SET(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/build)
 ENDIF()
@@ -81,9 +89,12 @@ ${EIGEN3_INCLUDE_DIR}
 ${CHOLMOD_INCLUDE_DIR}
 ${CSPARSE_INCLUDE_DIR}
 ${Boost_INCLUDE_DIRS}
-${g2o_INCLUDE_DIR}
+${G2O_INCLUDE_DIR}
+${SOPHUS_INCLUDE_DIR}
 ${OPENCV_INCLUDE_DIR}
-${vikit_common_INCLUDE_DIRS}
+${VIKIT_COMMON_INCLUDE_DIRS}
+${PROJECT_SOURCE_DIR}/Thirdparty/libviso2/include
+${PROJECT_SOURCE_DIR}/Thirdparty/g2o_EXTERNAL # ceres autodiff
 )
 
 LIST(APPEND SOURCEFILES
@@ -129,19 +140,19 @@ cholmod
 csparse
 cxsparse
 ${Boost_LIBRARIES}
-${g2o_LIBRARY_DIR}/libg2o_core.so
-${g2o_LIBRARY_DIR}/libg2o_solver_cholmod.so
-${g2o_LIBRARY_DIR}/libg2o_solver_dense.so
-${g2o_LIBRARY_DIR}/libg2o_stuff.so
-${g2o_LIBRARY_DIR}/libg2o_solver_csparse.so
-${g2o_LIBRARY_DIR}/libg2o_csparse_extension.so
-${g2o_LIBRARY_DIR}/libg2o_types_sba.so
-${g2o_LIBRARY_DIR}/libg2o_types_sim3.so
-${g2o_LIBRARY_DIR}/libg2o_types_slam3d.so
+${G2O_LIBRARY_DIR}/libg2o_core.so
+${G2O_LIBRARY_DIR}/libg2o_solver_cholmod.so
+${G2O_LIBRARY_DIR}/libg2o_solver_dense.so
+${G2O_LIBRARY_DIR}/libg2o_stuff.so
+${G2O_LIBRARY_DIR}/libg2o_solver_csparse.so
+${G2O_LIBRARY_DIR}/libg2o_csparse_extension.so
+${G2O_LIBRARY_DIR}/libg2o_types_sba.so
+${G2O_LIBRARY_DIR}/libg2o_types_sim3.so
+${G2O_LIBRARY_DIR}/libg2o_types_slam3d.so
 
 ${PROJECT_SOURCE_DIR}/Thirdparty/DBoW2/lib/libDBoW2.so
-$ENV{HOME}/ScaViSLAM/svslocal/lib/libviso2.so
-${vikit_common_LIBRARIES}
+${PROJECT_SOURCE_DIR}/Thirdparty/libviso2/lib/libviso2.so
+${VIKIT_COMMON_LIBRARIES}
 )
 
 IF(USE_ROS)

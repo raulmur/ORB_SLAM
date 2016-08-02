@@ -3,7 +3,7 @@ project(DBoW2)
 
 SET(CMAKE_BUILD_TYPE Release) # Release, RelWithDebInfo
 SET(CMAKE_VERBOSE_MAKEFILE OFF)
-SET(USE_ROS true) # Set False if you want to build this package using independent OpenCV instead of ROS OpenCV
+SET(USE_SYSTEM_OPENCV true) # Set False if you want to build this package using independent OpenCV instead of libopencv-dev
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}  -Wall  -O3 -march=native ")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall  -O3 -march=native")
 
@@ -26,13 +26,14 @@ set(HDRS_DUTILS
 set(SRCS_DUTILS
   DUtils/Random.cpp
   DUtils/Timestamp.cpp)
-IF(USE_ROS)
+IF(USE_SYSTEM_OPENCV)
   find_package(OpenCV REQUIRED)
 ELSE()
-  set(OpenCV_INCLUDE_DIRS $ENV{HOME}/ScaViSLAM/svslocal/include)
+  SET(OPENCV_INCLUDE_DIR $ENV{HOME}/OpenCV/local_install/include)
+  SET(OPENCV_LIBRARY_DIR $ENV{HOME}/OpenCV/local_install/lib)
   set(OpenCV_LIBS opencv_core opencv_features2d opencv_flann opencv_gpu
                opencv_nonfree opencv_highgui opencv_imgproc opencv_calib3d)
-  link_directories($ENV{HOME}/ScaViSLAM/svslocal/lib)
+  link_directories(${OPENCV_LIBRARY_DIR})
 ENDIF()
 
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)

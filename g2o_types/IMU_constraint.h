@@ -331,7 +331,7 @@ void sys_local_dcm_bias(const Eigen::Matrix<Scalar, 3,1> & rs0, const Eigen::Mat
     // method, see sys_metric_phipsi_v000.m
 
     Eigen::Matrix<Scalar, navStates,navStates> Anav_d=Eigen::Matrix<Scalar, navStates,navStates>::Identity()+dt*Anav;  //Use 1st order taylor series to discretize Anav
-    Eigen::Matrix<Scalar, navStates, navStates> Qnav=Nnav*Rimu*Nnav.transpose();
+    Eigen::Matrix<Scalar, navStates, navStates> Qnav= (Nnav*Rimu). template eval()*Nnav.transpose();
     Eigen::Matrix<Scalar, navStates, navStates> Qnav_d=dt*Scalar(0.5)*(Anav_d*Qnav+Qnav*Anav_d.transpose());      //Use trapezoidal rule to discretize Rimu
 
     Eigen::Matrix<Scalar, 15,15> STM=Eigen::Matrix<Scalar, 15,15>::Zero();

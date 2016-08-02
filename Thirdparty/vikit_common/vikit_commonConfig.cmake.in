@@ -1,0 +1,17 @@
+#######################################################
+# vikit_common source dir
+set( vikit_common_SOURCE_DIR "@CMAKE_CURRENT_SOURCE_DIR@")
+
+#######################################################
+# vikit_common build dir
+set( vikit_common_DIR "@CMAKE_CURRENT_BINARY_DIR@")
+
+#######################################################
+set( vikit_common_INCLUDE_DIR  "@vikit_common_INCLUDE_DIR@" )
+set( vikit_common_INCLUDE_DIRS "@vikit_common_INCLUDE_DIR@" )
+
+set( vikit_common_LIBRARIES    "@vikit_common_LIBRARIES@" )
+set( vikit_common_LIBRARY      "@vikit_common_LIBRARIES@" )
+
+set( vikit_common_LIBRARY_DIR  "@vikit_common_LIBRARY_DIR@" )
+set( vikit_common_LIBRARY_DIRS "@vikit_common_LIBRARY_DIR@" )

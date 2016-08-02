@@ -40,6 +40,7 @@
 #include"PnPsolver.h"
 
 #include <vikit/pinhole_camera.h>
+#include <vikit/timer.h>
 
 #include<iostream>
 #include<fstream>
@@ -69,20 +70,18 @@ Tracking::Tracking(ORBVocabulary* pVoc, FramePublisher*pFramePublisher, MapPubli
     mState(NO_IMAGES_YET),mpCurrentFrame(NULL),mpLastFrame(NULL), mpInitialFrame(NULL), mpORBVocabulary(pVoc), mpInitializer(NULL),
     mnTemporalWinSize(Config::temporalWindowSize()),mnSpatialWinSize(Config::spatialWindowSize()),
     mpFramePublisher(pFramePublisher), mpMapPublisher(pMapPublisher), mpMap(pMap),
-    mfsSettings(strSettingPath, cv::FileStorage::READ),mpLastKeyFrame(NULL),
-    mnLastRelocFrameId(0), mbPublisherStopped(false), mbReseting(false), mbForceRelocalisation(false), mVelocity(Sophus::SE3d()),
-    mbUseIMUData(false), mnStartId(mfsSettings["startIndex"]), mnFeatures(mfsSettings["ORBextractor.nFeatures"]),
-    mMotionModel(Eigen::Vector3d(0,0,0),Eigen::Quaterniond(1,0,0,0))
 #else
 Tracking::Tracking(ORBVocabulary* pVoc, FramePublisher*pFramePublisher, /*MapPublisher *pMapPublisher,*/ Map *pMap, string strSettingPath):
     mState(NO_IMAGES_YET),mpCurrentFrame(NULL),mpLastFrame(NULL), mpInitialFrame(NULL), mpORBVocabulary(pVoc), mpInitializer(NULL),
     mnTemporalWinSize(Config::temporalWindowSize()),mnSpatialWinSize(Config::spatialWindowSize()),
     mpFramePublisher(pFramePublisher),/*mpMapPublisher(pMapPublisher),*/ mpMap(pMap),
-    mfsSettings(strSettingPath, cv::FileStorage::READ),mpLastKeyFrame(NULL),
+#endif
+
+    mfsSettings(strSettingPath, cv::FileStorage::READ), mpLastKeyFrame(NULL),
     mnLastRelocFrameId(0), mbPublisherStopped(false), mbReseting(false), mbForceRelocalisation(false), mVelocity(Sophus::SE3d()),
     mbUseIMUData(false), mnStartId(mfsSettings["startIndex"]), mnFeatures(mfsSettings["ORBextractor.nFeatures"]),
-    mMotionModel(Eigen::Vector3d(0,0,0),Eigen::Quaterniond(1,0,0,0))
-#endif
+    mMotionModel(Eigen::Vector3d(0,0,0),Eigen::Quaterniond(1,0,0,0)),
+    mfTrackedFeatureRatio(0.6), mnMinTrackedFeatures(200)
 {
 #ifdef SLAM_TRACE
     // Initialize Performance Monitor
@@ -223,7 +222,10 @@ Tracking::Tracking(ORBVocabulary* pVoc, FramePublisher*pFramePublisher, /*MapPub
     cout<<"Refinedment viso2: "<<param.match.refinement<<endl;
     mPose=libviso2::Matrix::eye(4);
     // use external saved visual odometry
-    mStereoSFM.init(mfsSettings["qcv_tracks"], mfsSettings["qcv_deltas"]);
+    if(mfsSettings["qcv_tracks"].isString() && mfsSettings["qcv_deltas"].isString())
+        mStereoSFM.init(mfsSettings["qcv_tracks"], mfsSettings["qcv_deltas"]);
+    else
+        mStereoSFM.init();
 
     int nRGB = mfsSettings["Camera.RGB"];
     mbRGB = nRGB;
@@ -258,6 +260,11 @@ Tracking::Tracking(ORBVocabulary* pVoc, FramePublisher*pFramePublisher, /*MapPub
     // ORB extractor for initialization
     // Initialization uses only points from the finest scale level
     mpIniORBextractor = new ORBextractor(mnFeatures*2,1.2,8,Score,fastTh);
+
+    if(mfsSettings["Tracking.tracked_feature_ratio"].isReal())
+        mfTrackedFeatureRatio = mfsSettings["Tracking.tracked_feature_ratio"];
+    if(mfsSettings["Tracking.min_tracked_features"].isInt())
+        mnMinTrackedFeatures = mfsSettings["Tracking.min_tracked_features"];
 
 #ifdef SLAM_USE_ROS
     tf::Transform tfT;
@@ -348,7 +355,13 @@ void Tracking::Run()
         //initialize IMU states
         T_s1_to_w=imu_.T_imu_from_cam.inverse();
         cv::Mat vs0inw;
-        mfsSettings["vs0inw"]>>vs0inw;
+        cv::FileNode vsinw = mfsSettings["vs0inw"];
+        if(vsinw.isMap()){
+            mfsSettings["vs0inw"]>>vs0inw;
+            std::cout << "vs0inw "<<vs0inw.at<double>(0)<< " "<<vs0inw.at<double>(1)<<" "<<vs0inw.at<double>(2)<<std::endl;
+        }
+        else
+            std::cerr<< "vs0inw(velocity of sensor in the world frame) is needed in the setting file"<< std::endl;
 
         speed_bias_1[0]=vs0inw.at<double>(0);
         speed_bias_1[1]=vs0inw.at<double>(1);
@@ -2458,7 +2471,7 @@ bool Tracking::TrackLocalMapDWO()
 bool Tracking::NeedNewKeyFrame()
 {
     // If Local Mapping is freezed by a Loop Closure do not insert keyframes
-    // Huai: TODO: is it possible to process new keyframes when loop closing is running? But it would be quite involved
+    // Huai: is it possible to process new keyframes when loop closing is running? But it would be quite involved
     if(mpLocalMapper->isStopped() || mpLocalMapper->stopRequested())
         return false;
 
@@ -2477,7 +2490,7 @@ bool Tracking::NeedNewKeyFrame()
     // Condition 1b: More than "MinFrames" have passed and Local Mapping is idle
     const bool c1b = mpCurrentFrame->mnId>=mnLastKeyFrameId+mMinFrames && bLocalMappingIdle;
     // Condition 2: Less than 90% of points than reference keyframe and enough inliers
-    const float fPercent =0.9;
+    const float fPercent = 0.9;
     const bool c2 = mnMatchesInliers<nRefMatches*fPercent && mnMatchesInliers>15;
 
     if((c1a||c1b)&&c2)
@@ -2498,7 +2511,6 @@ bool Tracking::NeedNewKeyFrame()
 }
 bool Tracking::NeedNewKeyFrameStereo()
 {
-    // FAQ: can keyframes be created during loop closure but not processing by local mapping?
     // If Local Mapping is freezed by a Loop Closure do not insert keyframes
     if(mpLocalMapper->isStopped() || mpLocalMapper->stopRequested())
         return false;
@@ -2518,10 +2530,10 @@ bool Tracking::NeedNewKeyFrameStereo()
     // Condition 1b: More than "MinFrames" have passed and Local Mapping is idle
     const bool c1b = mpCurrentFrame->mnId>=mnLastKeyFrameId+mMinFrames && bLocalMappingIdle;
     // Condition 2: Less than fPercent of points than reference keyframe and enough inliers and not too many
-    const float fPercent =0.6;
-    const bool c2 = (mnMatchesInliers< nRefMatches*fPercent) && mnMatchesInliers>15 && mnMatchesInliers <200;
+    const float fPercent = mfTrackedFeatureRatio;
+    const bool c2 = (mnMatchesInliers< nRefMatches*fPercent) && mnMatchesInliers>15 && mnMatchesInliers < mnMinTrackedFeatures;
     int num_matchless_cells= point_stats.numFeatureLessCorners3x3(4);
-    // need KF if 2/9 of the image is void of matches as in ScaViSLAM
+    // need KF if 4/9 of the image is void of matches as in ScaViSLAM
     if((c1a||c1b)&&(c2 || num_matchless_cells>3))
     {
         // If the mapping accepts keyframes insert, otherwise send a signal to interrupt BA, but not insert yet

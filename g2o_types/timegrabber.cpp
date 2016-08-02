@@ -1,15 +1,8 @@
 
 #include "timegrabber.h"
 #include "eigen_utils.h"
+#include <iomanip>
 
-#include <gpstk-2.5.linux.x86_64/SystemTime.hpp>
-#include <gpstk-2.5.linux.x86_64/CommonTime.hpp>
-#include <gpstk-2.5.linux.x86_64/CivilTime.hpp>
-#include <gpstk-2.5.linux.x86_64/YDSTime.hpp>
-#include <gpstk-2.5.linux.x86_64/GPSWeekSecond.hpp>
-#include <gpstk-2.5.linux.x86_64/Position.hpp>
-
-using namespace gpstk;
 using namespace std;
 TimeGrabber::TimeGrabber():
     last_line_index(-1), last_line_time(-1){

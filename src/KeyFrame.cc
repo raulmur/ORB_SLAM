@@ -22,7 +22,7 @@
 #include "Converter.h"
 #include "g2o_types/eigen_utils.h"
 #include "global.h" //for debugging output
-#include <vikit/math_utils.h>
+//#include <vikit/math_utils.h>
 //#include <ros/ros.h>
 
 namespace ORB_SLAM

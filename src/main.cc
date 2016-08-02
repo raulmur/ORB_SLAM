@@ -167,45 +167,6 @@ int main(int argc, char **argv)
 	Tracker.Run();    
     loopClosingThread.join();
     localMappingThread.join();
-/*  //This "main" thread will show the current processed frame and publish the map
-    float fps = fsSettings["Camera.fps"];
-    if(fps==0)
-        fps=30;
-
-    ros::Rate r(fps);
-    while (ros::ok())
-    {
-        FramePub.Refresh();
-        MapPub.Refresh();
-        Tracker.CheckResetByPublishers();
-        r.sleep();
-    }*/
-
-/*    // Save keyframe poses at the end of the execution
-    ofstream f;
-
-    vector<ORB_SLAM::KeyFrame*> vpKFs = World.GetAllKeyFrames();
-    sort(vpKFs.begin(),vpKFs.end(),ORB_SLAM::KeyFrame::lId);
-
-    cout << endl << "Saving Keyframe Trajectory to KeyFrameTrajectory.txt" << endl;
-    string strFile = "KeyFrameTrajectory.txt";
-    f.open(strFile.c_str());
-    f << fixed;
-
-    for(size_t i=0; i<vpKFs.size(); i++)
-    {
-        ORB_SLAM::KeyFrame* pKF = vpKFs[i];
-
-        if(pKF->isBad())
-            continue;
-
-        Eigen::Matrix<double,4,1> q = pKF->GetPose().unit_quaternion().conjugate().coeffs();
-        Eigen::Matrix<double,3,1> t = pKF->GetCameraCenter();
-        f << setprecision(6) << pKF->mTimeStamp << setprecision(7) << " " << t(0) << " " << t(1) << " " << t(2)
-         << " " << q[0] << " " << q[1] << " " << q[2] << " " << q[3] << endl;
-
-    }
-    f.close();*/
 
     assert(!(LocalMapper.stopRequested() || LocalMapper.isStopped()));
 #ifdef SLAM_USE_ROS

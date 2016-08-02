@@ -1,6 +1,6 @@
-# ORB-SLAM-DWO
+# ORBSLAM_DWO
 
-ORB-SLAM-DWO is an adapted version of ORB-SLAM with double window optimization by Jianzhu Huai. In contrast to ORB-SLAM, (1) it does not rely on ROS, (2) it does not use the modified version of g2o shipped in ORB-SLAM, instead it used the g2o from github, (3) it used Eigen vectors and Sophus members instead of Opencv Mat to represent pose entities, and (4) it also incorporate a camera model from vikit of SVO and a motion model of Stereo PTAM for KITTI, (5) currently, it supported stereo SLAM, monocular SLAM, and stereo + inertial SLAM. The program may also run without ROS, but this is not well tested.
+ORBSLAM_DWO is developed on top of ORB-SLAM with double window optimization by Jianzhu Huai. The major differences from ORB-SLAM are: (1) it can run with or without ROS, (2) it does not use the modified version of g2o shipped in ORB-SLAM, instead it uses the g2o from github, (3) it uses Eigen vectors and Sophus members instead of Opencv Mat to represent pose entities, (4) it incorporates the pinhole camera model from [rpg_vikit](https://github.com/uzh-rpg/rpg_vikit.git) and a decay velocity motion model from [Stereo PTAM](https://github.com/lrse/sptam.git), (5) currently, it supports monocular, stereo, and stereo + inertial input for SLAM, note it does not work with monocular + inertial input. 
 
 ORB-SLAM is a versatile and accurate Monocular SLAM solution able to compute in real-time the camera trajectory and a sparse 3D reconstruction of the scene in a wide variety of environments, ranging from small hand-held sequences to a car driven around several city blocks. It is able to close large loops and perform global relocalisation in real-time and from wide baselines.
 
@@ -8,122 +8,210 @@ Related Publications:
 
 [1] Raúl Mur-Artal, J. M. M. Montiel and Juan D. Tardós. ORB-SLAM: A Versatile and Accurate Monocular SLAM System. Submitted to IEEE Transactions on Robotics. arXiv preprint: http://arxiv.org/abs/1502.00956
 
-[2] Jianzhu Huai, Charles K. Toth and Dorota A. Grejner-Brzezinska: Stereo-inertial odometry using nonlinear optimization. Proceedings of the 27th International Technical Meeting of The Satellite Division of the Institute of Navigation (ION GNSS+ 2015) 2015.
+[2] Jianzhu Huai, Charles K. Toth and Dorota A. Grejner-Brzezinska: Stereo-inertial odometry using nonlinear optimization. Proceedings of the 28th International Technical Meeting of The Satellite Division of the Institute of Navigation (ION GNSS+ 2015) 2015.
 
 #1. License
 
-ORB-SLAM-DWO is released under a GPLv3 license. Please note that we provide along ORB-SLAM a modified version of DBoW2 which is under BSD. 
+ORBSLAM_DWO is released under a GPLv3 license. Please note that we provide along ORB-SLAM a modified version of DBoW2 which is under BSD. 
 
-For a closed-source version of ORB-SLAM-DWO for commercial purposes, please contact the authors. 
-
-If you use ORB-SLAM-DWO in an academic work, please cite:
+If you use ORBSLAM_DWO in an academic work, please cite:
 
 	@inproceedings{Huai2015stereo,
 	title={Stereo-inertial odometry using nonlinear optimization},
 	author={Huai, Jianzhu and Toth, Charles and Grejner-Brzezinska, Dorota},
-	booktitle={Proceedings of the 27th International Technical Meeting of The Satellite Division of the Institute of Navigation (ION GNSS+ 2015)},
+	booktitle={Proceedings of the 28th International Technical Meeting of The Satellite Division of the Institute of Navigation (ION GNSS+ 2015)},
 	year={2015},
 	organization={ION}
 	}
 
-I tested the following installation procedure on Ubuntu 14.04 and 14.04.2 with Qt5
-#2. Prerequisites (dependencies)
+#2. Installing dependencies
+
+The following installation procedure has been tested on Ubuntu 14.04 and 14.04.2.
 
 ##2.1 Boost
-We use the Boost library to launch the different threads of our SLAM system.
+The Boost library is used to launch different threads of the SLAM system.
+		sudo apt-get install libboost-all-dev 
+##2.2 OpenCV 2.4.x
+OpenCV is mainly used for feature extraction, and matching. It can be installed via: 
+		sudo apt-get install libopencv-dev
 
-	sudo apt-get install libboost-all-dev 
+##2.3 Install ROS (optional) and download orbslam_dwo
 
-##2.2 g2o and its dependencies 
-We use g2o to perform several optimizations. I recommend installing g2o on a local folder, say $HOME/svslocal
-	mkdir $HOME/svslocal
-To install g2o dependencies(Eigen, CMAKE, SuiteSparse, QGLViewer), in terminal:
-	sudo apt-get install cmake libeigen3-dev libsuitesparse-dev libqglviewer-dev
-To install g2o, in terminal:
-	cd ~
-	git clone https://github.com/RainerKuemmerle/g2o.git
-	cd g2o
-	mkdir build
-	cd build
-	cmake .. -DCMAKE_INSTALL_PREFIX:PATH=$HOME/svslocal -DCMAKE_BUILD_TYPE=Release
-	make -j4
-	make install
-	cd ~
-##2.3 OpenCV 2.4.10 tested
-You may install openCV following instructions https://help.ubuntu.com/community/OpenCV. Using a shell file greatly simplifies its installation.
+To build the program with the ROS support, a ROS distribution (e.g. Indigo) needs to be installed. For now, the program is only tested with Indigo, but it should work with Hydro and Jade because it only relies on a few basic features of ROS, e.g. ros::rate, ROS_INFO(). After ROS is installed, a catkin workspace has to be set up using this [tutorial](http://wiki.ros.org/catkin/Tutorials/create_a_workspace). From now on, let's suppose the workspace path is `~/home/username/catkin_ws`.
 
-##2.4 DBoW2 (included)
-We make use of some components of the DBoW2 library for place recognition and feature matching. We include a modified copy of the library
-including only the components we need and also some modifications that are listed in Thirdparty/DBoW2/LICENSE.txt. 
-It only depends on OpenCV, but it should be included in the distribution. Its installation will be detailed later on.
+If the program is to be built without ROS support, you may simply create a folder to contain the source of ORBSLAM_DWO, let's assume that the folder is created such that its path is '~/home/username/catkin_ws/src'.
 
-##2.5 Sophus
-We used the modified version of Sophus by Steven Lovegrove to manipulate lie group members. The reason we do not use Hauke Strasdat's version is that Lovegrove's version only needs to include headers for use. And it also complies with Jet numbers used in Ceres Solver's automatic differentiation.
-To install it, in terminal
-	git clone https://github.com/stevenlovegrove/Sophus.git
-	cd Sophus
-	mkdir build
-	cd build
-	cmake .. -DCMAKE_INSTALL_PREFIX:PATH=$HOME/svslocal
-	make -j4
-	make install
-	cd ~
+Regardless of the ROS support, download ORBSLAM_DWO into the workspace folder via:
+		
+		cd catkin_ws/src		
+		git clone https://github.com/JzHuai0108/ORB_SLAM.git
+		mv $HOME/catkin_ws/src/ORB_SLAM $HOME/catkin_ws/src/orbslam_dwo
 
-##2.6 vikit
-Drawing lessons from SVO, vikit is used to deal with camera models. 
-	git clone https://github.com/uzh-rpg/rpg_vikit.git
-It depends on Strasdat's version of Sophus. To make it work with Lovegrove's Sophus, you need to change SE3 to SE3d, rotation_matrix() to rotationMatrix(), #include <sophus/se3.h> to #include <sophus/se3.hpp> in several files. Then, in rpg_vikit/vikit_common/CMakeLists.txt set the flag USE_ROS to FALSE.
-To install it, in terminal,
-	cd rpg_vikit/vikit_common
-	mkdir build
-	cd build
-	cmake .. -DCMAKE_INSTALL_PREFIX:PATH=$HOME/svslocal
-	make
-For vikit, it is not necessary to install it. But you need to set its path in the CMakeLists.txt of ORB-SLAM-DWO.
-#3. Installation
+The last command renames the downloaded folder into orbslam_dwo. That is the folder where the following dependencies are to be built and installed.
 
-1. Make sure you have installed all library dependencies.
+##2.4 g2o and its dependencies 
+g2o is used to perform optimization tasks. Its dependencies(Eigen, CMAKE, SuiteSparse, QGLViewer) can be installed via:
+		sudo apt-get install cmake libeigen3-dev libsuitesparse-dev libqglviewer-dev
+To avoid system wide installation, g2o is recommended to be installed into the local folder '~/home/username/catkin_ws/src/orbslam_dwo/Thirdparty'. To do that, navigate to that folder in a terminal, and run the following commands:
+		
+		git clone https://github.com/RainerKuemmerle/g2o.git
+		cd g2o
+		mkdir local_install
+		mkdir build
+		cd build
+		cmake .. -DCMAKE_INSTALL_PREFIX:PATH=$HOME/catkin_ws/src/orbslam_dwo/Thirdparty/g2o/local_install -DCMAKE_BUILD_TYPE=Release
+		make -j4
+		make install
+		cd
 
-2. Clone this ORB_SLAM into your project folder
+For all the following dependencies(libraries), you DON'T need to install them (e.g., execute 'make install').
 
-3. Build DBoW2. Go into Thirdparty/DBoW2/ and execute the following to compile DBoW2 with ROS OpenCV (if you want to build this package using independent OpenCV instead of ROS OpenCV, in line "SET(USE_ROS True)", Set False):
+##2.5 autodiff of the ceres solver (included)
+The autodiff module of the [ceres solver](https://github.com/ceres-solver/ceres-solver.git) is used to compute Jacobians in the IMU constraint. Automatic differentiation is necessary because in the program the full exponential map is used to map se(3) to SE(3). If a first order approximation is used, e.g., in [OKVIS](https://github.com/ethz-asl/okvis.git), analytic Jacobians can be derived. 
+
+Interestingly, g2o also borrows the autodiff module of the ceres solver, the related files of autodiff are put into a folder, g2o/EXTERNAL/ceres. But these files in g2o/EXTERNAL/ceres have problems in compiling orbslam_dwo, possibly because they are quite old. So I extracted these files from a recent version of the ceres solver, and put them into the orbslam_dwo/Thirdparty/g2o_EXTERNAL folder shipped in orbslam_dwo.
+
+##2.6 DBoW2 (included)
+Some components of the DBoW2 library are used for place recognition and feature matching. A modified copy of the library
+including only the necessary components and some modifications that are listed in Thirdparty/DBoW2/LICENSE.txt.
+It only depends on OpenCV, and it is included in the distribution. To compile it, navigate to Thirdparty/DBoW2/ in a terminal and execute:
 
 		mkdir build
 		cd build
-		cmake .. -DCMAKE_BUILD_TYPE=Release
+		cmake ..
 		make  
 
-	Tip: Set your favorite compilation flags in line 4 and 5 of Thirdparty/DBoW2/CMakeLists.txt
-		  (by default -03 -march=native)
-
-4. Build ORB_SLAM. In the ORB-SLAM-DWO root execute the following to compile with catkin (if you want to build this package without ROS, in line "SET(USE_ROS True)", Set False, but this is not well tested.) If to build this package for monocular SLAM, in line "SET(MONO_SLAM FALSE)" set MONO_SLAM true. Whether to use IMU data is determined by the use_imu_data member in the yaml setting file.
+##2.7 libviso2 (included)
+libviso2 is used to detect matches between two pairs of stereo images, also called quad matches. These matches are used in ORBSLAM_DWO for tracking and triangulating features. Because a few changes are made, it is included in the distribution. To build it, navigate to Thirdparty/libviso2/ in a terminal and execute:
 
 		mkdir build
 		cd build
-		cmake .. -DCMAKE_BUILD_TYPE=Release
+		cmake ..
+		make  
+
+##2.8 Sophus
+The modified version of Sophus by Steven Lovegrove is used to manipulate Lie group members. The reason why Hauke Strasdat's version is not used is that Lovegrove's version is a header only library. More importantly, it complies with the jet numbers used in the autodiff module of the ceres solver. To use it, downloading is enough. To do that, navigate to the orbslam_dwo/Thirdparty folder in a terminal and run: 
+		git clone https://github.com/stevenlovegrove/Sophus.git
+
+##2.9 vikit (included)
+[rpg-vikit](https://github.com/uzh-rpg/rpg_vikit.git) is used to deal with camera models. It depends on Strasdat's version of Sophus. To make it work with Lovegrove's Sophus, SE3 is changed to SE3d, rotation_matrix() to rotationMatrix(), #include <sophus/se3.h> to #include <sophus/se3.hpp> in several of its files. Also, in rpg_vikit/vikit_common/CMakeLists.txt I set the flag USE_ROS to FALSE and added the path to Lovegrove's Sophus. For easy compilation, it is also included in the orbslam_dwo distribution. 
+
+To build it, navigate to the orbslam_dwo/Thirdparty/vikit_common folder in a terminal and run: 
+
+		mkdir build
+		cd build
+		cmake ..
 		make
 
-	Tip: Set your favorite compilation flags in line 12 and 13 of Thirdparty/DBoW2/CMakeLists.txt
-		  (by default -03 -march=native)
+#3. Build ORBSLAM_DWO and test with KITTI seq 00 and Tsukuba CG stereo dataset
 
-#4. Usage
+##3.1 stereo or stereo + inertial configuration
+In orbslam_dwo/CMakeLists.txt make sure line "SET(MONO_SLAM FALSE)". Note whether to use IMU data is determined by the use_imu_data field in the yaml setting file. Then build the program either with or without ROS as follows.
 
-1. Launch ORB-SLAM-DWO:
-	launch ROS in a terminal: roscore
-	launch image view in another terminal: rosrun image_view image_view image:=/ORBSLAM_DWO/Frame _autosize:=true
-	launch rviz in another terminal: rosrun rviz rviz -d /home/jhuai/catkin_ws/src/orbslam_dwo/data/rviz.rviz
-	and finally in another terminal: test_orbslam PATH_TO_SETTINGS_FILE
+###3.1.1 With ROS
+In orbslam_dwo/CMakeLists.txt make sure line "SET(USE_ROS TRUE)".
 
-	You have to provide the path to the settings file which contains path to the vocabulary file. The paths must be absolute or relative to the ORB_SLAM directory. We already provide the vocabulary file we use in ORB_SLAM/Data. Uncompress the file, as it will be loaded much faster.
-	
-2. The settings File
+		cd catkin_ws
+		source devel/setup.bash		
+		catkin_make -DCMAKE_BUILD_TYPE=Release --pkg orbslam_dwo
+		make
 
-	We provide the settings of example sequences in Data folder, KITTI odometry and Tsukuba CG Stereo dataset daylight.
-	ORB_SLAM_DWO reads the camera calibration and setting parameters from a YAML file. We provide an example in Data/Tsukuba.yaml, where you will find all parameters and their description. We use the camera calibration model of OpenCV.
+To test the program, first launch roscore and related viewers for inspection via:
 
-	Please make sure you write and call your own settings file for your camera (copy the example file and modify the calibration)
+                launch ROS in a terminal: roscore
+		launch image view in another terminal: rosrun image_view image_view image:=/ORBSLAM_DWO/Frame _autosize:=true
+		launch rviz in another terminal: rosrun rviz rviz -d $HOME/catkin_ws/src/orbslam_dwo/data/rviz.rviz
 
-#5. Failure Modes
+Then depending on the data for tests, execute one of the following commands in another terminal. Note you may need to change the paths for data in the yaml setting file. The simulated IMU data for both KITTI seq 00 and Tsukuba dataset is included in the orbslam_dwo/data folder.
+
+To test the program on KITTI seq 00 (stereo)
+		rosrun orbslam_dwo test_orbslam $HOME/catkin_ws/src/orbslam_dwo/data/settingfiles_stereo/kittiseq00.yaml
+
+To test the program on Tsukuba dataset (stereo)
+                rosrun orbslam_dwo test_orbslam $HOME/catkin_ws/src/orbslam_dwo/data/settingfiles_stereo/tsukuba.yaml
+
+To test the program on KITTI seq 00 with simulated inertial data (stereo + inertial)
+		rosrun orbslam_dwo test_orbslam $HOME/catkin_ws/src/orbslam_dwo/data/settingfiles_stereo_imu/kittiseq00_imu.yaml
+
+To test the program on Tsukuba dataset with simulated inertial data (stereo + inertial)
+		rosrun orbslam_dwo test_orbslam $HOME/catkin_ws/src/orbslam_dwo/data/settingfiles_stereo_imu/tsukuba_imu.yaml
+
+###3.1.2 Without ROS
+
+In orbslam_dwo/CMakeLists.txt make sure line "SET(USE_ROS FALSE)", then in a terminal, execute:
+
+		cd catkin_ws/src/orbslam_dwo
+		mkdir build
+		cd build
+		cmake -DCMAKE_BUILD_TYPE=Release ..
+		make
+
+Then depending on the data for tests, execute one of the following commands in another terminal. Note you may need to change the paths for data in the yaml setting file. The simulated IMU data for both KITTI seq 00 and Tsukuba dataset is included in the orbslam_dwo/data folder.
+
+To test the program on KITTI seq 00 (stereo)
+		cd catkin_ws/src/orbslam_dwo/bin
+		./test_orbslam $HOME/catkin_ws/src/orbslam_dwo/data/settingfiles_stereo/kittiseq00.yaml
+
+To test the program on Tsukuba dataset (stereo)
+		cd catkin_ws/src/orbslam_dwo/bin
+                ./test_orbslam $HOME/catkin_ws/src/orbslam_dwo/data/settingfiles_stereo/tsukuba.yaml
+
+To test the program on KITTI seq 00 with simulated inertial data (stereo + inertial)
+		cd catkin_ws/src/orbslam_dwo/bin
+		./test_orbslam $HOME/catkin_ws/src/orbslam_dwo/data/settingfiles_stereo_imu/kittiseq00_imu.yaml
+
+To test the program on Tsukuba dataset with simulated inertial data (stereo + inertial)
+		cd catkin_ws/src/orbslam_dwo/bin
+		./test_orbslam $HOME/catkin_ws/src/orbslam_dwo/data/settingfiles_stereo_imu/tsukuba_imu.yaml
+
+#3.2 monocular configuration
+
+In orbslam_dwo/CMakeLists.txt make sure line "SET(MONO_SLAM TRUE)". Note for now this program does not support monocular + inertial SLAM. Then build the program either with or without ROS as follows.
+
+###3.2.1 With ROS
+In orbslam_dwo/CMakeLists.txt make sure line "SET(USE_ROS TRUE)".
+
+		cd catkin_ws
+		source devel/setup.bash		
+		catkin_make -DCMAKE_BUILD_TYPE=Release --pkg orbslam_dwo
+		make
+
+To test the program, first launch roscore and related viewers for inspection via:
+
+                launch ROS in a terminal: roscore
+		launch image view in another terminal: rosrun image_view image_view image:=/ORBSLAM_DWO/Frame _autosize:=true
+		launch rviz in another terminal: rosrun rviz rviz -d $HOME/catkin_ws/src/orbslam_dwo/data/rviz.rviz
+
+Then depending on the data for tests, execute one of the following commands in another terminal. Note you may need to change the paths for data in the yaml setting file.
+
+To test the program on KITTI seq 00 (monocular)
+		rosrun orbslam_dwo test_orbslam $HOME/catkin_ws/src/orbslam_dwo/data/setttingfiles_mono/kittiseq00_mono.yaml
+
+To test the program on Tsukuba dataset (monocular)
+                rosrun orbslam_dwo test_orbslam $HOME/catkin_ws/src/orbslam_dwo/data/setttingfiles_mono/tsukuba_mono.yaml
+
+###3.2.2 Without ROS
+
+In orbslam_dwo/CMakeLists.txt make sure line "SET(USE_ROS FALSE)", then in a terminal, execute:
+
+		cd catkin_ws/src/orbslam_dwo
+		mkdir build
+		cd build
+		cmake -DCMAKE_BUILD_TYPE=Release ..
+		make
+
+Then depending on the data for tests, execute one of the following commands in another terminal. Note you may need to change the paths for data in the yaml setting file. 
+
+To test the program on KITTI seq 00 (monocular)
+
+		cd catkin_ws/src/orbslam_dwo/bin
+		./test_orbslam $HOME/catkin_ws/src/orbslam_dwo/data/setttingfiles_mono/kittiseq00_mono.yaml
+
+To test the program on Tsukuba dataset (monocular)
+		cd catkin_ws/src/orbslam_dwo/bin
+                ./test_orbslam $HOME/catkin_ws/src/orbslam_dwo/data/setttingfiles_mono/tsukuba_mono.yaml
+
+#4. Failure modes
 
 In general our stereo SLAM solution is expected to have a bad time in the following situations:
 - Pure rotations and features are very distant in exploration
@@ -132,8 +220,18 @@ In general our stereo SLAM solution is expected to have a bad time in the follow
 
 The system is able to initialize from planar and non-planar scenes. In the case of planar scenes, depending on the camera movement relative to the plane, it is possible that the system refuses to initialize, see the paper [1] for details. 
 
-#6. Need Help?
+#5. Known issues
 
-If you have any trouble installing or running ORB-SLAM, contact the authors.
+##5.1 Memory drain
+
+In testing on KITTI seq 00 with either stereo + inertial or stereo configuration, the computer memory is slowly chipped away. Finally this blocks loop closure and chokes the tracking thread. Empricially, the maximum number of accommodated keyframes is around 1200 with 8GB RAM. But this issue is not observed when testing ORBSLAM_DWO with the monocular configuration on KITTI seq 00. 
+
+I suspect it is caused by too many large keyframes stored in memory. The Frame::PartialRelease function is used to release part of the frame before it is copied into a keyframe, but this does not solve the memory drain. One approach to circumvent this issue is to discourage frequent creation of keyframes by reducing the value of Tracking.min_tracked_features in the setting file. For KITTI seq 00, I set it to 120 instead of its default value, 200. 
+
+##5.2 Result is not robust/stable
+
+Because there is some non-deterministic behavior in the program, it may give good results only 6 out of 10 times. It is also observed that when the program is fed with data at a high frequency, its performance degrades compared to processing the same data with a lower frequency.
+
+If you have any trouble installing or running ORBSLAM_DWO, contact the authors.
 
 

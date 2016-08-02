@@ -20,7 +20,7 @@
 #include "IMU_constraint.h"
 #include "timegrabber.h" //imugrabber
 
-#include "EXTERNAL/ceres/autodiff.h" //autodiff included in g2o
+#include "ceres/autodiff.h" //autodiff included in Thirdparty/g2o_External
 namespace ScaViSLAM{
 using namespace Eigen;
 using namespace Sophus;
@@ -486,7 +486,6 @@ void G2oEdgeGPSObservation::linearizeOplus()
     _jacobianOplusXi.block<3,3>(0,3)= -Tw2c.rotationMatrix().transpose()*skew3d(vl->estimate());
     _jacobianOplusXj= - Tw2c.rotationMatrix().transpose();
 }
-
 bool G2oVertexGSCamera
 ::write (std::ostream & os) const
 {

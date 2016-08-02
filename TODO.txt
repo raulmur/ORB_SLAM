@@ -1,18 +1,11 @@
 Issues and solutions
-1. in stereo + imu and stereo configuration, testing on KITTI seq 00, the memory slowly is chipped away, and finally blocks loop closure and chokes the tracking thread
 
-This happens with static or shared libraries of viso2, debug or release mode. I suspect it is caused by too many keyframes are stored in memory. But this does not happen with monocular ORB SLAM on KITTI seq 00.
-
-2. in monocular configuration, testing on KITTI seq 00, many loop closures are not applied. 
-
-Solution: Make sure the Orbslam_dwo, DBoW2, Viso2 are linked to the same set of OpenCV libraries. In the case of using ROS, find_package(OpenCV required) in CMakeLists.txt, otherwise, add OpenCV libraries path and include path, and library names in CMakeLists.txt.
-
-3. warning sparseoptimizer::optimize " 0 vertices to optimize, maybe forgot to call initializeOptimization()" occurs during localbundleadjustment or localoptimize.
+1. warning sparseoptimizer::optimize " 0 vertices to optimize, maybe forgot to call initializeOptimization()" occurs during localbundleadjustment or localoptimize.
 
 This warning is not caused by running two g2o optimizer at the same time, as I tested running hundreds of threads of g2o optimizers, no such warning occurs.
 
-4. Add sigmaLevel0 for pixels at level 0
+2. Add sigmaLevel0 for pixels at level 0
 
-5. Add covariance estimates for optimized poses
+3. Add covariance estimates for optimized poses
 
-6. Use anchored inverse depth parameterization for world points
+4. Use anchored inverse depth parameterization for world points

@@ -1,7 +1,7 @@
 #ifndef STEREO_SFM_H
 #define STEREO_SFM_H
 #include "viso2/p_match.h"
-#include "/home/jhuai/qcv/qcv-code/modules/misc/feature.h"
+#include "qcv-feature.h"
 #include "sophus/se3.hpp"
 #include <iostream>
 #include <string>

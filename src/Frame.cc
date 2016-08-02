@@ -26,7 +26,7 @@
 #include "global.h"
 
 #include <vikit/vision.h>
-#include <vikit/math_utils.h>
+#include <vikit/math_utils.h> //getMedian
 
 //#include <ros/ros.h>
 

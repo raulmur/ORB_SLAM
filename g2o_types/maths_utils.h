@@ -26,23 +26,6 @@
 namespace ScaViSLAM
 {
 
-//using namespace Eigen;
-//using namespace std;
-
-/*
-class AbstractCamera;
-
-double
-interpolateDisparity         (const cv::Mat & m,
-                              const Eigen::Vector2i & uv_pyr,
-                              int level);
-float
-interpolateMat_32f           (const cv::Mat & mat,
-                              const Eigen::Vector2f & uv);
-
-float
-interpolateMat_8u            (const cv::Mat & mat,
-                              const Eigen::Vector2f & uv);*/
 Eigen::Vector2d
 project2d                    (const Eigen::Vector3d&);
 
