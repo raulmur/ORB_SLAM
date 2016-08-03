@@ -118,7 +118,7 @@ In orbslam_dwo/CMakeLists.txt make sure line "SET(USE_ROS TRUE)".
 
 To test the program, first launch roscore and related viewers for inspection via:
 
-                launch ROS in a terminal: roscore
+		launch ROS in a terminal: roscore
 		launch image view in another terminal: rosrun image_view image_view image:=/ORBSLAM_DWO/Frame _autosize:=true
 		launch rviz in another terminal: rosrun rviz rviz -d $HOME/catkin_ws/src/orbslam_dwo/data/rviz.rviz
 
@@ -178,7 +178,7 @@ In orbslam_dwo/CMakeLists.txt make sure line "SET(USE_ROS TRUE)".
 
 To test the program, first launch roscore and related viewers for inspection via:
 
-                launch ROS in a terminal: roscore
+		launch ROS in a terminal: roscore
 		launch image view in another terminal: rosrun image_view image_view image:=/ORBSLAM_DWO/Frame _autosize:=true
 		launch rviz in another terminal: rosrun rviz rviz -d $HOME/catkin_ws/src/orbslam_dwo/data/rviz.rviz
 
