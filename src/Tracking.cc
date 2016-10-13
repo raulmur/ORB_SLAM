@@ -224,8 +224,6 @@ Tracking::Tracking(ORBVocabulary* pVoc, FramePublisher*pFramePublisher, /*MapPub
     // use external saved visual odometry
     if(mfsSettings["qcv_tracks"].isString() && mfsSettings["qcv_deltas"].isString())
         mStereoSFM.init(mfsSettings["qcv_tracks"], mfsSettings["qcv_deltas"]);
-    else
-        mStereoSFM.init();
 
     int nRGB = mfsSettings["Camera.RGB"];
     mbRGB = nRGB;
@@ -1555,9 +1553,9 @@ void  Tracking::ProcessFrame(cv::Mat &im, cv::Mat &right_img, double timeStampSe
     // match features
     mVisoStereo.Tr_valid=false; //do we use stereo or IMU prior information for tracking?
     // CAUTION: Prior motion from IMU noisy data and stereo prior often leads to worse results.
-    //I believe the reason is prior motion is not necessary in feature matching. E.g., StereoSFM did not use such motion prior to aid feature matching
+    //I believe the reason is prior motion is not necessary in feature matching. E.g.,qcv stereoSFM did not use such motion prior to aid feature matching
     // but when features are matched to points in local map, Stereo PTAM used a prior motion.
-    // On the other hand, Prior motion should be helpful in initializing pose optimization
+    // On the other hand, prior motion should be helpful in initializing pose optimization
     if (mVisoStereo.Tr_valid) mVisoStereo.matcher->matchFeatures(2,&mVisoStereo.Tr_delta);
     else          mVisoStereo.matcher->matchFeatures(2);
 
@@ -1607,10 +1605,11 @@ void  Tracking::ProcessFrame(cv::Mat &im, cv::Mat &right_img, double timeStampSe
 //        assert(jack==vInliers.size());
     }
     else{
-        if(mpCurrentFrame)// not the first frame
+        if(mpCurrentFrame){// not the first frame
             mState= LOST;
-        cerr<<"libviso2 odometry failed for images at time:"<<timeStampSec
-           <<" of quad matches:"<<vQuadMatches.size()<<endl;
+            cout<<"libviso2 odometry failed for images at time:"<<timeStampSec
+            <<" of quad matches:"<<vQuadMatches.size()<<endl;
+        }
     }
     SLAM_STOP_TIMER("track_previous_frame");
     //stereo matching

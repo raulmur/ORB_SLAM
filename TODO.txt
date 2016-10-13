@@ -9,3 +9,5 @@ This warning is not caused by running two g2o optimizer at the same time, as I t
 3. Add covariance estimates for optimized poses
 
 4. Use anchored inverse depth parameterization for world points
+
+5. Add monocular inertial SLAM

@@ -226,7 +226,7 @@ The system is able to initialize from planar and non-planar scenes. In the case 
 
 In testing on KITTI seq 00 with either stereo + inertial or stereo configuration, the computer memory is slowly chipped away. Finally this blocks loop closure and chokes the tracking thread. Empricially, the maximum number of accommodated keyframes is around 1200 with 8GB RAM. But this issue is not observed when testing ORBSLAM_DWO with the monocular configuration on KITTI seq 00. 
 
-I suspect it is caused by too many large keyframes stored in memory. The Frame::PartialRelease function is used to release part of the frame before it is copied into a keyframe, but this does not solve the memory drain. One approach to circumvent this issue is to discourage frequent creation of keyframes by reducing the value of Tracking.min_tracked_features in the setting file. For KITTI seq 00, I set it to 120 instead of its default value, 200. 
+I suspect it is caused by too many large keyframes stored in memory. The Frame::PartialRelease function is used to release part of the frame before it is copied into a keyframe, but this does not solve the memory drain. One approach to circumvent this issue is to discourage frequent creation of keyframes by reducing the value of Tracking.min_tracked_features in the setting file. For KITTI seq 00, I set it to 120 instead of its default value, 200. Another tactic to alleviate this issue is to stick with shared pointers, e.g., std::shared_ptr, when dealing with keyframes and map points. This way, invalid map points and culled keyframes may get released from RAM and free up some space. This remains future work.
 
 ##5.2 Result is not robust/stable
 
