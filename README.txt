@@ -56,10 +56,8 @@ Dowload and install instructions can be found at: http://opencv.org/
 
 2.4 g2o (included in Thirdparty)
 We use a modified version of g2o (see original at https://github.com/RainerKuemmerle/g2o) to perform optimizations.
-In order to compile g2o you will need to have installed BLAS, LAPACK and Eigen3 (at least 3.1.0).
-
-	sudo apt-get install libblas-dev
-	sudo apt-get install liblapack-dev
+In order to compile g2o you will need to have installed Eigen3 (at least 3.1.0).	
+	
 	sudo apt-get install libeigen3-dev
 
 2.5 DBoW2 (included in Thirdparty)
