@@ -38,6 +38,7 @@
 #include "MapPublisher.h"
 
 #include<tf/transform_broadcaster.h>
+#include "geometry_msgs/PoseStamped.h"
 
 
 namespace ORB_SLAM
@@ -180,6 +181,10 @@ protected:
 
     // Transfor broadcaster (for visualization in rviz)
     tf::TransformBroadcaster mTfBr;
+
+    // Pose broadcaster
+    ros::NodeHandle n;
+    ros::Publisher PosPub = n.advertise<geometry_msgs::PoseStamped>("ORB_SLAM/pose", 5);
 };
 
 } //namespace ORB_SLAM
