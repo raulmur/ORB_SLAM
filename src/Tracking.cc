@@ -1083,7 +1083,7 @@ void Tracking::CheckResetByPublishers()
     {
         {
             boost::mutex::scoped_lock lock(mMutexReset);
-            if(!mbReseting)
+            if(!bReseting || !mbReseting)
             {
                 mbPublisherStopped=false;
                 break;
