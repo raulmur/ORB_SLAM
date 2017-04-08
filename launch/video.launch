@@ -1,0 +1,16 @@
+<launch>
+
+  <!-- Set use_sim_time true for datasets-->
+
+  <node pkg="image_view" type="image_view" name="image_view" respawn="false" output="log">
+	<remap from="/image" to="/ORBSLAM_DWO/Frame" />
+	<param name="autosize" value="true"/>
+  </node>
+
+  <node pkg="rviz" type="rviz" name="rviz" args="-d /home/jhuai/catkin_ws/src/orbslam_dwo/data/rviz.rviz" output="log">
+  </node>
+ 
+  <node name="test_orbslam" pkg="orbslam_dwo" type="test_orbslam" args="/home/jhuai/catkin_ws/src/orbslam_dwo/data/KITTISeq00mono.yaml" clear_params="true" cwd="node" output="screen">
+  </node>
+
+</launch>

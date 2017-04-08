@@ -57,6 +57,21 @@ namespace ORB_SLAM
 vk::PerformanceMonitor* g_permon = NULL;
 #endif
 
+//remove matches that have u1c falls outside of [xl, xr)
+std::vector<p_match> cropMatches(const std::vector<p_match> &pMatches, float xl, float xr)
+{
+    std::vector<p_match> resMatches;
+    resMatches.reserve(pMatches.size());
+    for(auto it= pMatches.begin(), ite= pMatches.end(); it!=ite; ++it)
+    {
+        if(it->u1c<xl || it->u1c>=xr)
+            continue;
+        else
+            resMatches.push_back(*it);
+    }
+    return resMatches;
+}
+
 static bool to_bool(std::string str) {
     std::transform(str.begin(), str.end(), str.begin(), ::tolower);
     std::istringstream is(str);
@@ -239,10 +254,13 @@ Tracking::Tracking(ORBVocabulary* pVoc, FramePublisher*pFramePublisher, /*MapPub
     int nLevels = mfsSettings["ORBextractor.nLevels"];
     int fastTh = mfsSettings["ORBextractor.fastTh"];
     int Score = mfsSettings["ORBextractor.nScoreType"];
-
     assert(Score==1 || Score==0);
 
-    mpORBextractor = new ORBextractor(mnFeatures,fScaleFactor,nLevels,Score,fastTh);
+    float sigmaLevel0 = 1.0f;
+    if(mfsSettings["ORBextractor.sigmaLevel0"].isReal()) //"'ORBextractor.sigmaLevel0' parameter available in configuration file."
+        sigmaLevel0 = mfsSettings["ORBextractor.sigmaLevel0"];
+
+    mpORBextractor = new ORBextractor(mnFeatures,fScaleFactor,nLevels,Score,fastTh,sigmaLevel0);
 
     cout << endl  << "ORB Extractor Parameters: " << endl;
     cout << "- Number of Features: " << mnFeatures << endl;
@@ -257,7 +275,7 @@ Tracking::Tracking(ORBVocabulary* pVoc, FramePublisher*pFramePublisher, /*MapPub
 
     // ORB extractor for initialization
     // Initialization uses only points from the finest scale level
-    mpIniORBextractor = new ORBextractor(mnFeatures*2,1.2,8,Score,fastTh);
+    mpIniORBextractor = new ORBextractor(mnFeatures*2,1.2,8,Score,fastTh, sigmaLevel0);
 
     if(mfsSettings["Tracking.tracked_feature_ratio"].isReal())
         mfTrackedFeatureRatio = mfsSettings["Tracking.tracked_feature_ratio"];
@@ -381,6 +399,13 @@ void Tracking::Run()
         totalImages =std::min(totalImages, (int)cap.get(CV_CAP_PROP_FRAME_COUNT));
         int width= cap.get(CV_CAP_PROP_FRAME_WIDTH), height= cap.get(CV_CAP_PROP_FRAME_HEIGHT);
         int downscale = GetDownScale(width, height, 1280);
+        vk::PinholeCamera* oldCam = cam_;
+
+        cam_ = new vk::PinholeCamera( oldCam->width()/downscale, oldCam->height()/downscale, oldCam->fx()/downscale,
+                                      oldCam->fy()/downscale, oldCam->cx()/downscale, oldCam->cy()/downscale,
+                                      oldCam->d0(), oldCam->d1(), oldCam->d2(), oldCam->d3());
+        delete oldCam;
+
         cv::Mat left_img, dst;
 #ifdef SLAM_USE_ROS
         ros::Rate r(mFps);
@@ -393,6 +418,12 @@ void Tracking::Run()
             time_frame= cap.get(CV_CAP_PROP_POS_MSEC)/1000.0;
             cap.read(left_img);
 
+            if(left_img.cols != cam_->width() || left_img.rows!= cam_->height())
+            {
+                cerr<<"Incompatible image size, check setting file Camera.width .height fields or the end of video!"<<endl;
+                return;
+            }
+
             if(downscale>1){
                 cv::pyrDown(left_img, dst, cv::Size((width+1)/2, (height+1)/2));
                 left_img= dst;
@@ -400,11 +431,7 @@ void Tracking::Run()
             time_pair[0]=time_pair[1];
             time_pair[1]=time_frame;
 
-            if(left_img.cols != cam_->width() || left_img.rows!= cam_->height())
-            {
-                cerr<<"Incompatible image size, check setting file Camera.width .height fields or the end of video!"<<endl;
-                return;
-            }
+
             if(left_img.channels()==3)
             {
                 cv::Mat temp;

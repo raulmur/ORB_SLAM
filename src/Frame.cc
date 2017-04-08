@@ -22,7 +22,7 @@
 #include "MapPoint.h"
 #include "Converter.h"
 #include "ORBmatcher.h" //stereo matching
-#include "g2o_types/eigen_utils.h" //skew3d
+#include "vio/eigen_utils.h" //skew3d
 #include "global.h"
 
 #include <vikit/vision.h>

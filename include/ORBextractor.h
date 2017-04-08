@@ -38,7 +38,7 @@ public:
     enum {HARRIS_SCORE=0, FAST_SCORE=1 };
 
     ORBextractor(int nfeatures = 1000, float scaleFactor = 1.2f, int nlevels = 8,
-                 int scoreType=FAST_SCORE, int fastTh = 20);
+                 int scoreType=FAST_SCORE, int fastTh = 20, const float sigmaLevel0 =1.0f);
 
     ~ORBextractor(){}
 

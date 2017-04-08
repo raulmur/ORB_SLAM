@@ -92,9 +92,12 @@ libviso2 is used to detect matches between two pairs of stereo images, also call
 ##2.8 Sophus
 The modified version of Sophus by Steven Lovegrove is used to manipulate Lie group members. The reason why Hauke Strasdat's version is not used is that Lovegrove's version is a header only library. More importantly, it complies with the jet numbers used in the autodiff module of the ceres solver. To use it, downloading is enough. To do that, navigate to the orbslam_dwo/Thirdparty folder in a terminal and run: 
 		git clone https://github.com/stevenlovegrove/Sophus.git
+		cd Sophus
+		git checkout b474f0
 
 ##2.9 vikit (included)
 [rpg-vikit](https://github.com/uzh-rpg/rpg_vikit.git) is used to deal with camera models. It depends on Strasdat's version of Sophus. To make it work with Lovegrove's Sophus, SE3 is changed to SE3d, rotation_matrix() to rotationMatrix(), #include <sophus/se3.h> to #include <sophus/se3.hpp> in several of its files. Also, in rpg_vikit/vikit_common/CMakeLists.txt I set the flag USE_ROS to FALSE and added the path to Lovegrove's Sophus. For easy compilation, it is also included in the orbslam_dwo distribution. 
+If the catkin workspace folder is not ~/catkin_ws, then the line "SET(Sophus_INCLUDE_DIRS $ENV{HOME}/catkin_ws/src/orbslam_dwo/Thirdparty/Sophus)" in CMakeLists.txt of vikit_common folder needs to be changed accordingly.
 
 To build it, navigate to the orbslam_dwo/Thirdparty/vikit_common folder in a terminal and run: 
 

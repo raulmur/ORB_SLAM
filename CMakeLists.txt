@@ -1,5 +1,5 @@
 SET(TRACE FALSE) # record timing of operations
-SET(MONO_SLAM FALSE) # if false stereo SLAM with or without IMU, if true, monocular SLAM
+SET(MONO_SLAM TRUE) # if false stereo SLAM with or without IMU, if true, monocular SLAM
 SET(USE_ROS TRUE) # use ROS for visualization or not
 SET(USE_SYSTEM_OPENCV true) # Set False if you want to build this package using independent OpenCV instead of libopencv-dev
 
@@ -60,7 +60,6 @@ ELSE()
   link_directories(${OPENCV_LIBRARY_DIR})
 ENDIF()
 
-
 SET(G2O_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/Thirdparty/g2o/local_install/include) # g2o
 SET(G2O_LIBRARY_DIR ${PROJECT_SOURCE_DIR}/Thirdparty/g2o/local_install/lib)
 
@@ -118,15 +117,9 @@ src/Sim3Solver.cc
 src/Initializer.cc
 src/stereoSFM.cpp
 src/MotionModel.cpp
-src/utils.cpp
 
-g2o_types/maths_utils.cpp
-g2o_types/eigen_utils.h
-g2o_types/eigen_utils.cpp
 g2o_types/anchored_points.cpp
 g2o_types/IMU_constraint.cpp
-g2o_types/timegrabber.cpp
-g2o_types/rand_sampler.cpp
 g2o_types/scale_solver.cpp
 )
 

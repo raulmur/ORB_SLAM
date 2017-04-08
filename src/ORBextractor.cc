@@ -456,7 +456,7 @@ static int bit_pattern_31_[256*4] =
 };
 
 ORBextractor::ORBextractor(int _nfeatures, float _scaleFactor, int _nlevels, int _scoreType,
-         int _fastTh):
+         int _fastTh, const float sigmaLevel0):
     nlevels(_nlevels), nfeatures(_nfeatures), scaleFactor(_scaleFactor),
     scoreType(_scoreType), fastTh(_fastTh)
 {
@@ -464,10 +464,10 @@ ORBextractor::ORBextractor(int _nfeatures, float _scaleFactor, int _nlevels, int
     mvScaleFactor.resize(nlevels);
     mvScaleFactor[0]=1;
     mvLevelSigma2.resize(nlevels);
-    mvLevelSigma2[0]=1.0f;
+    mvLevelSigma2[0]=sigmaLevel0*sigmaLevel0;
     for(int i=1; i<nlevels; i++){
         mvScaleFactor[i]=mvScaleFactor[i-1]*scaleFactor;
-        mvLevelSigma2[i]=mvScaleFactor[i]*mvScaleFactor[i];
+        mvLevelSigma2[i]=sigmaLevel0*sigmaLevel0*mvScaleFactor[i]*mvScaleFactor[i];
     }
 
     float invScaleFactor = 1.0f/scaleFactor;
@@ -1092,7 +1092,7 @@ void computeKeyPointGAO(std::vector< cv::KeyPoint>& vKeys, std::vector< cv::KeyP
 //        cout<<"GAO angle:"<< keypoint->angle<<endl;
     }
 }
-// detect keypoints in an image, this function only works for one pyramid level
+// extract gravity aligned feature descriptors for keypoints in an image
 void ORBextractor::operator()(InputArray _image,cv::InputArray mask,
   std::vector<cv::KeyPoint>& _keypoints,  cv::OutputArray _descriptors,
   std::vector<cv::KeyPoint>& _keypointsUn,

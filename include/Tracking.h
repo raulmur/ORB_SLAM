@@ -264,7 +264,7 @@ protected:
     float mfTrackedFeatureRatio; /// if the current frame tracks less than this ratio of features in the reference keyframe
     int mnMinTrackedFeatures; /// if the current frame tracks less than this number of features in the reference keyframe
 };
-
+    std::vector<p_match> cropMatches(const std::vector<p_match> &pMatches, float xl, float xr);
 } //namespace ORB_SLAM
 
 #endif // TRACKING_H
