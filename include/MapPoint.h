@@ -23,14 +23,12 @@
 
 #include"Frame.h"
 #include"Map.h"
+
+#include "vio_g2o/anchored_points.h"
 #include "g2o/types/sba/types_sba.h"
 #include<opencv2/core/core.hpp>
 #include<boost/thread.hpp>
 
-namespace ScaViSLAM
-{
-class G2oVertexPointXYZ;
-}
 namespace ORB_SLAM
 {
 
@@ -153,7 +151,7 @@ public:
     // Tracking counters
     int mnVisible;
     int mnFound;
-    ScaViSLAM::G2oVertexPointXYZ *                   v_pt_;                    //!< Temporary pointer to the point-vertex in g2o during bundle adjustment.
+    vio::G2oVertexPointXYZ *                   v_pt_;                    //!< Temporary pointer to the point-vertex in g2o during bundle adjustment.
     Map* mpMap;
 
 protected:    

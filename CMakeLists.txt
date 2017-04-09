@@ -44,6 +44,8 @@ LIST(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake_modules)
 find_package(Eigen3 REQUIRED)
 find_package(Cholmod REQUIRED)
 FIND_PACKAGE(SuiteSparse REQUIRED)
+find_package(vio_common REQUIRED)
+find_package(Sophus REQUIRED)
 
 set(Boost_USE_STATIC_LIBS OFF)
 set(Boost_USE_MULTITHREADED ON)
@@ -60,13 +62,17 @@ ELSE()
   link_directories(${OPENCV_LIBRARY_DIR})
 ENDIF()
 
-SET(G2O_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/Thirdparty/g2o/local_install/include) # g2o
-SET(G2O_LIBRARY_DIR ${PROJECT_SOURCE_DIR}/Thirdparty/g2o/local_install/lib)
 
-SET(SOPHUS_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/Thirdparty/Sophus) # sophus
+SET(vikit_common_INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/Thirdparty/vikit_common/include)
+SET(vikit_common_LIBRARIES ${PROJECT_SOURCE_DIR}/Thirdparty/vikit_common/lib/libvikit_common.so)
 
-SET(VIKIT_COMMON_INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/Thirdparty/vikit_common/include)
-SET(VIKIT_COMMON_LIBRARIES ${PROJECT_SOURCE_DIR}/Thirdparty/vikit_common/lib/libvikit_common.so)
+SET(vio_g2o_INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/Thirdparty/vio_g2o/include)
+SET(vio_g2o_LIBRARIES ${PROJECT_SOURCE_DIR}/Thirdparty/vio_g2o/lib/libvio_g2o.so)
+
+SET(DBOW2_LIB ${PROJECT_SOURCE_DIR}/Thirdparty/DBoW2/lib/libDBoW2.so)
+
+SET(G2O_INCLUDE_DIR $ENV{HOME}/g2o/local_install/include)
+SET(G2O_LIBRARY_DIR $ENV{HOME}/g2o/local_install/lib)
 
 IF(USE_ROS)
   FIND_PACKAGE(catkin REQUIRED COMPONENTS roscpp roslib cmake_modules tf cv_bridge)
@@ -89,11 +95,13 @@ ${CHOLMOD_INCLUDE_DIR}
 ${CSPARSE_INCLUDE_DIR}
 ${Boost_INCLUDE_DIRS}
 ${G2O_INCLUDE_DIR}
-${SOPHUS_INCLUDE_DIR}
+${Sophus_INCLUDE_DIR}
 ${OPENCV_INCLUDE_DIR}
-${VIKIT_COMMON_INCLUDE_DIRS}
+${vikit_common_INCLUDE_DIRS}
 ${PROJECT_SOURCE_DIR}/Thirdparty/libviso2/include
-${PROJECT_SOURCE_DIR}/Thirdparty/g2o_EXTERNAL # ceres autodiff
+#${PROJECT_SOURCE_DIR}/Thirdparty/g2o_EXTERNAL # ceres autodiff
+${vio_common_INCLUDE_DIRS}
+${vio_g2o_INCLUDE_DIRS}
 )
 
 LIST(APPEND SOURCEFILES
@@ -117,10 +125,6 @@ src/Sim3Solver.cc
 src/Initializer.cc
 src/stereoSFM.cpp
 src/MotionModel.cpp
-
-g2o_types/anchored_points.cpp
-g2o_types/IMU_constraint.cpp
-g2o_types/scale_solver.cpp
 )
 
 IF(USE_ROS)
@@ -145,7 +149,9 @@ ${G2O_LIBRARY_DIR}/libg2o_types_slam3d.so
 
 ${PROJECT_SOURCE_DIR}/Thirdparty/DBoW2/lib/libDBoW2.so
 ${PROJECT_SOURCE_DIR}/Thirdparty/libviso2/lib/libviso2.so
-${VIKIT_COMMON_LIBRARIES}
+${vikit_common_LIBRARIES}
+${vio_common_LIBRARIES}
+${vio_g2o_LIBRARIES}
 )
 
 IF(USE_ROS)

@@ -27,7 +27,7 @@
 #include<ros/ros.h>
 //#include <cv_bridge/cv_bridge.h>
 #endif
-#include "g2o_types/timegrabber.h"
+#include "vio/timegrabber.h"
 #include<opencv2/opencv.hpp>
 
 #include"ORBmatcher.h"
@@ -49,7 +49,6 @@
 
 using namespace std;
 using namespace Sophus;
-using namespace ScaViSLAM;
 
 namespace ORB_SLAM
 {
@@ -360,13 +359,13 @@ void Tracking::Run()
     out_stream<<"%Each row is timestamp, pos of camera in world frame, rotation to world from camera frame in quaternion xyzw format"<<endl;
     out_stream << fixed;
 
-    ScaViSLAM::IMUProcessor* imu_proc=NULL;
+    vio::IMUProcessor* imu_proc=NULL;
     Sophus::SE3d T_s1_to_w;
     Eigen::Matrix<double, 9, 1> speed_bias_1=Eigen::Matrix<double, 9, 1>::Zero();
     Sophus::SE3d predTcp;
     if(mbUseIMUData){
         string imu_file=mfsSettings["imu_file"];
-        imu_proc=new ScaViSLAM::IMUProcessor(imu_file, imu_sample_interval, imu_);
+        imu_proc=new vio::IMUProcessor(imu_file, imu_sample_interval, imu_);
 
         //initialize IMU states
         T_s1_to_w=imu_.T_imu_from_cam.inverse();

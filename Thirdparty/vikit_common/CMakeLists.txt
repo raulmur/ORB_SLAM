@@ -23,8 +23,8 @@ SET(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -O3 -fsee -fomit-frame-pointer -
 # Add plain cmake packages 
 FIND_PACKAGE(OpenCV REQUIRED)
 FIND_PACKAGE(Eigen REQUIRED)
-#FIND_PACKAGE(Sophus REQUIRED)
-SET(Sophus_INCLUDE_DIRS $ENV{HOME}/catkin_ws/src/orbslam_dwo/Thirdparty/Sophus)
+FIND_PACKAGE(Sophus REQUIRED)
+
 # Include dirs
 INCLUDE_DIRECTORIES(
   include

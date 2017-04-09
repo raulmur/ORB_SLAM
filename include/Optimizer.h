@@ -44,27 +44,27 @@ public:
     int static PoseOptimization(Frame* pFrame, Map* pMap=NULL); // optimize w.r.t tracked mappoints, used in track last frame and relocalization
 
     // functions used by LocalOptimizer in tracking thread
-    void static setupG2o(ScaViSLAM::G2oCameraParameters * g2o_cam,
-                  ScaViSLAM::G2oCameraParameters * g2o_cam_right,
-               ScaViSLAM::G2oIMUParameters * g2o_imu,
+    void static setupG2o(vio::G2oCameraParameters * g2o_cam,
+                  vio::G2oCameraParameters * g2o_cam_right,
+               vio::G2oIMUParameters * g2o_imu,
                g2o::SparseOptimizer * optimizer);
 
-    static ScaViSLAM::G2oVertexSE3* addPoseToG2o(const Sophus::SE3d & T_me_from_w,
+    static vio::G2oVertexSE3* addPoseToG2o(const Sophus::SE3d & T_me_from_w,
                    int pose_id,
                    bool fixed,
                    g2o::SparseOptimizer * optimizer,
                       const Sophus::SE3d* first_estimate=NULL);
-    static ScaViSLAM::G2oVertexSpeedBias* addSpeedBiasToG2o(const Eigen::Matrix<double, 9,1> & vinw_bias,
+    static vio::G2oVertexSpeedBias* addSpeedBiasToG2o(const Eigen::Matrix<double, 9,1> & vinw_bias,
                    int sb_id,
                    bool fixed,
                    g2o::SparseOptimizer * optimizer,
                            const Eigen::Matrix<double, 9,1> * first_estimate= NULL);
-    static ScaViSLAM::G2oVertexPointXYZ* addPointToG2o( MapPoint* pPoint,
+    static vio::G2oVertexPointXYZ* addPointToG2o( MapPoint* pPoint,
                 int g2o_point_id, bool fixed,
                 g2o::SparseOptimizer * optimizer);
 
-    static ScaViSLAM::G2oEdgeProjectXYZ2UV* addObsToG2o(const Eigen::Vector2d & obs, const Eigen::Matrix2d & Lambda,
-              ScaViSLAM::G2oVertexPointXYZ*, ScaViSLAM::G2oVertexSE3*, bool robustify,  double huber_kernel_width,
+    static vio::G2oEdgeProjectXYZ2UV* addObsToG2o(const Eigen::Vector2d & obs, const Eigen::Matrix2d & Lambda,
+              vio::G2oVertexPointXYZ*, vio::G2oVertexSE3*, bool robustify,  double huber_kernel_width,
               g2o::SparseOptimizer * optimizer, Sophus::SE3d * pTs2c=NULL);
 
     static size_t copyAllPosesToG2o(g2o::SparseOptimizer * optimizer, const std::vector<KeyFrame*> vpLocalKeyFrames,
@@ -74,11 +74,11 @@ public:
     /// Temporary container to hold the g2o edge with reference to frame and point.
     struct EdgeContainerSE3d
     {
-        ScaViSLAM::G2oEdgeProjectXYZ2UV*     edge;
+        vio::G2oEdgeProjectXYZ2UV*     edge;
         Frame*          frame;
         size_t id_; // id in frame feature vector
         bool            is_deleted;
-        EdgeContainerSE3d(ScaViSLAM::G2oEdgeProjectXYZ2UV* e, Frame* frame, size_t id) :
+        EdgeContainerSE3d(vio::G2oEdgeProjectXYZ2UV* e, Frame* frame, size_t id) :
             edge(e), frame(frame),id_(id),is_deleted(false)
         {}
     };
@@ -87,7 +87,7 @@ public:
                               Map* pMap, const std::vector<KeyFrame*>& vpLocalKeyFrames,
                               std::vector<MapPoint*>& vpLocalMapPoints,
                               const std::deque<Frame*>& vpTemporalFrames, Frame* pCurrentFrame,
-                              Frame *pLastFrame =NULL, ScaViSLAM::G2oIMUParameters* imu =NULL,
+                              Frame *pLastFrame =NULL, vio::G2oIMUParameters* imu =NULL,
                               vk::PinholeCamera * right_cam =NULL, Sophus::SE3d * pTl2r= NULL);
 
     // used by local mapping thread

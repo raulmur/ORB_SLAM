@@ -20,7 +20,8 @@
 
 #ifndef FRAME_H
 #define FRAME_H
-#include "g2o_types/PointStatistics.h"
+#include "vio/PointStatistics.h"
+#include "vio_g2o/anchored_points.h"
 #include <Eigen/Dense>
 #include <viso2/p_match.h> //for matches adopted from libviso2
 
@@ -33,10 +34,7 @@
 #include "g2o/types/sba/types_six_dof_expmap.h"
 #include <vikit/pinhole_camera.h>
 #include <opencv2/opencv.hpp>
-namespace ScaViSLAM{
-class G2oVertexSE3;
-class G2oVertexSpeedBias;
-}
+
 namespace ORB_SLAM
 {
 #define FRAME_GRID_ROWS 48
@@ -287,8 +285,8 @@ inline void updatePointStatistics(PointStatistics* stats){
     Eigen::Matrix3d mRcw;
     Eigen::Vector3d mtcw;
 
-    ScaViSLAM::G2oVertexSE3*                   v_kf_;                  //!< Temporary pointer to the g2o node object of the keyframe.
-    ScaViSLAM::G2oVertexSpeedBias*        v_sb_; //!< temporary pointer to g2o speed bias vertex
+    vio::G2oVertexSE3*                   v_kf_;                  //!< Temporary pointer to the g2o node object of the keyframe.
+    vio::G2oVertexSpeedBias*        v_sb_; //!< temporary pointer to g2o speed bias vertex
 private:
     void ComputeImageBounds();
     Frame& operator= (const Frame&);

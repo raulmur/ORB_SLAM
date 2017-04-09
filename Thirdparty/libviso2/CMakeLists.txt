@@ -44,11 +44,10 @@ MESSAGE("CMAKE_CXX_FLAGS:" ${CMAKE_CXX_FLAGS})
 include_directories(include/viso2)
 
 IF(HAVE_TOON)
-  SET(TOON_INCLUDE_DIR $ENV{HOME}/ScaViSLAM/svslocal/include)
+  SET(TOON_INCLUDE_DIR $ENV{HOME}/TooN)
   include_directories(${TOON_INCLUDE_DIR})
 ENDIF()
 
- 
 # add opencv libraries for 5 point algorithm
 IF(HAVE_OPENCV)
   IF(USE_SYSTEM_OPENCV)

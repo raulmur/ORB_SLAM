@@ -35,7 +35,21 @@ The Boost library is used to launch different threads of the SLAM system.
 OpenCV is mainly used for feature extraction, and matching. It can be installed via: 
 		sudo apt-get install libopencv-dev
 
-##2.3 Install ROS (optional) and download orbslam_dwo
+##2.3 Eigen >3.0
+Eigen can be installed via
+		sudo apt-get install libeigen3-dev
+However, in Ubuntu 16.04, the above command may install Eigen 3.0 rather than newer versions. If a newer version is desired, you may build and install Eigen from the source. To do that, first download the proper source archive package from [here](http://eigen.tuxfamily.org/index.php?title=Main_Page), the following assuming Eigen 3.2.10 is downloaded into /home/username/ folder. Second, open a terminal and type
+
+	tar xvjf eigen-eigen-b9cd8366d4e8.tar.bz2
+	mv eigen-eigen-b9cd8366d4e8 eigen-3.2.10
+	cd eigen-3.2.10
+	mkdir build
+	cd build
+	cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX:PATH=/usr/local ..
+	make
+	sudo make install
+
+##2.4 Install ROS (optional) and download orbslam_dwo
 
 To build the program with the ROS support, a ROS distribution (e.g. Indigo) needs to be installed. For now, the program is only tested with Indigo, but it should work with Hydro and Jade because it only relies on a few basic features of ROS, e.g. ros::rate, ROS_INFO(). After ROS is installed, a catkin workspace has to be set up using this [tutorial](http://wiki.ros.org/catkin/Tutorials/create_a_workspace). From now on, let's suppose the workspace path is `~/home/username/catkin_ws`.
 
@@ -49,24 +63,40 @@ Regardless of the ROS support, download ORBSLAM_DWO into the workspace folder vi
 
 The last command renames the downloaded folder into orbslam_dwo. That is the folder where the following dependencies are to be built and installed.
 
-##2.4 g2o and its dependencies 
+##2.5 g2o and its dependencies 
 g2o is used to perform optimization tasks. Its dependencies(Eigen, CMAKE, SuiteSparse, QGLViewer) can be installed via:
-		sudo apt-get install cmake libeigen3-dev libsuitesparse-dev libqglviewer-dev
-To avoid system wide installation, g2o is recommended to be installed into the local folder '~/home/username/catkin_ws/src/orbslam_dwo/Thirdparty'. To do that, navigate to that folder in a terminal, and run the following commands:
+		sudo apt-get install cmake libsuitesparse-dev libqglviewer-dev
+Note this step assumes that Eigen is already installed.
+To avoid system wide installation, g2o is recommended to be installed into a local folder, e.g., '~/home/username/g2o/local_install'. To do that, navigate to the /home/username/ folder in a terminal, and run the following commands:
 		
 		git clone https://github.com/RainerKuemmerle/g2o.git
 		cd g2o
 		mkdir local_install
 		mkdir build
 		cd build
-		cmake .. -DCMAKE_INSTALL_PREFIX:PATH=$HOME/catkin_ws/src/orbslam_dwo/Thirdparty/g2o/local_install -DCMAKE_BUILD_TYPE=Release
+		cmake .. -DCMAKE_INSTALL_PREFIX:PATH=$HOME/g2o/local_install -DCMAKE_BUILD_TYPE=Release -DEIGEN3_INCLUDE_DIR:PATH=/usr/local/include/eigen3
 		make -j4
 		make install
 		cd
 
-For all the following dependencies(libraries), you DON'T need to install them (e.g., execute 'make install').
+##2.6 Sophus
+The modified version of Sophus by Steven Lovegrove is used to manipulate Lie group members. The reason why Hauke Strasdat's version is not used is that Lovegrove's version is a header only library. More importantly, it complies with the jet numbers used in the autodiff module of the ceres solver. In this case, assume it is to be put in /home/username/Sophus. To do that, navigate to the /home/username folder in a terminal and run: 
+		git clone https://github.com/stevenlovegrove/Sophus.git
+		cd Sophus
+		git checkout b474f0
+		cmake ..
+		make 
 
-##2.5 autodiff of the ceres solver (included)
+For all the following dependencies(libraries), you DON'T need to install them (e.g., execute 'make install').
+##2.7 vio_common
+Suppose it is put in /home/username/vio_common folder, first download it, then navigate to /home/username/vio_common,
+		
+		mkdir build
+		cd build
+		cmake .. -DCMAKE_BUILD_TYPE=Release
+		make -j4
+
+##2.7 vio_g2o and autodiff of the ceres solver (included)
 The autodiff module of the [ceres solver](https://github.com/ceres-solver/ceres-solver.git) is used to compute Jacobians in the IMU constraint. Automatic differentiation is necessary because in the program the full exponential map is used to map se(3) to SE(3). If a first order approximation is used, e.g., in [OKVIS](https://github.com/ethz-asl/okvis.git), analytic Jacobians can be derived. 
 
 Interestingly, g2o also borrows the autodiff module of the ceres solver, the related files of autodiff are put into a folder, g2o/EXTERNAL/ceres. But these files in g2o/EXTERNAL/ceres have problems in compiling orbslam_dwo, possibly because they are quite old. So I extracted these files from a recent version of the ceres solver, and put them into the orbslam_dwo/Thirdparty/g2o_EXTERNAL folder shipped in orbslam_dwo.
@@ -88,12 +118,6 @@ libviso2 is used to detect matches between two pairs of stereo images, also call
 		cd build
 		cmake ..
 		make  
-
-##2.8 Sophus
-The modified version of Sophus by Steven Lovegrove is used to manipulate Lie group members. The reason why Hauke Strasdat's version is not used is that Lovegrove's version is a header only library. More importantly, it complies with the jet numbers used in the autodiff module of the ceres solver. To use it, downloading is enough. To do that, navigate to the orbslam_dwo/Thirdparty folder in a terminal and run: 
-		git clone https://github.com/stevenlovegrove/Sophus.git
-		cd Sophus
-		git checkout b474f0
 
 ##2.9 vikit (included)
 [rpg-vikit](https://github.com/uzh-rpg/rpg_vikit.git) is used to deal with camera models. It depends on Strasdat's version of Sophus. To make it work with Lovegrove's Sophus, SE3 is changed to SE3d, rotation_matrix() to rotationMatrix(), #include <sophus/se3.h> to #include <sophus/se3.hpp> in several of its files. Also, in rpg_vikit/vikit_common/CMakeLists.txt I set the flag USE_ROS to FALSE and added the path to Lovegrove's Sophus. For easy compilation, it is also included in the orbslam_dwo distribution. 

@@ -37,8 +37,8 @@
 
 #include "sophus/sim3.hpp"
 
-#include "g2o_types/anchored_points.h"
-#include "g2o_types/IMU_constraint.h"
+#include "vio_g2o/anchored_points.h"
+#include "vio_g2o/IMU_constraint.h"
 #include <g2o/core/block_solver.h> //for sparseoptimizer
 
 #include <viso2/p_match.h> //for matches adopted from libviso2
@@ -250,7 +250,7 @@ protected:
     //IMU related parameters
     bool mbUseIMUData;
     double imu_sample_interval;             //sampling interval in second
-    ScaViSLAM::G2oIMUParameters imu_;
+    vio::G2oIMUParameters imu_;
 
     int mnStartId; // used to offset the ID of frames
 
