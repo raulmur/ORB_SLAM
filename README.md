@@ -96,12 +96,13 @@ Suppose it is put in /home/username/vio_common folder, first download it, then n
 		cmake .. -DCMAKE_BUILD_TYPE=Release
 		make -j4
 
-##2.7 vio_g2o and autodiff of the ceres solver (included)
+##2.8 vio_g2o
+vio_g2o is an extension to g2o. It includes vertices, edges, parameters used in visual inertial optimization. 
 The autodiff module of the [ceres solver](https://github.com/ceres-solver/ceres-solver.git) is used to compute Jacobians in the IMU constraint. Automatic differentiation is necessary because in the program the full exponential map is used to map se(3) to SE(3). If a first order approximation is used, e.g., in [OKVIS](https://github.com/ethz-asl/okvis.git), analytic Jacobians can be derived. 
 
 Interestingly, g2o also borrows the autodiff module of the ceres solver, the related files of autodiff are put into a folder, g2o/EXTERNAL/ceres. But these files in g2o/EXTERNAL/ceres have problems in compiling orbslam_dwo, possibly because they are quite old. So I extracted these files from a recent version of the ceres solver, and put them into the orbslam_dwo/Thirdparty/g2o_EXTERNAL folder shipped in orbslam_dwo.
 
-##2.6 DBoW2 (included)
+##2.9 DBoW2 (included)
 Some components of the DBoW2 library are used for place recognition and feature matching. A modified copy of the library
 including only the necessary components and some modifications that are listed in Thirdparty/DBoW2/LICENSE.txt.
 It only depends on OpenCV, and it is included in the distribution. To compile it, navigate to Thirdparty/DBoW2/ in a terminal and execute:
@@ -111,7 +112,7 @@ It only depends on OpenCV, and it is included in the distribution. To compile it
 		cmake ..
 		make  
 
-##2.7 libviso2 (included)
+##2.10 libviso2 (included)
 libviso2 is used to detect matches between two pairs of stereo images, also called quad matches. These matches are used in ORBSLAM_DWO for tracking and triangulating features. Because a few changes are made, it is included in the distribution. To build it, navigate to Thirdparty/libviso2/ in a terminal and execute:
 
 		mkdir build
@@ -119,7 +120,7 @@ libviso2 is used to detect matches between two pairs of stereo images, also call
 		cmake ..
 		make  
 
-##2.9 vikit (included)
+##2.11 vikit (included)
 [rpg-vikit](https://github.com/uzh-rpg/rpg_vikit.git) is used to deal with camera models. It depends on Strasdat's version of Sophus. To make it work with Lovegrove's Sophus, SE3 is changed to SE3d, rotation_matrix() to rotationMatrix(), #include <sophus/se3.h> to #include <sophus/se3.hpp> in several of its files. Also, in rpg_vikit/vikit_common/CMakeLists.txt I set the flag USE_ROS to FALSE and added the path to Lovegrove's Sophus. For easy compilation, it is also included in the orbslam_dwo distribution. 
 If the catkin workspace folder is not ~/catkin_ws, then the line "SET(Sophus_INCLUDE_DIRS $ENV{HOME}/catkin_ws/src/orbslam_dwo/Thirdparty/Sophus)" in CMakeLists.txt of vikit_common folder needs to be changed accordingly.
 

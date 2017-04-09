@@ -398,7 +398,7 @@ void Tracking::Run()
         cap.set(CV_CAP_PROP_POS_FRAMES, numImages); //start from numImages, 0 based index
         totalImages =std::min(totalImages, (int)cap.get(CV_CAP_PROP_FRAME_COUNT));
         int width= cap.get(CV_CAP_PROP_FRAME_WIDTH), height= cap.get(CV_CAP_PROP_FRAME_HEIGHT);
-        int downscale = GetDownScale(width, height, 1280);
+        int downscale = vio::GetDownScale(width, height, 1280);
         vk::PinholeCamera* oldCam = cam_;
 
         cam_ = new vk::PinholeCamera( oldCam->width()/downscale, oldCam->height()/downscale, oldCam->fx()/downscale,
@@ -502,7 +502,7 @@ void Tracking::Run()
         ofstream viso2_stream(viso2_output_file);
 #endif
         string time_filename=mfsSettings["time_file"]; //timestamps for frames
-        TimeGrabber tg(time_filename);
+        vio::TimeGrabber tg(time_filename);
 
         char base_name[256];                // input file names
         string left_img_file_name;

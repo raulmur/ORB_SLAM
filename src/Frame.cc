@@ -738,7 +738,7 @@ Eigen::Matrix3d Frame::ComputeFlr(Frame* pRightF, const Sophus::SE3d & Tl2r)
     Sophus::SE3d Tr2l= Tl2r.inverse();
     Eigen::Matrix3d R12 = Tr2l.rotationMatrix();
     Eigen::Vector3d t12 = Tr2l.translation();
-    Eigen::Matrix3d t12x = skew3d(t12);
+    Eigen::Matrix3d t12x = vio::skew3d(t12);
     return (cam_.K_inv().transpose())*t12x*R12*(pRightF->cam_.K_inv());
 }
 

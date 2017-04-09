@@ -22,6 +22,7 @@
 #define FRAME_H
 #include "vio/PointStatistics.h"
 #include "vio_g2o/anchored_points.h"
+#include "vio_g2o/IMU_constraint.h"
 #include <Eigen/Dense>
 #include <viso2/p_match.h> //for matches adopted from libviso2
 

@@ -1259,8 +1259,8 @@ int Optimizer::OptimizeSim3(KeyFrame *pKF1, KeyFrame *pKF2, vector<MapPoint *> &
     return nIn;
 }
 void Optimizer::setupG2o(vio::G2oCameraParameters * g2o_cam,
-                        G2oCameraParameters*g2o_cam_right,
-                        G2oIMUParameters * g2o_imu,
+                        vio::G2oCameraParameters*g2o_cam_right,
+                        vio::G2oIMUParameters * g2o_imu,
                         g2o::SparseOptimizer * optimizer)
 {
     bool bUseIMUData= g2o_imu!=NULL;
@@ -1317,13 +1317,13 @@ void Optimizer::setupG2o(vio::G2oCameraParameters * g2o_cam,
     }
 }
 
-G2oVertexSE3* Optimizer::addPoseToG2o(const SE3d & T_me_from_w,
+vio::G2oVertexSE3* Optimizer::addPoseToG2o(const Sophus::SE3d & T_me_from_w,
                                      int pose_id,
                                      bool fixed,
                                      g2o::SparseOptimizer * optimizer,
                                      const Sophus::SE3d* first_estimate)
 {
-    G2oVertexSE3 * v_se3 = new G2oVertexSE3();
+    vio::G2oVertexSE3 * v_se3 = new vio::G2oVertexSE3();
     v_se3->setId(pose_id);
     v_se3->setEstimate(T_me_from_w);
     v_se3->setFixed(fixed);
@@ -1332,13 +1332,13 @@ G2oVertexSE3* Optimizer::addPoseToG2o(const SE3d & T_me_from_w,
     optimizer->addVertex(v_se3);
     return v_se3;
 }
-G2oVertexSpeedBias* Optimizer::addSpeedBiasToG2o(const Matrix<double, 9,1> & vinw_bias,
+vio::G2oVertexSpeedBias* Optimizer::addSpeedBiasToG2o(const Matrix<double, 9,1> & vinw_bias,
                                                 int sb_id,
                                                 bool fixed,
                                                 g2o::SparseOptimizer * optimizer,
                                                 const Eigen::Matrix<double, 9,1> * first_estimate)
 {
-    G2oVertexSpeedBias * v_sb = new G2oVertexSpeedBias();
+    vio::G2oVertexSpeedBias * v_sb = new vio::G2oVertexSpeedBias();
     v_sb->setId(sb_id);
     v_sb->setEstimate(vinw_bias);
     v_sb->setFixed(fixed);
@@ -1349,11 +1349,11 @@ G2oVertexSpeedBias* Optimizer::addSpeedBiasToG2o(const Matrix<double, 9,1> & vin
     return v_sb;
 }
 
-G2oVertexPointXYZ* Optimizer::addPointToG2o( MapPoint* pPoint,
+vio::G2oVertexPointXYZ* Optimizer::addPointToG2o( MapPoint* pPoint,
                                                    int g2o_point_id, bool fixed,
                                                    g2o::SparseOptimizer * optimizer)
 {
-    G2oVertexPointXYZ * v_point = new G2oVertexPointXYZ;
+    vio::G2oVertexPointXYZ * v_point = new vio::G2oVertexPointXYZ;
     v_point->setId(g2o_point_id);
     v_point->setFixed(fixed);
     v_point->setEstimate(pPoint->GetWorldPos());
@@ -1364,7 +1364,7 @@ G2oVertexPointXYZ* Optimizer::addPointToG2o( MapPoint* pPoint,
     return v_point;
 }
 
-G2oEdgeProjectXYZ2UV* Optimizer::addObsToG2o(const Vector2d & obs,
+vio::G2oEdgeProjectXYZ2UV* Optimizer::addObsToG2o(const Vector2d & obs,
                                             const Matrix2d & Lambda,
                                             vio::G2oVertexPointXYZ* point_vertex,
                                             vio::G2oVertexSE3* pose_vertex,
@@ -1372,11 +1372,11 @@ G2oEdgeProjectXYZ2UV* Optimizer::addObsToG2o(const Vector2d & obs,
                                             double huber_kernel_width,
                                             g2o::SparseOptimizer * optimizer, SE3d * pTs2c)
 {
-    G2oEdgeProjectXYZ2UV * e=NULL;
+    vio::G2oEdgeProjectXYZ2UV * e=NULL;
     if(pTs2c)
-        e = new G2oExEdgeProjectXYZ2UV(*pTs2c);
+        e = new vio::G2oExEdgeProjectXYZ2UV(*pTs2c);
     else
-        e = new G2oEdgeProjectXYZ2UV();
+        e = new vio::G2oEdgeProjectXYZ2UV();
     e->resize(2);
 
     assert(point_vertex->dimension()==3);
@@ -1494,7 +1494,7 @@ int Optimizer::LocalOptimize(vk::PinholeCamera * cam,
     bool bUseIMUData = imu!=NULL;
     g2o::SparseOptimizer optimizer;
     vio::G2oCameraParameters  * g2o_cam
-            = new G2oCameraParameters(Vector2d(cam->cx(), cam->cy()),
+            = new vio::G2oCameraParameters(Vector2d(cam->cx(), cam->cy()),
                                       Vector2d(cam->fx(), cam->fy()));
     g2o_cam->setId(0);
     vio::G2oCameraParameters  * g2o_cam_right=NULL;
@@ -1504,10 +1504,10 @@ int Optimizer::LocalOptimize(vk::PinholeCamera * cam,
                                       Vector2d(right_cam->fx(), right_cam->fy()));
     g2o_cam_right->setId(1);
 #endif
-    G2oIMUParameters  * g2o_imu  = NULL;
+    vio::G2oIMUParameters  * g2o_imu  = NULL;
     if(bUseIMUData)
     {
-        g2o_imu  = new G2oIMUParameters(*imu);
+        g2o_imu  = new vio::G2oIMUParameters(*imu);
         g2o_imu->setId(2);
     }
     setupG2o(g2o_cam, g2o_cam_right, g2o_imu, &optimizer);
@@ -1537,7 +1537,7 @@ int Optimizer::LocalOptimize(vk::PinholeCamera * cam,
         if(pMP->isBad()) { (*it_pt)=NULL; continue;}
         std::map<KeyFrame*, size_t> obs_copy= pMP->GetObservations();
         if(obs_copy.size()<2) { (*it_pt)=NULL; continue;}
-        G2oVertexPointXYZ*v_pt= addPointToG2o(pMP, pMP->mnId + nOffset, false, &optimizer);
+        vio::G2oVertexPointXYZ*v_pt= addPointToG2o(pMP, pMP->mnId + nOffset, false, &optimizer);
         pMP->v_pt_= v_pt;
         ++n_mps;
         // Add edges
@@ -1569,7 +1569,7 @@ int Optimizer::LocalOptimize(vk::PinholeCamera * cam,
             obs << kpUn.pt.x, kpUn.pt.y;
             const float invSigma2 = pKF->GetInvSigma2(kpUn.octave);
             Eigen::Matrix2d infoMat=Eigen::Matrix2d::Identity()*invSigma2;
-            G2oEdgeProjectXYZ2UV* porter=addObsToG2o(obs, infoMat,
+            vio::G2oEdgeProjectXYZ2UV* porter=addObsToG2o(obs, infoMat,
                                                      v_pt, pKF->v_kf_, true, delta, &optimizer);
             edges.push_back(EdgeContainerSE3d(porter, pKF, mit_obs->second));
 
@@ -1591,7 +1591,7 @@ int Optimizer::LocalOptimize(vk::PinholeCamera * cam,
         for (std::deque<Frame*>::const_iterator  it_win = vpTemporalFrames.begin(), it_end_win= vpTemporalFrames.end();
              it_win!=it_end_win; ++it_win)
         {
-            G2oEdgeIMUConstraint * e = new G2oEdgeIMUConstraint();
+            vio::G2oEdgeIMUConstraint * e = new vio::G2oEdgeIMUConstraint();
             e->setParameterId(0,2);
             e->resize(4);
             if((*it_win)->next_frame ==NULL)//must be the last frame in the temporal window
@@ -1656,7 +1656,7 @@ int Optimizer::LocalOptimize(vk::PinholeCamera * cam,
         }
 #ifndef MONO
         // the previous frame and current frame
-        G2oEdgeIMUConstraint * e = new G2oEdgeIMUConstraint();
+        vio::G2oEdgeIMUConstraint * e = new vio::G2oEdgeIMUConstraint();
         e->setParameterId(0,2);
         e->resize(4);
         e->vertices()[0]
@@ -1697,7 +1697,7 @@ int Optimizer::LocalOptimize(vk::PinholeCamera * cam,
                 obs << kpUn.pt.x, kpUn.pt.y;
                 const float invSigma2 = (*qIt)->GetInvSigma2(kpUn.octave);
                 Eigen::Matrix2d infoMat=Eigen::Matrix2d::Identity()*invSigma2;
-                G2oEdgeProjectXYZ2UV* porter=addObsToG2o(obs, infoMat,
+                vio::G2oEdgeProjectXYZ2UV* porter=addObsToG2o(obs, infoMat,
                                                          pMP->v_pt_, (*qIt)->v_kf_, true, delta, &optimizer);
 
                 edges.push_back(EdgeContainerSE3d(porter, *qIt, jim));
@@ -1726,7 +1726,7 @@ int Optimizer::LocalOptimize(vk::PinholeCamera * cam,
             obs << kpUn.pt.x, kpUn.pt.y;
             const float invSigma2 = pLastFrame->GetInvSigma2(kpUn.octave);
             Eigen::Matrix2d infoMat=Eigen::Matrix2d::Identity()*invSigma2;
-            G2oEdgeProjectXYZ2UV* porter=addObsToG2o(obs, infoMat,
+            vio::G2oEdgeProjectXYZ2UV* porter=addObsToG2o(obs, infoMat,
                                                      pMP->v_pt_, pLastFrame->v_kf_, true, delta, &optimizer);
             edges.push_back(EdgeContainerSE3d(porter, pLastFrame, jim));
 
@@ -1754,7 +1754,7 @@ int Optimizer::LocalOptimize(vk::PinholeCamera * cam,
             const float invSigma2 = pCurrentFrame->GetInvSigma2(kpUn.octave);
             Eigen::Matrix2d infoMat=Eigen::Matrix2d::Identity()*invSigma2;
 
-            G2oEdgeProjectXYZ2UV* porter=addObsToG2o(obs, infoMat, pMP->v_pt_,
+            vio::G2oEdgeProjectXYZ2UV* porter=addObsToG2o(obs, infoMat, pMP->v_pt_,
                                                      pCurrentFrame->v_kf_, true, delta, &optimizer );
             edges.push_back(EdgeContainerSE3d(porter, pCurrentFrame, jim));
 
@@ -1791,7 +1791,7 @@ int Optimizer::LocalOptimize(vk::PinholeCamera * cam,
 // remove the right observations, because the extrinsic calibration error often causes drift
     for(auto it_edge= edges.begin(), ite_edge= edges.end(); it_edge!=ite_edge;)
     {
-        if(dynamic_cast<G2oExEdgeProjectXYZ2UV*>(it_edge->edge))
+        if(dynamic_cast<vio::G2oExEdgeProjectXYZ2UV*>(it_edge->edge))
             it_edge= edges.erase(it_edge);
         else
             ++it_edge;
@@ -1799,7 +1799,7 @@ int Optimizer::LocalOptimize(vk::PinholeCamera * cam,
 
     for(auto eg_it=optimizer.edges().begin(), eg_end= optimizer.edges().end(); eg_it!=eg_end; )
     {
-        if(dynamic_cast<G2oExEdgeProjectXYZ2UV*>(*eg_it))
+        if(dynamic_cast<vio::G2oExEdgeProjectXYZ2UV*>(*eg_it))
         {
             eg_it= optimizer.edges().erase(eg_it);
         }
@@ -1815,7 +1815,7 @@ int Optimizer::LocalOptimize(vk::PinholeCamera * cam,
     // Check inlier observations, draw inspiration from LocalBundleAdjustment and PoseOptimization
     for(list<EdgeContainerSE3d>::iterator it = edges.begin(); it != edges.end();)
     {
-        G2oEdgeProjectXYZ2UV* e1 = it->edge;
+        vio::G2oEdgeProjectXYZ2UV* e1 = it->edge;
 //N.B. right observations are removed for stereo odometry
         if(e1->chi2()>delta2)
         {
@@ -1851,10 +1851,10 @@ int Optimizer::LocalOptimize(vk::PinholeCamera * cam,
     // Check inlier observations, this section draws inspiration from LocalBundleAdjustment and PoseOptimization by Raul
     for(list<EdgeContainerSE3d>::iterator it = edges.begin(); it != edges.end(); )
     {
-        G2oEdgeProjectXYZ2UV* e1 = it->edge;
+        vio::G2oEdgeProjectXYZ2UV* e1 = it->edge;
 #if 0 //right observations are removed
         ++it;
-        G2oExEdgeProjectXYZ2UV* e2 = (G2oExEdgeProjectXYZ2UV*)it->edge;
+        vio::G2oExEdgeProjectXYZ2UV* e2 = (vio::G2oExEdgeProjectXYZ2UV*)it->edge;
         if(e1->chi2()>delta2 || e2->chi2()>delta2)// || !e->isDepthPositive())
 #else
         if(e1->chi2()>delta2)
