@@ -19,7 +19,7 @@
 */
 #include "Tracking.h"
 #include "config.h"
-#include "utils.h"
+
 #include "global.h" //performance monitor
 
 #include <opencv2/core/eigen.hpp>
@@ -27,6 +27,7 @@
 #include<ros/ros.h>
 //#include <cv_bridge/cv_bridge.h>
 #endif
+#include "vio/utils.h"
 #include "vio/timegrabber.h"
 #include<opencv2/opencv.hpp>
 
