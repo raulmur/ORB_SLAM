@@ -99,7 +99,6 @@ ${Sophus_INCLUDE_DIR}
 ${OPENCV_INCLUDE_DIR}
 ${vikit_common_INCLUDE_DIRS}
 ${PROJECT_SOURCE_DIR}/Thirdparty/libviso2/include
-#${PROJECT_SOURCE_DIR}/Thirdparty/g2o_EXTERNAL # ceres autodiff
 ${vio_common_INCLUDE_DIRS}
 ${vio_g2o_INCLUDE_DIRS}
 )
@@ -147,7 +146,7 @@ ${G2O_LIBRARY_DIR}/libg2o_types_sba.so
 ${G2O_LIBRARY_DIR}/libg2o_types_sim3.so
 ${G2O_LIBRARY_DIR}/libg2o_types_slam3d.so
 
-${PROJECT_SOURCE_DIR}/Thirdparty/DBoW2/lib/libDBoW2.so
+${DBOW2_LIB}
 ${PROJECT_SOURCE_DIR}/Thirdparty/libviso2/lib/libviso2.so
 ${vikit_common_LIBRARIES}
 ${vio_common_LIBRARIES}
