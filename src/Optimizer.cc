@@ -1500,7 +1500,7 @@ int Optimizer::LocalOptimize(vk::PinholeCamera * cam,
     vio::G2oCameraParameters  * g2o_cam_right=NULL;
 #ifndef MONO
     g2o_cam_right
-            = new G2oCameraParameters(Vector2d(right_cam->cx(), right_cam->cy()),
+            = new vio::G2oCameraParameters(Vector2d(right_cam->cx(), right_cam->cy()),
                                       Vector2d(right_cam->fx(), right_cam->fy()));
     g2o_cam_right->setId(1);
 #endif

@@ -7,9 +7,9 @@ dataset: "Tsukuba" # choose one of KITTISeq00, Tsukuba, MalagaUrbanExtract6
 use_imu_data: true
 
 input_path: /media/jhuai/Mag/NewTsukubaStereoDataset/illumination/daylight 
-voc_file_path: /home/jhuai/catkin_ws/src/mono_csfm/ORB_SLAM2/Vocabulary/ORBvoc.txt
-output_file: /media/jhuai/Mag/temp/tsukuba_imu.txt
-output_point_file: /media/jhuai/Mag/temp/tsukuba_imu_points.txt
+voc_file_path: /home/jhuai/catkin_ws/src/ORB_SLAM2/Vocabulary/ORBvoc.txt
+output_file: /home/jhuai/Desktop/temp/tsukuba_imu.txt
+output_point_file: /home/jhuai/Desktop/temp/tsukuba_imu_points.txt
 imu_file: "/home/jhuai/catkin_ws/src/orbslam_dwo/data/tsukuba_imu_samplesnoisy.txt"  #samples added noise generated according to Microstrain 3DM-GX3-35
 
 trace_dir: "/home/jhuai/catkin_ws/src/orbslam_dwo/data/result" # where to put the slam profiled time

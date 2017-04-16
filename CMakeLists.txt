@@ -1,5 +1,5 @@
 SET(TRACE FALSE) # record timing of operations
-SET(MONO_SLAM TRUE) # if false stereo SLAM with or without IMU, if true, monocular SLAM
+SET(MONO_SLAM false) # if false stereo SLAM with or without IMU, if true, monocular SLAM
 SET(USE_ROS TRUE) # use ROS for visualization or not
 SET(USE_SYSTEM_OPENCV true) # Set False if you want to build this package using independent OpenCV instead of libopencv-dev
 

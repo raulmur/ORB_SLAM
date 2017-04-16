@@ -4,11 +4,11 @@ finishIndex: 4540
 dataset: "KITTIOdoSeq" # choose one of KITTISeq00, Tsukuba, MalagaUrbanExtract6
 use_imu_data:false
 
-input_path: /media/jhuai/Mag/kitti/dataset/sequences/00
-time_file: /media/jhuai/Mag/kitti/dataset/sequences/00/times.txt
-voc_file_path: /home/jhuai/catkin_ws/src/mono_csfm/ORB_SLAM2/Vocabulary/ORBvoc.txt
-output_file: /media/jhuai/Mag/temp/kittiseq00.txt
-output_point_file: /media/jhuai/Mag/temp/kittiseq00_points.txt
+input_path: /media/jhuai/Seagate/jhuai/kitti/dataset/sequences/00
+time_file: /media/jhuai/Seagate/jhuai/kitti/dataset/sequences/00/times.txt
+voc_file_path: /home/jhuai/catkin_ws/src/ORB_SLAM2/Vocabulary/ORBvoc.txt
+output_file: /home/jhuai/Desktop/temp/kittiseq00.txt
+output_point_file: /home/jhuai/Desktop/temp/kittiseq00_points.txt
 
 trace_dir: "/home/jhuai/catkin_ws/src/orbslam_dwo/data/result" # where to put the slam profiled time
 
