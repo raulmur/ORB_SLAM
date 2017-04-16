@@ -39,7 +39,7 @@ SET(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -O3 -fsee -fomit-frame-pointer -
 MESSAGE("CMAKE_CXX_FLAGS:" ${CMAKE_CXX_FLAGS})
 
 # use sse3 instruction set
-# SET(CMAKE_CXX_FLAGS "-msse3")
+SET(CMAKE_CXX_FLAGS "-msse3")
 
 include_directories(include/viso2)
 

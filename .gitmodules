@@ -4,3 +4,6 @@
 [submodule "Thirdparty/vio_common"]
 	path = Thirdparty/vio_common
 	url = https://JzHuai0108@bitbucket.org/JzHuai0108/vio_common.git
+[submodule "Thirdparty/viso2"]
+	path = Thirdparty/viso2
+	url = https://github.com/JzHuai0108/viso2.git
