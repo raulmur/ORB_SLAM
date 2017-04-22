@@ -29,15 +29,23 @@ If you use ORBSLAM_DWO in an academic work, please cite:
 The following installation procedure has been tested on Ubuntu 14.04 and 14.04.2.
 
 ##2.1 Boost
+
 The Boost library is used to launch different threads of the SLAM system.
+
 		sudo apt-get install libboost-all-dev 
+
 ##2.2 OpenCV 2.4.x
+
 OpenCV is mainly used for feature extraction, and matching. It can be installed via: 
+
 		sudo apt-get install libopencv-dev
 
 ##2.3 Eigen >=3.0
+
 Eigen can be installed via
+
 		sudo apt-get install libeigen3-dev
+
 However, in Ubuntu 14.04, the above command may install Eigen 3.0 rather than newer versions. If a newer version is desired, you may build and install Eigen from the source. To do that, first download the proper source archive package from [here](http://eigen.tuxfamily.org/index.php?title=Main_Page), the following assuming Eigen 3.2.10 is downloaded into /home/username/ folder. Second, open a terminal and type
 
 	tar xvjf eigen-eigen-b9cd8366d4e8.tar.bz2
@@ -64,9 +72,13 @@ Regardless of the ROS support, download ORBSLAM_DWO into the workspace folder vi
 The last command renames the downloaded folder into orbslam_dwo. That is the folder where the following dependencies are to be built and installed.
 
 ##2.5 g2o and its dependencies 
+
 g2o is used to perform optimization tasks. Its dependencies(Eigen, CMAKE, SuiteSparse, QGLViewer) can be installed via:
+
 		sudo apt-get install cmake libsuitesparse-dev libqglviewer-dev
+
 Note this step assumes that Eigen is already installed.
+
 To avoid system wide installation, g2o is recommended to be installed into a local folder, e.g., */home/username/g2o/local_install*. To do that, navigate to the /home/username/ folder in a terminal, and run the following commands:
 		
 		git clone https://github.com/RainerKuemmerle/g2o.git
@@ -80,7 +92,9 @@ To avoid system wide installation, g2o is recommended to be installed into a loc
 		cd
 
 ##2.6 Sophus
+
 The modified version of Sophus by Steven Lovegrove is used to manipulate Lie group members. The reason why Hauke Strasdat's version is not used is that Lovegrove's version is a header only library. More importantly, it complies with the jet numbers used in the autodiff module of the ceres solver. In this case, assume it is to be put in /home/username/Sophus. To do that, navigate to the /home/username folder in a terminal and run: 
+
 		git clone https://github.com/stevenlovegrove/Sophus.git
 		cd Sophus
 		git checkout b474f0
@@ -88,6 +102,7 @@ The modified version of Sophus by Steven Lovegrove is used to manipulate Lie gro
 		make 
 
 ##2.7 vio_common, vio_g2o, DBoW2, libviso2, vikit (all included in /Thirdparty)
+
 **vio_common** is a library of common functions to read videos, inertial data files, and to manipulate Eigen matrices.
 	
 **vio_g2o** extends g2o by defining additional (some even redundant) vertices, edges, parameters used in visual inertial optimization. **vio_g2o** depends on **vio_common** and apparently, g2o. In vio_g2o, the autodiff module of the [ceres solver](https://github.com/ceres-solver/ceres-solver.git) is used to compute Jacobians in the IMU constraint. Automatic differentiation is necessary because in the program the full exponential map is used to map se(3) to SE(3). If, however, a first order approximation is used, e.g., in [OKVIS](https://github.com/ethz-asl/okvis.git), analytic Jacobians can be derived. 
@@ -100,19 +115,21 @@ Note it depends on OpenCV.
 
 **libviso2** is used to detect matches between two pairs of stereo images, also called quad matches. These matches are used in ORBSLAM_DWO for tracking and triangulating features. Because a few changes are made, it is included in the /Thirdparty folder.
 
-[rpg-vikit](https://github.com/uzh-rpg/rpg_vikit.git) is used to deal with camera models. It depended on Strasdat's version of Sophus. To make it work with Lovegrove's Sophus, SE3 is changed to SE3d, *rotation_matrix*() to rotationMatrix(), #include <sophus/se3.h> to #include <sophus/se3.hpp> in several of its files. Also, in rpg_vikit/vikit_common/CMakeLists.txt I set the flag *USE_ROS* to FALSE. For easy compilation, it is also included in the orbslam_dwo distribution. 
+[**rpg-vikit**](https://github.com/uzh-rpg/rpg_vikit.git) is used to deal with camera models. It depended on Strasdat's version of Sophus. To make it work with Lovegrove's Sophus, SE3 is changed to SE3d, *rotation_matrix*() to rotationMatrix(), #include <sophus/se3.h> to #include <sophus/se3.hpp> in several of its files. Also, in rpg_vikit/vikit_common/CMakeLists.txt I set the flag *USE_ROS* to FALSE. For easy compilation, it is also included in the orbslam_dwo distribution. 
 
 To build these five dependencies, navigate to the /orbslam_dwo folder in a terminal and run: 
 
 		chmod +x ./build.sh
-                ./build.sh
+		./build.sh
 
 #3. Build ORBSLAM_DWO and test with KITTI seq 00 and Tsukuba CG stereo dataset
 
 ##3.1 stereo or stereo + inertial configuration
+
 In *orbslam_dwo/CMakeLists.txt* make sure line "*SET(MONO_SLAM FALSE)*". Note whether to use IMU data is determined by the *use_imu_data* field in the yaml setting file. Then build the program either with or without ROS as follows.
 
 ###3.1.1 With ROS
+
 In *orbslam_dwo/CMakeLists.txt* make sure line "SET(USE_ROS TRUE)".
 
 		cd catkin_ws
@@ -129,15 +146,19 @@ To test the program, first launch roscore and related viewers for inspection via
 Then depending on the data for tests, execute one of the following commands in another terminal. Note you may need to change the paths for data in the yaml setting file. The simulated IMU data for both KITTI seq 00 and Tsukuba dataset is included in the *orbslam_dwo/data* folder. Also you need to download the vocabulary file ORBvoc.txt from the [ORB-SLAM2](https://github.com/raulmur/ORB_SLAM2.git) repository on github.
 
 To test the program on KITTI seq 00 (stereo)
+
 		rosrun orbslam_dwo test_orbslam $HOME/catkin_ws/src/orbslam_dwo/data/settingfiles_stereo/kittiseq00.yaml
 
 To test the program on Tsukuba dataset (stereo)
+
                 rosrun orbslam_dwo test_orbslam $HOME/catkin_ws/src/orbslam_dwo/data/settingfiles_stereo/tsukuba.yaml
 
 To test the program on KITTI seq 00 with simulated inertial data (stereo + inertial)
+
 		rosrun orbslam_dwo test_orbslam $HOME/catkin_ws/src/orbslam_dwo/data/settingfiles_stereo_imu/kittiseq00_imu.yaml
 
 To test the program on Tsukuba dataset with simulated inertial data (stereo + inertial)
+
 		rosrun orbslam_dwo test_orbslam $HOME/catkin_ws/src/orbslam_dwo/data/settingfiles_stereo_imu/tsukuba_imu.yaml
 
 ###3.1.2 Without ROS
@@ -153,18 +174,22 @@ In *orbslam_dwo/CMakeLists.txt* make sure line "SET(USE_ROS FALSE)", then in a t
 Then depending on the data for tests, execute one of the following commands in another terminal. Note you may need to change the paths for data in the yaml setting file. The simulated IMU data for both KITTI seq 00 and Tsukuba dataset is included in the *orbslam_dwo/data* folder.
 
 To test the program on KITTI seq 00 (stereo)
+
 		cd catkin_ws/src/orbslam_dwo/bin
 		./test_orbslam $HOME/catkin_ws/src/orbslam_dwo/data/settingfiles_stereo/kittiseq00.yaml
 
 To test the program on Tsukuba dataset (stereo)
+
 		cd catkin_ws/src/orbslam_dwo/bin
                 ./test_orbslam $HOME/catkin_ws/src/orbslam_dwo/data/settingfiles_stereo/tsukuba.yaml
 
 To test the program on KITTI seq 00 with simulated inertial data (stereo + inertial)
+
 		cd catkin_ws/src/orbslam_dwo/bin
 		./test_orbslam $HOME/catkin_ws/src/orbslam_dwo/data/settingfiles_stereo_imu/kittiseq00_imu.yaml
 
 To test the program on Tsukuba dataset with simulated inertial data (stereo + inertial)
+
 		cd catkin_ws/src/orbslam_dwo/bin
 		./test_orbslam $HOME/catkin_ws/src/orbslam_dwo/data/settingfiles_stereo_imu/tsukuba_imu.yaml
 
@@ -173,6 +198,7 @@ To test the program on Tsukuba dataset with simulated inertial data (stereo + in
 In *orbslam_dwo/CMakeLists.txt* make sure line "SET(MONO_SLAM TRUE)". Note for now this program does not support monocular + inertial SLAM. Then build the program either with or without ROS as follows.
 
 ###3.2.1 With ROS
+
 In *orbslam_dwo/CMakeLists.txt* make sure line "SET(USE_ROS TRUE)".
 
 		cd catkin_ws
@@ -189,9 +215,11 @@ To test the program, first launch roscore and related viewers for inspection via
 Then depending on the data for tests, execute one of the following commands in another terminal. Note you may need to change the paths for data in the yaml setting file.
 
 To test the program on KITTI seq 00 (monocular)
+
 		rosrun orbslam_dwo test_orbslam $HOME/catkin_ws/src/orbslam_dwo/data/setttingfiles_mono/kittiseq00_mono.yaml
 
 To test the program on Tsukuba dataset (monocular)
+
                 rosrun orbslam_dwo test_orbslam $HOME/catkin_ws/src/orbslam_dwo/data/setttingfiles_mono/tsukuba_mono.yaml
 
 ###3.2.2 Without ROS
@@ -212,12 +240,14 @@ To test the program on KITTI seq 00 (monocular)
 		./test_orbslam $HOME/catkin_ws/src/orbslam_dwo/data/setttingfiles_mono/kittiseq00_mono.yaml
 
 To test the program on Tsukuba dataset (monocular)
+
 		cd catkin_ws/src/orbslam_dwo/bin
                 ./test_orbslam $HOME/catkin_ws/src/orbslam_dwo/data/setttingfiles_mono/tsukuba_mono.yaml
 
 #4. Failure modes
 
 In general our stereo SLAM solution is expected to have a bad time in the following situations:
+
 - Pure rotations and features are very distant in exploration
 - Low texture environments
 - Many (or big) moving objects, especially if they move slowly.
