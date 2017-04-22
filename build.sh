@@ -24,6 +24,15 @@ cd build
 cmake .. -DCMAKE_BUILD_TYPE=Release
 make -j
 
+cd ../../vio_common
+
+echo "Configuring and building Thirdparty/vio_common ..."
+
+mkdir build
+cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release
+make -j
+
 cd ../../vio_g2o
 
 echo "Configuring and building Thirdparty/vio_g2o ..."

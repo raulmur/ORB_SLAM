@@ -35,10 +35,10 @@ The Boost library is used to launch different threads of the SLAM system.
 OpenCV is mainly used for feature extraction, and matching. It can be installed via: 
 		sudo apt-get install libopencv-dev
 
-##2.3 Eigen >3.0
+##2.3 Eigen >=3.0
 Eigen can be installed via
 		sudo apt-get install libeigen3-dev
-However, in Ubuntu 16.04, the above command may install Eigen 3.0 rather than newer versions. If a newer version is desired, you may build and install Eigen from the source. To do that, first download the proper source archive package from [here](http://eigen.tuxfamily.org/index.php?title=Main_Page), the following assuming Eigen 3.2.10 is downloaded into /home/username/ folder. Second, open a terminal and type
+However, in Ubuntu 14.04, the above command may install Eigen 3.0 rather than newer versions. If a newer version is desired, you may build and install Eigen from the source. To do that, first download the proper source archive package from [here](http://eigen.tuxfamily.org/index.php?title=Main_Page), the following assuming Eigen 3.2.10 is downloaded into /home/username/ folder. Second, open a terminal and type
 
 	tar xvjf eigen-eigen-b9cd8366d4e8.tar.bz2
 	mv eigen-eigen-b9cd8366d4e8 eigen-3.2.10
@@ -58,7 +58,7 @@ If the program is to be built without ROS support, you may simply create a folde
 Regardless of the ROS support, download ORBSLAM_DWO into the workspace folder via:
 		
 		cd catkin_ws/src		
-		git clone https://github.com/JzHuai0108/ORB_SLAM.git
+		git clone --recursive https://github.com/JzHuai0108/ORB_SLAM.git
 		mv $HOME/catkin_ws/src/ORB_SLAM $HOME/catkin_ws/src/orbslam_dwo
 
 The last command renames the downloaded folder into orbslam_dwo. That is the folder where the following dependencies are to be built and installed.
@@ -87,49 +87,25 @@ The modified version of Sophus by Steven Lovegrove is used to manipulate Lie gro
 		cmake ..
 		make 
 
-For all the following dependencies(libraries), you DON'T need to install them (e.g., execute 'make install').
-##2.7 vio_common
-Suppose it is put in /home/username/vio_common folder, first download it, then navigate to /home/username/vio_common,
-		
-		mkdir build
-		cd build
-		cmake .. -DCMAKE_BUILD_TYPE=Release
-		make -j4
+##2.7 vio_common, vio_g2o, DBoW2, libviso2, vikit (all included in /Thirdparty)
+vio_common is a library of common functions to read videos, inertial data files, and to manipulate Eigen matrices.
+	
+vio_g2o extends g2o by defining additional (some even redundant) vertices, edges, parameters used in visual inertial optimization. vio_g2o depends on vio_common and apparently, g2o. In vio_g2o, the autodiff module of the [ceres solver](https://github.com/ceres-solver/ceres-solver.git) is used to compute Jacobians in the IMU constraint. Automatic differentiation is necessary because in the program the full exponential map is used to map se(3) to SE(3). If, however, a first order approximation is used, e.g., in [OKVIS](https://github.com/ethz-asl/okvis.git), analytic Jacobians can be derived. 
 
-##2.8 vio_g2o
-vio_g2o is an extension to g2o. It includes vertices, edges, parameters used in visual inertial optimization. 
-The autodiff module of the [ceres solver](https://github.com/ceres-solver/ceres-solver.git) is used to compute Jacobians in the IMU constraint. Automatic differentiation is necessary because in the program the full exponential map is used to map se(3) to SE(3). If a first order approximation is used, e.g., in [OKVIS](https://github.com/ethz-asl/okvis.git), analytic Jacobians can be derived. 
+Interestingly, g2o also borrows the autodiff module of the ceres solver, the related files of autodiff are put into a folder, g2o/EXTERNAL/ceres. But these files in g2o/EXTERNAL/ceres have problems in compiling orbslam_dwo, possibly because they are quite old. So I extracted these files from a recent version of the ceres solver, and put them into the vio_g2o/include/g2o_EXTERNAL folder.
 
-Interestingly, g2o also borrows the autodiff module of the ceres solver, the related files of autodiff are put into a folder, g2o/EXTERNAL/ceres. But these files in g2o/EXTERNAL/ceres have problems in compiling orbslam_dwo, possibly because they are quite old. So I extracted these files from a recent version of the ceres solver, and put them into the orbslam_dwo/Thirdparty/g2o_EXTERNAL folder shipped in orbslam_dwo.
+Some components of the DBoW2 library are used for place recognition and feature matching. A modified copy of the library by Raul Mur-Artal
+including only the necessary components and some modifications listed in Thirdparty/DBoW2/LICENSE.txt is provided at Thirdparty/DBoW2.
+Note it depends on OpenCV. 
 
-##2.9 DBoW2 (included)
-Some components of the DBoW2 library are used for place recognition and feature matching. A modified copy of the library
-including only the necessary components and some modifications that are listed in Thirdparty/DBoW2/LICENSE.txt.
-It only depends on OpenCV, and it is included in the distribution. To compile it, navigate to Thirdparty/DBoW2/ in a terminal and execute:
+libviso2 is used to detect matches between two pairs of stereo images, also called quad matches. These matches are used in ORBSLAM_DWO for tracking and triangulating features. Because a few changes are made, it is included in the /Thirdparty folder.
 
-		mkdir build
-		cd build
-		cmake ..
-		make  
+[rpg-vikit](https://github.com/uzh-rpg/rpg_vikit.git) is used to deal with camera models. It depended on Strasdat's version of Sophus. To make it work with Lovegrove's Sophus, SE3 is changed to SE3d, rotation_matrix() to rotationMatrix(), #include <sophus/se3.h> to #include <sophus/se3.hpp> in several of its files. Also, in rpg_vikit/vikit_common/CMakeLists.txt I set the flag USE_ROS to FALSE. For easy compilation, it is also included in the orbslam_dwo distribution. 
 
-##2.10 libviso2 (included)
-libviso2 is used to detect matches between two pairs of stereo images, also called quad matches. These matches are used in ORBSLAM_DWO for tracking and triangulating features. Because a few changes are made, it is included in the distribution. To build it, navigate to Thirdparty/libviso2/ in a terminal and execute:
+To build these five dependencies, navigate to the /orbslam_dwo folder in a terminal and run: 
 
-		mkdir build
-		cd build
-		cmake ..
-		make  
-
-##2.11 vikit (included)
-[rpg-vikit](https://github.com/uzh-rpg/rpg_vikit.git) is used to deal with camera models. It depends on Strasdat's version of Sophus. To make it work with Lovegrove's Sophus, SE3 is changed to SE3d, rotation_matrix() to rotationMatrix(), #include <sophus/se3.h> to #include <sophus/se3.hpp> in several of its files. Also, in rpg_vikit/vikit_common/CMakeLists.txt I set the flag USE_ROS to FALSE and added the path to Lovegrove's Sophus. For easy compilation, it is also included in the orbslam_dwo distribution. 
-If the catkin workspace folder is not ~/catkin_ws, then the line "SET(Sophus_INCLUDE_DIRS $ENV{HOME}/catkin_ws/src/orbslam_dwo/Thirdparty/Sophus)" in CMakeLists.txt of vikit_common folder needs to be changed accordingly.
-
-To build it, navigate to the orbslam_dwo/Thirdparty/vikit_common folder in a terminal and run: 
-
-		mkdir build
-		cd build
-		cmake ..
-		make
+		chmod +x ./build.sh
+                ./build.sh
 
 #3. Build ORBSLAM_DWO and test with KITTI seq 00 and Tsukuba CG stereo dataset
 

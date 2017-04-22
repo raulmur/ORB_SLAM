@@ -1,6 +1,6 @@
 SET(TRACE FALSE) # record timing of operations
 SET(MONO_SLAM false) # if false stereo SLAM with or without IMU, if true, monocular SLAM
-SET(USE_ROS TRUE) # use ROS for visualization or not
+SET(USE_ROS false) # use ROS for visualization or not
 SET(USE_SYSTEM_OPENCV true) # Set False if you want to build this package using independent OpenCV instead of libopencv-dev
 
 SET(PROJECT_NAME orbslam_dwo)
@@ -44,7 +44,6 @@ LIST(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake_modules)
 find_package(Eigen3 REQUIRED)
 find_package(Cholmod REQUIRED)
 FIND_PACKAGE(SuiteSparse REQUIRED)
-find_package(vio_common REQUIRED)
 find_package(Sophus REQUIRED)
 
 set(Boost_USE_STATIC_LIBS OFF)
@@ -65,6 +64,9 @@ ENDIF()
 
 SET(vikit_common_INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/Thirdparty/vikit_common/include)
 SET(vikit_common_LIBRARIES ${PROJECT_SOURCE_DIR}/Thirdparty/vikit_common/lib/libvikit_common.so)
+
+SET(vio_common_INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/Thirdparty/vio_common/include)
+SET(vio_common_LIBRARIES ${PROJECT_SOURCE_DIR}/Thirdparty/vio_common/lib/libvio_common.so)
 
 SET(vio_g2o_INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/Thirdparty/vio_g2o/include)
 SET(vio_g2o_LIBRARIES ${PROJECT_SOURCE_DIR}/Thirdparty/vio_g2o/lib/libvio_g2o.so)
