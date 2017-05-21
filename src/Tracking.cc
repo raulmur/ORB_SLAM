@@ -587,8 +587,14 @@ void Tracking::Run()
                 else{
                     predTcp=imu_proc->propagate(time_frame);
                     assert(imu_proc->getMeasurements().size());
+
+                    Eigen::Matrix<double, 9, 1> velAndBiases = imu_proc->speed_bias_1;
+                    if(experim == DiLiLi)
+                    //Hack: it is observed that imu prediction may be worse than stereo pose differention
+                        velAndBiases.head<3>() = mVelByStereoOdometry;
+
                     ProcessFrame(left_img, right_img, time_frame,
-                                 imu_proc->getMeasurements(), &predTcp, imu_proc->speed_bias_1);
+                                 imu_proc->getMeasurements(), &predTcp, velAndBiases);
                 }
                 if(mState == WORKING){
                     imu_proc->resetStates((imu_.T_imu_from_cam*mpLastFrame->mTcw).inverse(), mpLastFrame->speed_bias);
@@ -1344,8 +1350,6 @@ void  Tracking::ProcessFrameQCV(cv::Mat &im, cv::Mat &right_img, double timeStam
     }
     SLAM_START_TIMER("create_frame");
 
-    // it is observed that imu prediction may be worse than stereo pose differentiation.
-    sb.head<3>() = mVelByStereoOdometry;
     double lastFrameTime = mpLastFrame==NULL? -1:mpLastFrame->mTimeStamp;
     //compute ORB descriptors of vStereoMatches
     mpCurrentFrame=new Frame(im, timeStampSec, mStereoSFM.getNumDenseFeatures(),
@@ -1680,8 +1684,6 @@ void  Tracking::ProcessFrame(cv::Mat &im, cv::Mat &right_img, double timeStampSe
     }
     SLAM_START_TIMER("create_frame");
 
-    // it is observed that imu prediction may be worse than stereo pose differentiation.
-    sb.head<3>() = mVelByStereoOdometry;
     double lastFrameTime = mpLastFrame==NULL? -1:mpLastFrame->mTimeStamp;
     //compute ORB descriptors of vStereoMatches
     mpCurrentFrame=new Frame(im, timeStampSec, mVisoStereo.matcher->getNumDenseFeatures(true),

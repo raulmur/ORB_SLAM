@@ -528,7 +528,7 @@ void KeyFrame::SetBadFlag()
 
         // Update Spanning Tree
         set<KeyFrame*> sParentCandidates;
-        sParentCandidates.insert(mpParent);
+        sParentCandidates.insert(mpParent);// TODO: mpParent may be NULL if the tracking experience difficulties
 
         // Assign at each iteration one children with a parent (the pair with highest covisibility weight)
         // Include that children as new parent candidate for the rest

@@ -2,7 +2,7 @@
 startIndex: 9
 finishIndex: 399
 dataset: "DiLiLi" # choose one of KITTIOdoSeq, Tsukuba, MalagaUrbanExtract6, DiLiLi
-use_imu_data:false
+use_imu_data:true
 
 input_path: /media/jhuai/Seagate/data/DILILI-0510_square_400_no_calib/0510_square_400_no_calib
 time_file: /media/jhuai/Seagate/data/DILILI-0510_square_400_no_calib/0510_square_400_no_calib/video_ts.txt
