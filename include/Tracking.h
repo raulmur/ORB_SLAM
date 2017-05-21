@@ -124,11 +124,11 @@ protected:
     //in the following two versions, the original implementation ProcessFrame gives the best result
     void ProcessFrame(cv::Mat &left_img, cv::Mat &right_img, double timeStampSec,
                       const std::vector<Eigen::Matrix<double, 7,1> >& imu_measurements = std::vector<Eigen::Matrix<double, 7,1> >(),
-                      const Sophus::SE3d * pTcp=NULL, const Eigen::Matrix<double, 9,1> sb=Eigen::Matrix<double, 9,1>::Zero());
+                      const Sophus::SE3d * pTcp=NULL, Eigen::Matrix<double, 9,1> sb=Eigen::Matrix<double, 9,1>::Zero());
 
     void ProcessFrameQCV(cv::Mat &left_img, cv::Mat &right_img, double timeStampSec,
                       const std::vector<Eigen::Matrix<double, 7,1> >& imu_measurements = std::vector<Eigen::Matrix<double, 7,1> >(),
-                      const Sophus::SE3d * pTcp=NULL, const Eigen::Matrix<double, 9,1> sb=Eigen::Matrix<double, 9,1>::Zero());
+                      const Sophus::SE3d * pTcp=NULL, Eigen::Matrix<double, 9,1> sb=Eigen::Matrix<double, 9,1>::Zero());
 
     // monocular and imu integration
     void  ProcessFrameMono(cv::Mat &im, double timeStampSec,
@@ -196,6 +196,7 @@ protected:
     //Map
     Map* mpMap;
 
+    std::string mStrSettingFile;
     cv::FileStorage mfsSettings;
     // viso2
     libviso2::VisualOdometryStereo mVisoStereo; // visual odometry 
@@ -239,7 +240,7 @@ protected:
 
     //Motion Model
     Sophus::SE3d mVelocity; //T prev to curr
-
+    Eigen::Vector3d mVelByStereoOdometry; //differentiated from visual stereo odometry
     //Color order (true RGB, false BGR, ignored if grayscale)
     bool mbRGB;
 
@@ -253,6 +254,7 @@ protected:
     vio::G2oIMUParameters imu_;
 
     int mnStartId; // used to offset the ID of frames
+    long unsigned int mnFrameIdOfSecondKF; // the id of the second kf upon initialization of the map relative to the image sequence,
 
     const int mnFeatures;// how many point features to detect in a frame, for the initial keyframes, 2 times points
 

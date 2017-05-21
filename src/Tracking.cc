@@ -23,13 +23,15 @@
 #include "global.h" //performance monitor
 
 #include <opencv2/core/eigen.hpp>
+#include<opencv2/opencv.hpp>
+
 #ifdef SLAM_USE_ROS
 #include<ros/ros.h>
 //#include <cv_bridge/cv_bridge.h>
 #endif
 #include "vio/utils.h"
 #include "vio/timegrabber.h"
-#include<opencv2/opencv.hpp>
+#include "StereoImageLoader.h"
 
 #include"ORBmatcher.h"
 #include"FramePublisher.h"
@@ -91,10 +93,11 @@ Tracking::Tracking(ORBVocabulary* pVoc, FramePublisher*pFramePublisher, /*MapPub
     mnTemporalWinSize(Config::temporalWindowSize()),mnSpatialWinSize(Config::spatialWindowSize()),
     mpFramePublisher(pFramePublisher),/*mpMapPublisher(pMapPublisher),*/ mpMap(pMap),
 #endif
-
+    mStrSettingFile(strSettingPath),
     mfsSettings(strSettingPath, cv::FileStorage::READ), mpLastKeyFrame(NULL),
-    mnLastRelocFrameId(0), mbPublisherStopped(false), mbReseting(false), mbForceRelocalisation(false), mVelocity(Sophus::SE3d()),
-    mbUseIMUData(false), mnStartId(mfsSettings["startIndex"]), mnFeatures(mfsSettings["ORBextractor.nFeatures"]),
+    mnLastRelocFrameId(0), mbPublisherStopped(false), mbReseting(false), mbForceRelocalisation(false),
+    mVelocity(Sophus::SE3d()), mVelByStereoOdometry(Eigen::Vector3d::Zero()),
+    mbUseIMUData(false), mnStartId(mfsSettings["startIndex"]), mnFrameIdOfSecondKF(0), mnFeatures(mfsSettings["ORBextractor.nFeatures"]),
     mMotionModel(Eigen::Vector3d(0,0,0),Eigen::Quaterniond(1,0,0,0)),
     mfTrackedFeatureRatio(0.6), mnMinTrackedFeatures(200)
 {
@@ -134,18 +137,28 @@ Tracking::Tracking(ORBVocabulary* pVoc, FramePublisher*pFramePublisher, /*MapPub
                                   distCoef(2),distCoef(3));
 
 #ifndef MONO
-    cv::Mat matTl2r;
-    mfsSettings["Stereo.se3Left2Right"]>>matTl2r;
-    mTl2r= Converter::toSE3d(matTl2r);
-    cv::Mat rightK, rightDistCoef;
-    mfsSettings["Stereo.matRightK"]>>rightK;
-    mfsSettings["Stereo.matRightDistCoef"]>>rightDistCoef;
+    // assume the stereo images are synchronized and rectified
+    cv::FileNode matTr2l = mfsSettings["Stereo.se3Right2Left"];
+    cv::FileNode matTl2r = mfsSettings["Stereo.se3Left2Right"];
+    cv::Mat T_l2r; //float type
+    if(!matTl2r.empty()) {
+        matTl2r>>T_l2r;
+    }
+    else
+    {
+        assert(!matTr2l.empty());
+        matTr2l>>T_l2r;
+        cv::Mat R_l2r = T_l2r.colRange(0,3).rowRange(0,3).t();
+        T_l2r.col(3).rowRange(0,3)= - R_l2r*T_l2r.col(3).rowRange(0,3);
+        T_l2r.colRange(0,3).rowRange(0,3)= R_l2r;
+    }
 
+    mTl2r= Converter::toSE3d(T_l2r);
+    assert(distCoef.lpNorm<Eigen::Infinity>()< 1e-8);
     right_cam_ = new vk::PinholeCamera(width, height,
-                                       rightK.at<float>(0,0), rightK.at<float>(1,1),
-                                       rightK.at<float>(0,2), rightK.at<float>(1,2),
-                                       rightDistCoef.at<float>(0), rightDistCoef.at<float>(1),
-                                       rightDistCoef.at<float>(2),rightDistCoef.at<float>(3));
+                                       fx, fy, cx, cy,
+                                       distCoef(0), distCoef(1),
+                                       distCoef(2),distCoef(3));
 
 #endif
     mFps = mfsSettings["Camera.fps"];
@@ -333,7 +346,7 @@ void Tracking::Run()
     //    ros::Subscriber sub = nodeHandler.subscribe("/camera/image_raw", 1, &Tracking::GrabImage, this);
 
     //    ros::spin();
-    enum dataset_type {KITTIOdoSeq=0, Tsukuba, MalagaUrbanExtract6, CrowdSourcedData } experim=Tsukuba;
+    dataset_type experim;
 
     string dataset=mfsSettings["dataset"];
     if (dataset.compare("KITTIOdoSeq")==0)
@@ -344,6 +357,8 @@ void Tracking::Run()
         experim=MalagaUrbanExtract6;
     else if(dataset.compare("CrowdSourcedData")==0)
         experim=CrowdSourcedData;
+    else if(dataset.compare("DiLiLi")==0)
+        experim=DiLiLi;
     else{
         cerr<<"Unsupported dataset:"<<dataset<<endl;
         return;
@@ -366,7 +381,8 @@ void Tracking::Run()
     Sophus::SE3d predTcp;
     if(mbUseIMUData){
         string imu_file=mfsSettings["imu_file"];
-        imu_proc=new vio::IMUProcessor(imu_file, imu_sample_interval, imu_);
+        imu_proc=new vio::IMUProcessor(imu_file, imu_sample_interval, imu_,
+                                       experim==DiLiLi? vio::IndexedPlainText:vio::PlainText);
 
         //initialize IMU states
         T_s1_to_w=imu_.T_imu_from_cam.inverse();
@@ -442,7 +458,8 @@ void Tracking::Run()
                 left_img=temp;
             }
             SLAM_LOG(time_frame);
-            SLAM_DEBUG_STREAM("processing frame "<< numImages-mnStartId);
+//            SLAM_DEBUG_STREAM("processing frame "<< numImages-mnStartId);
+            std::cout <<"processing frame "<< numImages-mnStartId <<"th of timestamp "<< time_frame<<std::endl;
             SLAM_START_TIMER("tot_time");
 
             if(mbUseIMUData){
@@ -500,14 +517,13 @@ void Tracking::Run()
         std::size_t pos = output_file.find(".txt");
         string viso2_output_file= output_file.substr(0, pos) +"_viso2.txt";
         ofstream viso2_stream(viso2_output_file);
-#endif
+#endif        
+
+        cv::Mat left_img;
+        cv::Mat right_img;
         string time_filename=mfsSettings["time_file"]; //timestamps for frames
-        vio::TimeGrabber tg(time_filename);
 
-        char base_name[256];                // input file names
-        string left_img_file_name;
-        string right_img_file_name;
-
+        StereoImageLoader sil(time_filename, experim, dir, mStrSettingFile);
 #ifdef SLAM_USE_ROS
         ros::Rate r(mFps);
         while(ros::ok()&& numImages<=totalImages)
@@ -515,33 +531,10 @@ void Tracking::Run()
         while(numImages<=totalImages)
 #endif
         {
-            switch(experim){
-            case KITTIOdoSeq:
-                sprintf(base_name,"%06d.png",numImages);
-                left_img_file_name  = dir + "/image_0/" + base_name;
-                right_img_file_name = dir + "/image_1/" + base_name;
-                time_frame=tg.readTimestamp(numImages);
-                break;
-            case Tsukuba:
-                sprintf(base_name,"%05d.png",numImages);
-                left_img_file_name  = dir + "/tsukuba_daylight_L_" + base_name;
-                right_img_file_name = dir + "/tsukuba_daylight_R_" + base_name;
-                time_frame=(numImages-1)/30.0;
-                break;
-            case MalagaUrbanExtract6:
-                time_frame=tg.extractTimestamp(numImages);
-                left_img_file_name=tg.last_left_image_name;
-                right_img_file_name=left_img_file_name.substr(0, 30)+ "right"+left_img_file_name.substr(left_img_file_name.length()-4, 4);
-                left_img_file_name=dir+ "/"+ left_img_file_name;
-                right_img_file_name=dir+ "/"+ right_img_file_name;
-            default:
-                cerr<<"Please implement interface fot this dataset!"<<endl;
-                break;
-            }
+            sil.GetTimeAndRectifiedStereoImages(time_frame, left_img, right_img, numImages);
+
             time_pair[0]=time_pair[1];
             time_pair[1]=time_frame;
-            cv::Mat left_img=cv::imread(left_img_file_name, 0);
-            cv::Mat right_img=cv::imread(right_img_file_name, 0);
 
             if(left_img.cols != cam_->width() || left_img.rows!= cam_->height())
             {
@@ -550,7 +543,8 @@ void Tracking::Run()
             }
 
             SLAM_LOG(time_frame);
-            SLAM_DEBUG_STREAM("processing frame "<< numImages-mnStartId);
+//            SLAM_DEBUG_STREAM("processing frame "<< numImages-mnStartId);
+            std::cout <<"processing frame "<< numImages-mnStartId <<"th of timestamp "<< time_frame<<std::endl;
             SLAM_START_TIMER("tot_time");
 #ifdef MONO
             if(mbUseIMUData){
@@ -598,6 +592,9 @@ void Tracking::Run()
                 }
                 if(mState == WORKING){
                     imu_proc->resetStates((imu_.T_imu_from_cam*mpLastFrame->mTcw).inverse(), mpLastFrame->speed_bias);
+                }else if(mState == NOT_INITIALIZED){ //this occurs when tracking is reset
+                    imu_proc->initStates(T_s1_to_w, speed_bias_1, time_frame);
+                    std::cout <<"imu proc reset at frame time "<< time_frame <<std::endl;
                 }
             }
             else if(Config::useDecayVelocityModel()){
@@ -622,7 +619,8 @@ void Tracking::Run()
             g_permon->writeToFile();
 #endif
 #ifdef SLAM_OUTPUT_VISO2
-            if(mVisoStereo.Tr_valid)
+            if(mVisoStereo.Tr_valid && mpLastFrame )
+                //mpLastFrame may be null immediately after reset tracking. TODO: is mpLastFrame likely to be NULL?
                 viso2_stream<<mpLastFrame->mTimeStamp<<" "<<mPose.getMat(0, 0, 0,3)<<" "<<
                               mPose.getMat(1, 0, 1,3)<<" "<<mPose.getMat(2, 0, 2,3)<<endl;
 #endif
@@ -871,9 +869,10 @@ void Tracking::CreateNewMapPoints(const std::vector<p_match>& vQuadMatches)
         else
             ++rejectHisto[0];
     }
-    SLAM_DEBUG_STREAM("created new points from quad matches:"<<numNewPoints<<" "<<vQuadMatches.size());
+    SLAM_DEBUG_STREAM("created new points "<<numNewPoints<<" from quad matches "<<vQuadMatches.size());
     if(numNewPoints< 6)
-        SLAM_DEBUG_STREAM("Rejected quad matches for fullCell, cosRay, SVD0, PDOP, negZ, reproj, distZero, distRatio"<< rejectHisto.transpose());
+        SLAM_DEBUG_STREAM("Rejected quad matches for fullCell, cosRay, SVD0, PDOP, negZ, reproj,"
+                          " distZero, distRatio "<< rejectHisto.transpose());
 }
 // for now, we only check left image to get matches
 // Triangulate new MapPoints between the penultimate keyframe, pKF2, and the last keyframe
@@ -1182,7 +1181,7 @@ void  Tracking::ProcessFrameMono(cv::Mat &im, double timeStampSec,
                     Tcp.translation()/= Snew2old.scale();
                     mpCurrentFrame->SetPose(Tcp*mpLastFrame->mTcw);
                 }
-                SLAM_DEBUG_STREAM("last frame and curr frame id:"<< mpLastFrame->mnId <<" "<<mpCurrentFrame->mnId);
+                SLAM_DEBUG_STREAM("last frame and curr frame index in image sequence:"<< mpLastFrame->mnId <<" "<<mpCurrentFrame->mnId);
             }
         }
 
@@ -1310,7 +1309,7 @@ void  Tracking::ProcessFrameMono(cv::Mat &im, double timeStampSec,
 // incremental motion estimate by stereo SFM(qcv) to drive DWO
 void  Tracking::ProcessFrameQCV(cv::Mat &im, cv::Mat &right_img, double timeStampSec,
                              const std::vector<Eigen::Matrix<double, 7,1> >& imu_measurements,
-                             const Sophus::SE3d *pred_Tr_delta, const Eigen::Matrix<double, 9,1> sb)
+                             const Sophus::SE3d *pred_Tr_delta, Eigen::Matrix<double, 9,1> sb)
 {
     Sophus::SE3d Tcp =pred_Tr_delta==NULL? Sophus::SE3d(): (*pred_Tr_delta); // current frame from previous frame
 
@@ -1344,6 +1343,10 @@ void  Tracking::ProcessFrameQCV(cv::Mat &im, cv::Mat &right_img, double timeStam
         ginc= Tcp.rotationMatrix()*Rw2p*ginw;
     }
     SLAM_START_TIMER("create_frame");
+
+    // it is observed that imu prediction may be worse than stereo pose differentiation.
+    sb.head<3>() = mVelByStereoOdometry;
+    double lastFrameTime = mpLastFrame==NULL? -1:mpLastFrame->mTimeStamp;
     //compute ORB descriptors of vStereoMatches
     mpCurrentFrame=new Frame(im, timeStampSec, mStereoSFM.getNumDenseFeatures(),
                                    right_img, mStereoSFM.getNumDenseFeatures(),
@@ -1351,7 +1354,8 @@ void  Tracking::ProcessFrameQCV(cv::Mat &im, cv::Mat &right_img, double timeStam
                                    mTl2r, ginc, sb);
 
     // also test whether a quad match satisfy stereo matches
-    remapQuadMatches(vQuadMatches,
+    if(mpLastFrame!=NULL)
+        remapQuadMatches(vQuadMatches,
                      mpCurrentFrame->viso2LeftId2StereoId,   mpCurrentFrame->viso2RightId2StereoId,
                      mpLastFrame->viso2LeftId2StereoId,   mpLastFrame->viso2RightId2StereoId);
 
@@ -1437,7 +1441,7 @@ void  Tracking::ProcessFrameQCV(cv::Mat &im, cv::Mat &right_img, double timeStam
                  // update poses of the current frame if needed
                  if(!bOK)
                     mpCurrentFrame->SetPose(Tcp*mpLastFrame->mTcw);
-                 SLAM_DEBUG_STREAM("last frame and curr frame id:"<< mpLastFrame->mnId <<" "<<mpCurrentFrame->mnId);
+                 SLAM_DEBUG_STREAM("last frame and curr frame index in image sequence:"<< mpLastFrame->mnId <<" "<<mpCurrentFrame->mnId);
             }
         }
         // If we have an initial estimation of the camera pose and matching. Track the local map.
@@ -1453,7 +1457,7 @@ void  Tracking::ProcessFrameQCV(cv::Mat &im, cv::Mat &right_img, double timeStam
             mpCurrentFrame->updatePointStatistics(&point_stats);
             bool bNeedMorePoints= NeedNewKeyFrameStereo();
             if(!bNeedMorePoints){
-                if(mpLastFrame->mnId==1){
+                if(mpLastFrame->mnId== mnFrameIdOfSecondKF){
                     mpLocalMapper->InsertKeyFrame(mpLastKeyFrame);
                     pLastFrame= mpLastKeyFrame;
                 }
@@ -1461,7 +1465,7 @@ void  Tracking::ProcessFrameQCV(cv::Mat &im, cv::Mat &right_img, double timeStam
                     pLastFrame= new Frame(*mpLastFrame);
             }
             else{
-                assert(mpLastFrame->mnId>1);//because we added second frame as keyframe
+                assert(mpLastFrame->mnId> mnFrameIdOfSecondKF);//because we added second frame as keyframe
                 mpLastFrame->PartialRelease();
                 KeyFrame* pKF = new KeyFrame(*mpLastFrame,mpMap,mpKeyFrameDB);
                 pKF->SetNotErase(DoubleWindowKF);//because we want to ensure that keyframes in temporal window are not bad
@@ -1539,22 +1543,33 @@ void  Tracking::ProcessFrameQCV(cv::Mat &im, cv::Mat &right_img, double timeStam
             }
         }
 
-        if(mpLastFrame->mnId!=1)
+        if(mpLastFrame->mnId!=mnFrameIdOfSecondKF) //delay deleting the second keyframe until sliding out of window
             delete mpLastFrame;
         mpLastFrame = mpCurrentFrame;
     }   
     // Update drawer
     mpFramePublisher->Update(this, im);
+
+    if(mpCurrentFrame!=NULL){
+
+        Eigen::Matrix3d Rwc = mpCurrentFrame->mTcw.rotationMatrix().transpose();
 #ifdef SLAM_USE_ROS
-    Eigen::Matrix3d Rwc = mpCurrentFrame->mTcw.rotationMatrix().transpose();
-    Eigen::Vector3d twc = -Rwc*mpCurrentFrame->mTcw.translation();
-    tf::Matrix3x3 M(Rwc(0,0),Rwc(0,1),Rwc(0,2),
-                    Rwc(1,0),Rwc(1,1),Rwc(1,2),
-                    Rwc(2,0),Rwc(2,1),Rwc(2,2));
-    tf::Vector3 V(twc(0), twc(1), twc(2));
-    tf::Transform tfTcw(M,V);
-    mTfBr.sendTransform(tf::StampedTransform(tfTcw,ros::Time::now(), "ORBSLAM_DWO/World", "ORBSLAM_DWO/Camera"));
+        Eigen::Vector3d twc = -Rwc*mpCurrentFrame->mTcw.translation();
+        tf::Matrix3x3 M(Rwc(0,0),Rwc(0,1),Rwc(0,2),
+                        Rwc(1,0),Rwc(1,1),Rwc(1,2),
+                        Rwc(2,0),Rwc(2,1),Rwc(2,2));
+        tf::Vector3 V(twc(0), twc(1), twc(2));
+        tf::Transform tfTcw(M,V);
+        mTfBr.sendTransform(tf::StampedTransform(tfTcw,ros::Time::now(), "ORBSLAM_DWO/World",
+                                                 "ORBSLAM_DWO/Camera"));
 #endif
+        if(lastFrameTime == -1)
+            mVelByStereoOdometry = Eigen::Vector3d::Zero();
+        else
+            mVelByStereoOdometry = mVelByStereoOdometry*0.4 + 0.6*Rwc*Tcp.translation()
+                    /(timeStampSec - lastFrameTime);
+
+    }
 }
 // im is left image at frame k+1, imu_measurements from k to k+1,
 // sb(speed of imu sensor in world frame and bias) are predicted values
@@ -1567,7 +1582,7 @@ void  Tracking::ProcessFrameQCV(cv::Mat &im, cv::Mat &right_img, double timeStam
 
 void  Tracking::ProcessFrame(cv::Mat &im, cv::Mat &right_img, double timeStampSec,
                              const std::vector<Eigen::Matrix<double, 7,1> >& imu_measurements,
-                             const Sophus::SE3d *pred_Tr_delta,const Eigen::Matrix<double, 9,1> sb)
+                             const Sophus::SE3d *pred_Tr_delta,Eigen::Matrix<double, 9,1> sb)
 {
     Sophus::SE3d Tcp =pred_Tr_delta==NULL? Sophus::SE3d(): (*pred_Tr_delta); // current frame from previous frame
 
@@ -1633,9 +1648,20 @@ void  Tracking::ProcessFrame(cv::Mat &im, cv::Mat &right_img, double timeStampSe
     }
     else{
         if(mpCurrentFrame){// not the first frame
-            mState= LOST;
-            cout<<"libviso2 odometry failed for images at time:"<<timeStampSec
-            <<" of quad matches:"<<vQuadMatches.size()<<endl;
+
+            // hack starts
+            //            mState= LOST;
+            if(vQuadMatches.size()< 9){
+                mState= LOST;
+                cout<<"libviso2 odometry failed for images at time:"<<timeStampSec
+                <<" of quad matches:"<<vQuadMatches.size()<<endl;
+            }
+            else
+            {
+                mVisoStereo.Tr_valid = true;
+                mVisoStereo.Tr_delta = libviso2::Matrix::eye(4);
+            }
+            //hack ends
         }
     }
     SLAM_STOP_TIMER("track_previous_frame");
@@ -1653,6 +1679,10 @@ void  Tracking::ProcessFrame(cv::Mat &im, cv::Mat &right_img, double timeStampSe
         ginc= Tcp.rotationMatrix()*Rw2p*ginw;
     }
     SLAM_START_TIMER("create_frame");
+
+    // it is observed that imu prediction may be worse than stereo pose differentiation.
+    sb.head<3>() = mVelByStereoOdometry;
+    double lastFrameTime = mpLastFrame==NULL? -1:mpLastFrame->mTimeStamp;
     //compute ORB descriptors of vStereoMatches
     mpCurrentFrame=new Frame(im, timeStampSec, mVisoStereo.matcher->getNumDenseFeatures(true),
                                    right_img, mVisoStereo.matcher->getNumDenseFeatures(false),
@@ -1660,7 +1690,8 @@ void  Tracking::ProcessFrame(cv::Mat &im, cv::Mat &right_img, double timeStampSe
                                    mTl2r, ginc, sb);
 
     // also test whether a quad match satisfy stereo matches
-    remapQuadMatches(vQuadMatches,
+    if(mpLastFrame!=NULL)
+        remapQuadMatches(vQuadMatches,
                      mpCurrentFrame->viso2LeftId2StereoId,   mpCurrentFrame->viso2RightId2StereoId,
                      mpLastFrame->viso2LeftId2StereoId,   mpLastFrame->viso2RightId2StereoId);
 
@@ -1680,8 +1711,9 @@ void  Tracking::ProcessFrame(cv::Mat &im, cv::Mat &right_img, double timeStampSe
     else if(mState==INITIALIZING)
     {
         // Check if current frame has enough matches with its previous frame, otherwise reset initialization process
-        if(vQuadMatches.size()<=20)
+        if(vQuadMatches.size()<=10)
         {
+            SLAM_WARN_STREAM("Restart initialing as the first two stereo frames have too few quad matches "<< vQuadMatches.size());
             fill(mvIniMatches.begin(),mvIniMatches.end(),-1);
             mState = NOT_INITIALIZED;
             return;
@@ -1744,7 +1776,7 @@ void  Tracking::ProcessFrame(cv::Mat &im, cv::Mat &right_img, double timeStampSe
             mpCurrentFrame->updatePointStatistics(&point_stats);
             bool bNeedMorePoints= NeedNewKeyFrameStereo();
             if(!bNeedMorePoints){
-                if(mpLastFrame->mnId==1){
+                if(mpLastFrame->mnId==mnFrameIdOfSecondKF){
                     mpLocalMapper->InsertKeyFrame(mpLastKeyFrame);
                     pLastFrame= mpLastKeyFrame;
                 }
@@ -1752,7 +1784,7 @@ void  Tracking::ProcessFrame(cv::Mat &im, cv::Mat &right_img, double timeStampSe
                     pLastFrame= new Frame(*mpLastFrame);
             }
             else{
-                assert(mpLastFrame->mnId>1);//because we added second frame as keyframe
+                assert(mpLastFrame->mnId>mnFrameIdOfSecondKF);//because we added second frame as keyframe
                 mpLastFrame->PartialRelease();
                 KeyFrame* pKF = new KeyFrame(*mpLastFrame,mpMap,mpKeyFrameDB);
                 pKF->SetNotErase(DoubleWindowKF);//because we want to ensure that keyframes in temporal window are not bad
@@ -1822,34 +1854,50 @@ void  Tracking::ProcessFrame(cv::Mat &im, cv::Mat &right_img, double timeStampSe
         else{
             mState=LOST;
         // Reset if the camera get lost soon after initialization
-            if(mpMap->KeyFramesInMap()<=5)
+            if(mpMap->KeyFramesInMap()<=10)
             {
+                std::cout<<"Reset called once lost as mpMap does not have enough keyframes "<<
+                           mpMap->KeyFramesInMap()<<std::endl;
                 Reset();
                 return;
             }
         }
-        if(mpLastFrame->mnId!=1)
+        if(mpLastFrame->mnId!=mnFrameIdOfSecondKF) //delay deleting the second keyframe until sliding out of window
             delete mpLastFrame;
         mpLastFrame = mpCurrentFrame;
     }  
     // Update drawer
     mpFramePublisher->Update(this, im);
+    if(mpCurrentFrame!=NULL){
+
+        Eigen::Matrix3d Rwc = mpCurrentFrame->mTcw.rotationMatrix().transpose();
 #ifdef SLAM_USE_ROS
-    Eigen::Matrix3d Rwc = mpCurrentFrame->mTcw.rotationMatrix().transpose();
-    Eigen::Vector3d twc = -Rwc*mpCurrentFrame->mTcw.translation();
-    tf::Matrix3x3 M(Rwc(0,0),Rwc(0,1),Rwc(0,2),
-                    Rwc(1,0),Rwc(1,1),Rwc(1,2),
-                    Rwc(2,0),Rwc(2,1),Rwc(2,2));
-    tf::Vector3 V(twc(0), twc(1), twc(2));
-    tf::Transform tfTcw(M,V);
-    mTfBr.sendTransform(tf::StampedTransform(tfTcw,ros::Time::now(), "ORBSLAM_DWO/World", "ORBSLAM_DWO/Camera"));
+        Eigen::Vector3d twc = -Rwc*mpCurrentFrame->mTcw.translation();
+        tf::Matrix3x3 M(Rwc(0,0),Rwc(0,1),Rwc(0,2),
+                        Rwc(1,0),Rwc(1,1),Rwc(1,2),
+                        Rwc(2,0),Rwc(2,1),Rwc(2,2));
+        tf::Vector3 V(twc(0), twc(1), twc(2));
+        tf::Transform tfTcw(M,V);
+        mTfBr.sendTransform(tf::StampedTransform(tfTcw,ros::Time::now(), "ORBSLAM_DWO/World",
+                                                 "ORBSLAM_DWO/Camera"));
 #endif
+        if(lastFrameTime == -1)
+            mVelByStereoOdometry = Eigen::Vector3d::Zero();
+        else
+            mVelByStereoOdometry = mVelByStereoOdometry*0.4 + 0.6*Rwc*Tcp.translation()
+                    /(timeStampSec - lastFrameTime);
+
+    }
+
+
 }
 
 void Tracking::FirstInitialization()
 {    
     //We ensure a minimum ORB features to continue, otherwise discard frame
-    if(mpCurrentFrame->mvKeysUn.size()>100)
+    if(mpCurrentFrame->mvKeysUn.size()<=20)
+        SLAM_DEBUG_STREAM("Skip first frame has too few keypoints: "<<mpCurrentFrame->mvKeysUn.size());
+    else
     {
         mpCurrentFrame->SetPose( Sophus::SE3d());       
         mpInitialFrame= mpCurrentFrame;
@@ -1862,8 +1910,11 @@ void Tracking::FirstInitialization()
         if(mpInitializer)
             delete mpInitializer;
 
+        mPose=libviso2::Matrix::eye(4);
         mpInitializer =  new Initializer(*mpInitialFrame,1.0,200);
         mState = INITIALIZING;
+        //SLAM_DEBUG_STREAM(" Added to map the very first keyframe with #kp "<<mpCurrentFrame->mvKeysUn.size());
+        std::cout<<" Added to map the very first keyframe with #kp "<<mpCurrentFrame->mvKeysUn.size()<<std::endl;
     }
 }
 // not used for stereo processing case
@@ -2098,15 +2149,22 @@ void Tracking::CreateInitialMapStereo(const Sophus::SE3d &Tcw, const std::vector
         }
     }
 
-    SLAM_DEBUG_STREAM("created initial map of points from quad matches:"<<mpMap->MapPointsInMap()<<" "<<vQuadMatches.size());
     //    Optimizer::GlobalBundleAdjustemnt(mpMap,20);
     float medianDepth = pKFcur->ComputeSceneMedianDepth(2);
-
-    if(medianDepth<0 || pKFcur->TrackedMapPoints()<Config::initMinTracked())
+    int trackedMPs = pKFcur->TrackedMapPoints();
+    if(medianDepth<0 || trackedMPs<Config::initMinTracked())
     {
-        SLAM_DEBUG_STREAM("Wrong initialization, reseting...");
+//        SLAM_DEBUG_STREAM("Wrong initialization for stereo images with median depth "<< medianDepth <<
+//                          " and tracked mp in second kf "<<trackedMPs<< ". Reseting...");
+        std::cerr<<"Wrong initialization for stereo images with median depth "<< medianDepth <<
+                          " and tracked mp in second kf "<<trackedMPs<< ". Reseting..."<<std::endl;
         Reset();
         return;
+    }else
+    {
+        //    SLAM_DEBUG_STREAM("created initial map of points from quad matches:"<<mpMap->MapPointsInMap()<<" "<<vQuadMatches.size());
+          std::cout<< "created initial map of points from quad matches:"<<mpMap->MapPointsInMap()
+                   <<" "<<vQuadMatches.size()<<std::endl;
     }
     // Update Connections
     pPrevFrame->UpdateConnections();
@@ -2118,6 +2176,7 @@ void Tracking::CreateInitialMapStereo(const Sophus::SE3d &Tcw, const std::vector
     delete mpCurrentFrame;
     mpCurrentFrame = mpLastFrame;// set for framepublisher
     mnLastKeyFrameId=mpLastFrame->mnId;
+    mnFrameIdOfSecondKF = mpLastFrame->mnId;
     mpLastKeyFrame = pKFcur;
     mnLastRelocFrameId=mpLastFrame->mnId;// Huai: increase lastreloc frameid so we can reduce nMaxFrames to 2 without possibly causing inserting the second kf twice
     mvpLocalMapPoints=mpMap->GetAllMapPoints();
@@ -2234,6 +2293,7 @@ void Tracking::CreateInitialMap(Eigen::Matrix3d Rcw, Eigen::Vector3d tcw, double
     delete mpCurrentFrame;
     mpCurrentFrame=mpLastFrame; // set for framepublisher
     mnLastKeyFrameId=mpLastFrame->mnId;
+    mnFrameIdOfSecondKF = mpLastFrame->mnId;
     mpLastKeyFrame = pKFcur;
     mnLastRelocFrameId=mpLastFrame->mnId;
 
@@ -2449,7 +2509,7 @@ bool Tracking::TrackLocalMapDWO()
                                             mpCurrentFrame, mpLastFrame, mbUseIMUData?&imu_:NULL, right_cam_, &mTl2r);
 
         mnMatchesInliers= nObs-nBad;
-        SLAM_DEBUG_STREAM("Inliers after DWO without bads:"<< mnMatchesInliers<<" "<<nBad);
+        SLAM_DEBUG_STREAM("Inliers after DWO :"<< mnMatchesInliers<<" and bad obs "<<nBad);
     }
 
 #if 0
@@ -3187,15 +3247,21 @@ void Tracking::Reset()
     }
 #ifdef SLAM_USE_ROS
     // Wait until publishers are stopped
-    ros::Rate r(500);
+    ros::Rate r(50);
+    size_t ticks = 0;
+    size_t maxWaitTicks = 50*0.1; //  how long do we wait for user input, 50x number of secs.
     while(1)
     {
         {
             boost::mutex::scoped_lock lock(mMutexReset);
-            if(mbPublisherStopped)
+            if(mbPublisherStopped || ticks> maxWaitTicks)
+            {
+                mbPublisherStopped = true;
                 break;
+            }
         }
         r.sleep();
+        ++ticks;
     }
 #endif
     for(deque<Frame*>::iterator qIt= mvpTemporalFrames.begin(); qIt!=mvpTemporalFrames.end(); ++qIt)
@@ -3228,6 +3294,8 @@ void Tracking::Reset()
         boost::mutex::scoped_lock lock(mMutexReset);
         mbReseting = false;
     }
+
+    std::cout <<"system reset finishes "<< std::endl;
 }
 
 void Tracking::CheckResetByPublishers()

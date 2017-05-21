@@ -1,6 +1,6 @@
 SET(TRACE FALSE) # record timing of operations
 SET(MONO_SLAM false) # if false stereo SLAM with or without IMU, if true, monocular SLAM
-SET(USE_ROS false) # use ROS for visualization or not
+SET(USE_ROS true) # use ROS for visualization or not
 SET(USE_SYSTEM_OPENCV true) # Set False if you want to build this package using independent OpenCV instead of libopencv-dev
 
 SET(PROJECT_NAME orbslam_dwo)
@@ -126,6 +126,7 @@ src/Sim3Solver.cc
 src/Initializer.cc
 src/stereoSFM.cpp
 src/MotionModel.cpp
+src/StereoImageLoader.cpp
 )
 
 IF(USE_ROS)
@@ -165,3 +166,6 @@ TARGET_LINK_LIBRARIES(${PROJECT_NAME} ${LINK_LIBS})
 
 add_executable(test_orbslam src/main.cc)
 TARGET_LINK_LIBRARIES(test_orbslam ${PROJECT_NAME})
+
+add_executable(test_stereoImageLoader test/testStereoImageLoader.cpp)
+TARGET_LINK_LIBRARIES(test_stereoImageLoader ${PROJECT_NAME})

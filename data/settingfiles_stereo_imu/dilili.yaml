@@ -1,0 +1,164 @@
+%YAML:1.0
+startIndex: 9
+finishIndex: 399
+dataset: "DiLiLi" # choose one of KITTIOdoSeq, Tsukuba, MalagaUrbanExtract6, DiLiLi
+use_imu_data:false
+
+input_path: /media/jhuai/Seagate/data/DILILI-0510_square_400_no_calib/0510_square_400_no_calib
+time_file: /media/jhuai/Seagate/data/DILILI-0510_square_400_no_calib/0510_square_400_no_calib/video_ts.txt
+voc_file_path: /home/jhuai/catkin_ws/src/ORB_SLAM2/Vocabulary/ORBvoc.txt
+output_file: /home/jhuai/Desktop/temp/dilili_imu.txt
+output_point_file: /home/jhuai/Desktop/temp/dilili_imu_points.txt
+imu_file: "/media/jhuai/Seagate/data/DILILI-0510_square_400_no_calib/0510_square_400_no_calib/imu.txt" 
+trace_dir: "/home/jhuai/Desktop/temp" # where to put the slam profiled time
+
+sample_interval: 0.014
+na: !!opencv-matrix
+   rows: 3
+   cols: 1
+   dt: d
+   data: [0.04, 0.04, 0.04 ] # 80 ug with 1 Hz 
+# q_na=na^2
+nw: !!opencv-matrix
+   rows: 3
+   cols: 1
+   dt: d
+   data: [0.01, 0.01, 0.01] # 0.03 deg/sec/sqrt(Hz) 
+#q_nw=(nw*pi/180)^2
+acc_bias_Tc: 1800       #sec
+acc_bias_var: !!opencv-matrix
+   rows: 3
+   cols: 1
+   dt: d
+   data: [.4e-2, .4e-2, .4e-2]#bias drift variability, 0.4 mg
+#q_n_ba=(.4e-2)^2*(2/acc_bias_Tc);
+gyro_bias_Tc: 1800 #sec
+gyro_bias_var: !!opencv-matrix
+   rows: 3
+   cols: 1
+   dt: d
+   data: [2.5e-2, 2.5e-2, 2.5e-2]#bias drift variability, 18*5 deg/hour
+#q_n_bw=(18*5*(pi/180.0)/3600)^2*(2/gyro_bias_Tc); # 18deg/hr  
+
+Rs2c: !!opencv-matrix
+   rows: 3
+   cols: 3
+   dt: d
+   data: [ 1, 0, 0, 0, 1, 0, 0, 0, 1]
+tsinc: !!opencv-matrix
+   rows: 3
+   cols: 1
+   dt: d
+   data: [ 0.0, 0.0, 0.0]#the coordinate of sensor frame origin in left P0 camera frame
+gw: !!opencv-matrix # gravity in the local world frame
+   rows: 3
+   cols: 1
+   dt: d
+   data: [ 0.0,  9.80665,  0.0]
+wiew: !!opencv-matrix # earth rotation in the local world frame
+   rows: 3
+   cols: 1
+   dt: d
+   data: [ 0.0, 0.0, 0.0]
+# the world frame is the LEFT camera frame at startIndex
+vs0inw: !!opencv-matrix
+   rows: 3
+   cols: 1
+   dt: d
+   data: [ 0.0, 0.0, 0.0]
+
+# Camera calibration parameters (OpenCV)
+Camera.width: 640
+Camera.height: 480
+
+# fx,fy,cx,cy is computed by stereorectify which undistorts and rectifies
+Camera.fx: 499.3362698847332
+Camera.fy: 499.3362698847332
+Camera.cx: 182.2466583251953
+Camera.cy: 208.0963668823242
+
+# Camera distortion paremeters (OpenCV) --
+Camera.k1: 0
+Camera.k2: 0
+Camera.p1: 0.0
+Camera.p2: 0.0
+
+#--------------------------------------------------------------------------------------------
+# Stereo Rectification. Only if you need to pre-rectify the images.
+# Camera.fx, .fy, etc must be the same as in LEFT.P
+#--------------------------------------------------------------------------------------------
+LEFT.height: 480
+LEFT.width: 640
+LEFT.D: !!opencv-matrix
+   rows: 1
+   cols: 8
+   dt: d
+   data:[1.129168, 0.09484354, 0, 0, -0.004048342, 1.620632, 0.4748389, -0.007935484]
+
+LEFT.K: !!opencv-matrix
+   rows: 3
+   cols: 3
+   dt: d
+   data: [450.9458, 0, 271.6857, 0, 451.0362, 200.8299, 0, 0, 1]
+
+RIGHT.height: 480
+RIGHT.width: 640
+RIGHT.D: !!opencv-matrix
+   rows: 1
+   cols: 8
+   dt: d
+   data:[0.3076821, -0.4852078, 0, 0, -0.06128912, 0.7709569, -0.4605496, -0.2578153]
+
+RIGHT.K: !!opencv-matrix
+   rows: 3
+   cols: 3
+   dt: d
+   data: [451.0059, 0, 310.4754, 0, 451.3093, 259.2096, 0, 0, 1]
+
+# rectified relative pose between left and right camera
+Stereo.se3Right2Left: !!opencv-matrix
+   rows: 4
+   cols: 4
+   dt: d
+   data: [1.0, 0.0, 0.0, 0.1068446633505842,
+          0.0, 1.0, 0.0, 0.0,
+          0.0, 0.0, 1.0, 0.0,
+          0.0, 0.0, 0.0, 1.0]
+
+# initial relative pose between left and right camera before rectification
+Stereo.se3Right2LeftRaw: !!opencv-matrix
+   rows: 4
+   cols: 4
+   dt: d
+   data: [0.9998905, -0.004711272, 0.01401664, 0.1068341, 
+          0.004497631, 0.9998738, 0.01523468, 0.001348461,
+          -0.01408664, -0.01516997, 0.9997856, 0.0006652319,
+          0, 0, 0, 1]
+
+# Camera frames per second 
+Camera.fps: 10.0
+
+# Color order of the images (0: BGR, 1: RGB. It is ignored if images are grayscale)
+Camera.RGB: 1
+
+#--------------------------------------------------------------------------------------------
+### Changing the parameters below could seriously degradate the performance of the system
+
+# ORB Extractor: Number of features per image
+ORBextractor.nFeatures: 600
+
+# ORB Extractor: Scale factor between levels in the scale pyramid 	
+ORBextractor.scaleFactor: 1.2
+
+# ORB Extractor: Number of levels in the scale pyramid	
+ORBextractor.nLevels: 4
+
+# ORB Extractor: Fast threshold (lower less restrictive)			
+ORBextractor.fastTh: 15
+
+# ORB Extractor: Score to sort features. 0 -> Harris Score, 1 -> FAST Score			
+ORBextractor.nScoreType: 1
+
+# the following parameters determines necessary conditions to create a new keyframe
+Tracking.tracked_feature_ratio: 0.6 #if the current frame tracks less than this ratio of features in the reference keyframe
+Tracking.min_tracked_features: 80 #if the current frame tracks less than this number of features in the reference keyframe

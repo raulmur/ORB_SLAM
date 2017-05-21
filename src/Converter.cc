@@ -76,14 +76,26 @@ Sophus::SE3d Converter::toSE3d(const Sophus::Sim3d &sim3)
 {
    return Sophus::SE3d(sim3.rotationMatrix(), sim3.translation()/sim3.scale());
 }
+
 Sophus::SE3d Converter::toSE3d(const cv::Mat &cvT)
 {
     Eigen::Matrix<double,3,3> R;
-    R << cvT.at<float>(0,0), cvT.at<float>(0,1), cvT.at<float>(0,2),
-         cvT.at<float>(1,0), cvT.at<float>(1,1), cvT.at<float>(1,2),
-         cvT.at<float>(2,0), cvT.at<float>(2,1), cvT.at<float>(2,2);
+    Eigen::Matrix<double,3,1> t;
 
-    Eigen::Matrix<double,3,1> t(cvT.at<float>(0,3), cvT.at<float>(1,3), cvT.at<float>(2,3));
+    if(cvT.depth()==CV_32F)
+    {
+        R << cvT.at<float>(0,0), cvT.at<float>(0,1), cvT.at<float>(0,2),
+                cvT.at<float>(1,0), cvT.at<float>(1,1), cvT.at<float>(1,2),
+                cvT.at<float>(2,0), cvT.at<float>(2,1), cvT.at<float>(2,2);
+
+        t << cvT.at<float>(0,3), cvT.at<float>(1,3), cvT.at<float>(2,3);
+    }else{
+        R << cvT.at<double>(0,0), cvT.at<double>(0,1), cvT.at<double>(0,2),
+             cvT.at<double>(1,0), cvT.at<double>(1,1), cvT.at<double>(1,2),
+             cvT.at<double>(2,0), cvT.at<double>(2,1), cvT.at<double>(2,2);
+
+        t << cvT.at<double>(0,3), cvT.at<double>(1,3), cvT.at<double>(2,3);
+    }
 
     return Sophus::SE3d(R,t);
 }
