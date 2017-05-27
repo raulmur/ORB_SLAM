@@ -131,7 +131,7 @@ RIGHT.K: !!opencv-matrix
    dt: d
    data: [451.0059, 0, 310.4754, 0, 451.3093, 259.2096, 0, 0, 1]
 
-# rectified relative pose between left and right camera, the only nontrivial value at its top right corner
+# rectified pose of the left camera relative to the right camera, the only nontrivial value at its top right corner
 # is the rectified baseline which is deduced from stereorectify(), see StereoImageLoader constructor in StereoImageLoader.cpp 
 Stereo.se3Right2Left: !!opencv-matrix
    rows: 4
