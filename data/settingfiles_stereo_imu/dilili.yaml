@@ -142,7 +142,7 @@ Stereo.se3Right2Left: !!opencv-matrix
           0.0, 0.0, 1.0, 0.0,
           0.0, 0.0, 0.0, 1.0]
 
-# original relative pose between left and right camera before rectification
+# original pose of the left camera relative to the right camera before rectification
 Stereo.se3Right2LeftRaw: !!opencv-matrix
    rows: 4
    cols: 4
@@ -152,7 +152,7 @@ Stereo.se3Right2LeftRaw: !!opencv-matrix
           -0.01408664, -0.01516997, 0.9997856, 0.0006652319,
           0, 0, 0, 1]
 
-# Camera frames per second 
+# How many camera stereo frames are processed per second by the ORBSLAM method
 Camera.fps: 10.0
 
 # Color order of the images (0: BGR, 1: RGB. It is ignored if images are grayscale)
