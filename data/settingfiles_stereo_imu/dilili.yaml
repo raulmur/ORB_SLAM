@@ -13,54 +13,66 @@ imu_file: "/media/jhuai/Seagate/data/DILILI-0510_square_400_no_calib/0510_square
 trace_dir: "/home/jhuai/Desktop/temp" # where to put the slam profiled time
 
 sample_interval: 0.014
+# accelerometer noise density, m/(s^2*sqrt(Hz)), q_na=na^2
 na: !!opencv-matrix
    rows: 3
    cols: 1
    dt: d
-   data: [0.04, 0.04, 0.04 ] # 80 ug with 1 Hz 
-# q_na=na^2
+   data: [0.04, 0.04, 0.04 ] # 4 mg with 1 Hz
+
+# gyroscope noise density, deg/(sec*sqrt(Hz)), q_nw=(nw*pi/180)^2
 nw: !!opencv-matrix
    rows: 3
    cols: 1
    dt: d
-   data: [0.01, 0.01, 0.01] # 0.03 deg/sec/sqrt(Hz) 
-#q_nw=(nw*pi/180)^2
-acc_bias_Tc: 1800       #sec
+   data: [0.573, 0.573, 0.573] # 0.573 deg/(sec*sqrt(Hz)) 
+
+acc_bias_Tc: 1800 #sec
+#bias drift variability, m/s^2, q_n_ba=(acc_bias_var)^2*(2/acc_bias_Tc);
 acc_bias_var: !!opencv-matrix
    rows: 3
    cols: 1
    dt: d
-   data: [.4e-2, .4e-2, .4e-2]#bias drift variability, 0.4 mg
-#q_n_ba=(.4e-2)^2*(2/acc_bias_Tc);
+   data: [.4e-2, .4e-2, .4e-2] # 0.4 mg
+
+#bias drift variability, deg/sec, q_n_bw=(gyro_bias_var*pi/180.0)^2*(2/gyro_bias_Tc);
 gyro_bias_Tc: 1800 #sec
 gyro_bias_var: !!opencv-matrix
    rows: 3
    cols: 1
    dt: d
-   data: [2.5e-2, 2.5e-2, 2.5e-2]#bias drift variability, 18*5 deg/hour
-#q_n_bw=(18*5*(pi/180.0)/3600)^2*(2/gyro_bias_Tc); # 18deg/hr  
+   data: [2.5e-2, 2.5e-2, 2.5e-2] # 18*5 deg/hour
 
+# the rotation from IMU sensor frame to camera frame
 Rs2c: !!opencv-matrix
    rows: 3
    cols: 3
    dt: d
    data: [ 1, 0, 0, 0, 1, 0, 0, 0, 1]
+
+# the coordinates of the IMU sensor frame origin in left camera frame
 tsinc: !!opencv-matrix
    rows: 3
    cols: 1
    dt: d
-   data: [ 0.0, 0.0, 0.0]#the coordinate of sensor frame origin in left P0 camera frame
-gw: !!opencv-matrix # gravity in the local world frame
+   data: [ 0.0, 0.0, 0.0]
+
+# gravity in the local world frame, the world frame is the LEFT camera frame at startIndex
+# the gravity direction is estimated from the accelerometer measurements close to the startIndex in time
+gw: !!opencv-matrix
    rows: 3
    cols: 1
    dt: d
    data: [ 0.0,  9.80665,  0.0]
-wiew: !!opencv-matrix # earth rotation in the local world frame
+
+# earth rotation vector in the local world frame, set zeros as it is often negligible
+wiew: !!opencv-matrix 
    rows: 3
    cols: 1
    dt: d
    data: [ 0.0, 0.0, 0.0]
-# the world frame is the LEFT camera frame at startIndex
+
+# velocity of the sensor frame in the world frame at start
 vs0inw: !!opencv-matrix
    rows: 3
    cols: 1
@@ -71,13 +83,13 @@ vs0inw: !!opencv-matrix
 Camera.width: 640
 Camera.height: 480
 
-# fx,fy,cx,cy is computed by stereorectify which undistorts and rectifies
+# fx,fy,cx,cy is computed by stereorectify which undistorts and rectifies the input stereo images
 Camera.fx: 499.3362698847332
 Camera.fy: 499.3362698847332
 Camera.cx: 182.2466583251953
 Camera.cy: 208.0963668823242
 
-# Camera distortion paremeters (OpenCV) --
+# Camera distortion paremeters (OpenCV), they are zeros if the input images are remapped by stereorecify
 Camera.k1: 0
 Camera.k2: 0
 Camera.p1: 0.0
@@ -87,35 +99,40 @@ Camera.p2: 0.0
 # Stereo Rectification. Only if you need to pre-rectify the images.
 # Camera.fx, .fy, etc must be the same as in LEFT.P
 #--------------------------------------------------------------------------------------------
+
+# original left image size
 LEFT.height: 480
 LEFT.width: 640
+# original left image distortion
 LEFT.D: !!opencv-matrix
    rows: 1
    cols: 8
    dt: d
    data:[1.129168, 0.09484354, 0, 0, -0.004048342, 1.620632, 0.4748389, -0.007935484]
-
+# original left image K matrix
 LEFT.K: !!opencv-matrix
    rows: 3
    cols: 3
    dt: d
    data: [450.9458, 0, 271.6857, 0, 451.0362, 200.8299, 0, 0, 1]
-
+# original right image size
 RIGHT.height: 480
 RIGHT.width: 640
+# original right image distortion
 RIGHT.D: !!opencv-matrix
    rows: 1
    cols: 8
    dt: d
    data:[0.3076821, -0.4852078, 0, 0, -0.06128912, 0.7709569, -0.4605496, -0.2578153]
-
+# original right image K matrix
 RIGHT.K: !!opencv-matrix
    rows: 3
    cols: 3
    dt: d
    data: [451.0059, 0, 310.4754, 0, 451.3093, 259.2096, 0, 0, 1]
 
-# rectified relative pose between left and right camera
+# rectified relative pose between left and right camera, the only nontrivial value at its top right corner
+# is the rectified baseline which is deduced from stereorectify(), see StereoImageLoader constructor in StereoImageLoader.cpp 
 Stereo.se3Right2Left: !!opencv-matrix
    rows: 4
    cols: 4
@@ -125,7 +142,7 @@ Stereo.se3Right2Left: !!opencv-matrix
           0.0, 0.0, 1.0, 0.0,
           0.0, 0.0, 0.0, 1.0]
 
-# initial relative pose between left and right camera before rectification
+# original relative pose between left and right camera before rectification
 Stereo.se3Right2LeftRaw: !!opencv-matrix
    rows: 4
    cols: 4
