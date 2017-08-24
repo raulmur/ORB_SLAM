@@ -32,7 +32,7 @@ The following installation procedure has been tested on Ubuntu 14.04 and 14.04.2
 
 The Boost library is used to launch different threads of the SLAM system.
 
-		sudo apt-get install libboost-all-dev
+    sudo apt-get install libboost-all-dev
 
 ## 2.2 OpenCV 2.4.x
 
@@ -47,15 +47,15 @@ Eigen can be installed via
 		sudo apt-get install libeigen3-dev
 
 However, in Ubuntu 14.04, the above command may install Eigen 3.0 rather than newer versions. If a newer version is desired, you may build and install Eigen from the source. To do that, first download the proper source archive package from [here](http://eigen.tuxfamily.org/index.php?title=Main_Page), the following assuming Eigen 3.2.10 is downloaded into /home/username/ folder. Second, open a terminal and type
- 
-        tar xvjf eigen-eigen-b9cd8366d4e8.tar.bz2
-        mv eigen-eigen-b9cd8366d4e8 eigen-3.2.10
-	cd eigen-3.2.10
-	mkdir build
-	cd build
-	cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX:PATH=/usr/local ..
-	make
-	sudo make install
+
+    tar xvjf eigen-eigen-b9cd8366d4e8.tar.bz2
+    mv eigen-eigen-b9cd8366d4e8 eigen-3.2.10
+    cd eigen-3.2.10
+    mkdir build
+    cd build
+    cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX:PATH=/usr/local ..
+    make
+    sudo make install
 
 ## 2.4 Install ROS (optional) and download orbslam_dwo
 
@@ -78,30 +78,30 @@ Note this step assumes that Eigen is already installed.
 
 To avoid system wide installation, g2o is recommended to be installed into a local folder, e.g., *g2o/local_install*. To do that, navigate to the /home/username/ folder in a terminal, and run the following commands:
 
-                cd catkin_ws/src/orbslam_dwo/Thirdparty
-		git clone https://github.com/RainerKuemmerle/g2o.git
-		cd g2o
-		git checkout deafc0
-		mkdir local_install
-		mkdir build
-		cd build
-		cmake .. -DCMAKE_INSTALL_PREFIX:PATH=$HOME/catkin_ws/src/orbslam_dwo/Thirdparty/g2o/local_install -DCMAKE_BUILD_TYPE=Release -DEIGEN3_INCLUDE_DIR:PATH=/usr/local/include/eigen3
-		make -j4
-		make install
-		cd
+    cd catkin_ws/src/orbslam_dwo/Thirdparty
+    git clone https://github.com/RainerKuemmerle/g2o.git
+    cd g2o
+    git checkout deafc0
+    mkdir local_install
+    mkdir build
+    cd build
+    cmake .. -DCMAKE_INSTALL_PREFIX:PATH=$HOME/catkin_ws/src/orbslam_dwo/Thirdparty/g2o/local_install -DCMAKE_BUILD_TYPE=Release -DEIGEN3_INCLUDE_DIR:PATH=/usr/local/include/eigen3
+    make -j4
+    make install
+    cd
 
 ## 2.6 Sophus
 
 The modified version of Sophus by Steven Lovegrove is used to manipulate Lie group members. The reason why Hauke Strasdat's version is not used is that Lovegrove's version is a header only library. More importantly, it complies with the jet numbers used in the autodiff module of the ceres solver. In this case, assume it is to be put in /catkin_ws/src/orbslam_dwo/Thirdparty/Sophus. To do that, navigate to the /home/username folder in a terminal and run:
 
-                cd catkin_ws/src/orbslam_dwo/Thirdparty
-		git clone https://github.com/stevenlovegrove/Sophus.git
-		cd Sophus
-		git checkout b474f0
-		mkdir build
-		cd build
-		cmake .. -DEIGEN3_INCLUDE_DIR:PATH=/usr/local/include/eigen3
-		make
+    cd catkin_ws/src/orbslam_dwo/Thirdparty
+    git clone https://github.com/stevenlovegrove/Sophus.git
+    cd Sophus
+    git checkout b474f0
+    mkdir build
+    cd build
+    cmake .. -DEIGEN3_INCLUDE_DIR:PATH=/usr/local/include/eigen3
+    make
 
 ## 2.7 vio_common, vio_g2o, DBoW2, libviso2, vikit (all included in /Thirdparty)
 
@@ -121,10 +121,10 @@ Note it depends on OpenCV.
 
 To build these five dependencies, navigate to the /orbslam_dwo folder in a terminal and run:
 
-                cd
-                cd catkin_ws/src/orbslam_dwo
-		chmod +x build.sh
-		./build.sh
+    cd
+    cd catkin_ws/src/orbslam_dwo
+    chmod +x build.sh
+    ./build.sh
 
 # 3. Build ORBSLAM_DWO and test with KITTI seq 00 and Tsukuba CG stereo dataset
 
@@ -159,7 +159,7 @@ Then depending on the data for tests, execute one of the following commands in a
 
 To test the program on KITTI seq 00 (stereo)
 
-		rosrun orbslam_dwo test_orbslam $HOME/catkin_ws/src/orbslam_dwo/data/settingfiles_stereo/kittiseq00.yaml
+    rosrun orbslam_dwo test_orbslam $HOME/catkin_ws/src/orbslam_dwo/data/settingfiles_stereo/kittiseq00.yaml
 
 To test the program on Tsukuba dataset (stereo)
 
