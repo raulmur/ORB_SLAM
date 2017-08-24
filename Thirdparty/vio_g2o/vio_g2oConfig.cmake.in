@@ -1,0 +1,17 @@
+#######################################################
+# vio_g2o source dir
+set( vio_g2o_SOURCE_DIR "@CMAKE_CURRENT_SOURCE_DIR@")
+
+#######################################################
+# vio_g2o build dir
+set( vio_g2o_DIR "@CMAKE_CURRENT_BINARY_DIR@")
+
+#######################################################
+set( vio_g2o_INCLUDE_DIR  "@vio_g2o_INCLUDE_DIR@" )
+set( vio_g2o_INCLUDE_DIRS "@vio_g2o_INCLUDE_DIR@" )
+
+set( vio_g2o_LIBRARIES    "@vio_g2o_LIBRARIES@" )
+set( vio_g2o_LIBRARY      "@vio_g2o_LIBRARIES@" )
+
+set( vio_g2o_LIBRARY_DIR  "@vio_g2o_LIBRARY_DIR@" )
+set( vio_g2o_LIBRARY_DIRS "@vio_g2o_LIBRARY_DIR@" )
