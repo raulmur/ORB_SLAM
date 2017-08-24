@@ -47,15 +47,15 @@ Eigen can be installed via
 		sudo apt-get install libeigen3-dev
 
 However, in Ubuntu 14.04, the above command may install Eigen 3.0 rather than newer versions. If a newer version is desired, you may build and install Eigen from the source. To do that, first download the proper source archive package from [here](http://eigen.tuxfamily.org/index.php?title=Main_Page), the following assuming Eigen 3.2.10 is downloaded into /home/username/ folder. Second, open a terminal and type
-
-	 tar xvjf eigen-eigen-b9cd8366d4e8.tar.bz2
-   mv eigen-eigen-b9cd8366d4e8 eigen-3.2.10
-	 cd eigen-3.2.10
-	 mkdir build
-	 cd build
-	 cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX:PATH=/usr/local ..
-	 make
-	 sudo make install
+ 
+        tar xvjf eigen-eigen-b9cd8366d4e8.tar.bz2
+        mv eigen-eigen-b9cd8366d4e8 eigen-3.2.10
+	cd eigen-3.2.10
+	mkdir build
+	cd build
+	cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX:PATH=/usr/local ..
+	make
+	sudo make install
 
 ## 2.4 Install ROS (optional) and download orbslam_dwo
 
@@ -81,7 +81,7 @@ To avoid system wide installation, g2o is recommended to be installed into a loc
                 cd catkin_ws/src/orbslam_dwo/Thirdparty
 		git clone https://github.com/RainerKuemmerle/g2o.git
 		cd g2o
-                git checkout deafc0
+		git checkout deafc0
 		mkdir local_install
 		mkdir build
 		cd build
@@ -121,7 +121,7 @@ Note it depends on OpenCV.
 
 To build these five dependencies, navigate to the /orbslam_dwo folder in a terminal and run:
 
-                cd 
+                cd
                 cd catkin_ws/src/orbslam_dwo
 		chmod +x build.sh
 		./build.sh
@@ -146,9 +146,10 @@ To test the program, first launch roscore and related viewers for inspection via
 launch ROS in a terminal:
 
     roscore
+
 launch image view in another terminal:
 
-    rosrun image_view image_view image:=/ORBSLAM_DWO/Frame \_autosize:=true
+    rosrun image_view image_view image:=/ORBSLAM_DWO/Frame _autosize:=true
 
 launch rviz in another terminal:
 
@@ -219,9 +220,17 @@ In *orbslam_dwo/CMakeLists.txt* make sure line "SET(USE_ROS TRUE)".
 
 To test the program, first launch roscore and related viewers for inspection via:
 
-		launch ROS in a terminal: roscore
-		launch image view in another terminal: rosrun image_view image_view image:=/ORBSLAM_DWO/Frame \_autosize:=true
-		launch rviz in another terminal: rosrun rviz rviz -d $HOME/catkin_ws/src/orbslam_dwo/data/rviz.rviz
+launch ROS in a terminal:
+
+    roscore
+
+launch image view in another terminal:
+
+    rosrun image_view image_view image:=/ORBSLAM_DWO/Frame _autosize:=true
+
+launch rviz in another terminal:
+
+    rosrun rviz rviz -d $HOME/catkin_ws/src/orbslam_dwo/data/rviz.rviz
 
 Then depending on the data for tests, execute one of the following commands in another terminal. Note you may need to change the paths for data in the yaml setting file.
 

@@ -6,11 +6,11 @@ use_imu_data:true
 
 input_path: /media/jhuai/Seagate/data/DILILI-0510_square_400_no_calib/0510_square_400_no_calib
 time_file: /media/jhuai/Seagate/data/DILILI-0510_square_400_no_calib/0510_square_400_no_calib/video_ts.txt
-voc_file_path: /home/jhuai/catkin_ws/src/ORB_SLAM2/Vocabulary/ORBvoc.txt
-output_file: /home/jhuai/Desktop/temp/dilili_imu.txt
-output_point_file: /home/jhuai/Desktop/temp/dilili_imu_points.txt
+voc_file_path: /media/jhuai/Seagate/data/Vocabulary/ORBvoc.txt
+output_file: /media/jhuai/Seagate/data/temp/dilili_imu.txt
+output_point_file: /media/jhuai/Seagate/data/temp/dilili_imu_points.txt
 imu_file: "/media/jhuai/Seagate/data/DILILI-0510_square_400_no_calib/0510_square_400_no_calib/imu.txt" 
-trace_dir: "/home/jhuai/Desktop/temp" # where to put the slam profiled time
+trace_dir: "/media/jhuai/Seagate/data/temp" # where to put the slam profiled time
 
 sample_interval: 0.014
 # accelerometer noise density, m/(s^2*sqrt(Hz)), q_na=na^2
