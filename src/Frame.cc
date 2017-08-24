@@ -69,7 +69,7 @@ Frame::Frame(const Frame &frame)
      mvLevelSigma2(frame.mvLevelSigma2), mvInvLevelSigma2(frame.mvInvLevelSigma2),
      mnMinX(frame.mnMinX),mnMaxX(frame.mnMaxX),mnMinY(frame.mnMinY), mnMaxY(frame.mnMaxY),
      viso2LeftId2StereoId(frame.viso2LeftId2StereoId),viso2RightId2StereoId(frame.viso2RightId2StereoId),
-     mbBad(frame.mbBad), v_kf_(frame.v_kf_), v_sb_(frame.v_sb_)
+     mbBad(frame.mbBad), v_kf_(NULL), v_sb_(NULL)
 { 
     for(int i=0;i<FRAME_GRID_COLS;i++)
         for(int j=0; j<FRAME_GRID_ROWS; j++)

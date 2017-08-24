@@ -39,7 +39,7 @@ public:
 	static const double LOG_EPS; 
   // If you change the type of WordValue, make sure you change also the
 	// epsilon value (this is needed by the KL method)
-  virtual ~GeneralScoring(){}
+	
 };
 
 /** 

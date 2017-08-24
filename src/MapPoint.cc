@@ -176,7 +176,7 @@ void MapPoint::Replace(MapPoint* pMP)
         }
         else
         {
-            assert(nMPId!=mit->second);
+            assert(nMPId!= (int) mit->second);
             pKF->EraseMapPointMatch(mit->second);
         }
     }

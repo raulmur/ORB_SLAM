@@ -72,11 +72,15 @@ void ConcatenateTwoImages(const cv::Mat& img1, const cv::Mat& img2, cv::Mat & re
 void testStereoRectifyDiLiLi(){
 
     // Read camera parameters
-    std::string settingFile ="/home/jhuai/catkin_ws/src/orbslam_dwo/data/settingfiles_stereo_imu/dilili.yaml";
+    // std::string settingFile ="/home/dexin/workspace/wallb/data/settingfiles_stereo_imu/mydilili.yaml";
+    // std::string path = "/home/dexin/workspace/wallb/data/0510_square_400_no_calib";
 
-    std::string path = "/media/jhuai/Seagate/data/DILILI-0510_square_400_no_calib/0510_square_400_no_calib";
-    std::string strImageLeft = path+ "/left_1.pbm";
-    std::string strImageRight = path+ "/right_1.pbm";
+    // Read camera parameters
+    std::string settingFile ="/home/dexin/workspace/wallb/data/settingfiles_stereo_imu/mydilili_fisheye.yaml";
+    std::string path = "/home/dexin/workspace/wallb/data/sensor/fisheye/image0530";
+
+    std::string strImageLeft = path+ "/left_20.png";
+    std::string strImageRight = path+ "/right_20.png";
     cv::FileStorage fsSettings(settingFile, cv::FileStorage::READ);
     if(!fsSettings.isOpened())
     {
@@ -179,10 +183,10 @@ void testStereoRectifyDiLiLi(){
     cv::Mat mImGray = imLeftRect;
     cv::Mat imGrayRight = imRightRect;
 
-    bool mbRGB= false;
+    bool bRGB= false;
     if(mImGray.channels()==3)
     {
-        if(mbRGB)
+        if(bRGB)
         {
             cv::cvtColor(mImGray,mImGray,CV_RGB2GRAY);
             cv::cvtColor(imGrayRight,imGrayRight,CV_RGB2GRAY);
@@ -195,7 +199,7 @@ void testStereoRectifyDiLiLi(){
     }
     else if(mImGray.channels()==4)
     {
-        if(mbRGB)
+        if(bRGB)
         {
             cv::cvtColor(mImGray,mImGray,CV_RGBA2GRAY);
             cv::cvtColor(imGrayRight,imGrayRight,CV_RGBA2GRAY);

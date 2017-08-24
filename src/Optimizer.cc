@@ -1645,7 +1645,7 @@ int Optimizer::LocalOptimize(vk::PinholeCamera * cam,
                         SLAM_DEBUG_STREAM("Bad keyframe in temporal window mnId,N, mbNotErase, keys size:"
                                           <<larry->mnId<<" "<<larry->N<<" "<<larry->GetNotErase()<<" "<< larry->mvKeysUn.size());
 
-//                        assert(false);
+                        assert(false);
                     }
                 }
 #endif
@@ -1773,6 +1773,36 @@ int Optimizer::LocalOptimize(vk::PinholeCamera * cam,
     if(edges.size()==0)
     {
         cout<<"Graph with no edges."<<endl;
+        for (vector <KeyFrame*>::const_iterator  it_win = vpLocalKeyFrames.begin(), it_end_win=vpLocalKeyFrames.end();
+             it_win!=it_end_win; ++it_win)
+        {
+            (*it_win)->v_kf_ = NULL;
+        }
+        for (deque<Frame*>::const_iterator  it_win = vpTemporalFrames.begin(), it_end_win=vpTemporalFrames.end();
+             it_win!=it_end_win; ++it_win)
+        {
+            (*it_win)->v_kf_ = NULL;
+            if(bUseIMUData)
+            {
+                (*it_win)->v_sb_=NULL;
+            }
+        }
+
+        // previous frame
+#ifndef MONO
+        pLastFrame->v_kf_= NULL;
+        if(bUseIMUData)
+        {
+            pLastFrame->v_sb_= NULL;
+        }
+#endif
+        //current frame
+        pCurrentFrame->v_kf_= NULL;
+        if(bUseIMUData)
+        {
+            pCurrentFrame->v_sb_= NULL;
+        }
+
         return 0;
     }
     SLAM_DEBUG_STREAM("opt5 structBA in "<< __func__);

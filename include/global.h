@@ -15,7 +15,7 @@
   #define SLAM_WARN_STREAM_THROTTLE(rate, x) ROS_WARN_STREAM_THROTTLE(rate, x)
   #define SLAM_ERROR_STREAM(x) ROS_ERROR_STREAM(x)
 #else
-  #define SLAM_INFO_STREAM(x) std::cerr<<"\033[0;0m[INFO] "<<x<<"\033[0;0m"<<std::endl;
+  #define SLAM_INFO_STREAM(x) std::cout<<"\033[0;0m[INFO] "<<x<<"\033[0;0m"<<std::endl;
   #ifdef SLAM_DEBUG_OUTPUT
     #define SLAM_DEBUG_STREAM(x) SLAM_INFO_STREAM(x)
   #else

@@ -206,7 +206,7 @@ inline void updatePointStatistics(PointStatistics* stats){
     ORBextractor* mpORBextractor;
 
     // Frame timestamp
-    double mTimeStamp;
+    const double mTimeStamp;
     // Camera Pose
     Sophus::SE3d mTcw;
     Eigen::Vector3d mOw;

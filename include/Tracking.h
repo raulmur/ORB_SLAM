@@ -34,11 +34,13 @@
 #include"ORBextractor.h"
 #include "Initializer.h"
 #include "MapPublisher.h"
+#include "StereoImageLoader.h" //dataset_type
 
 #include "sophus/sim3.hpp"
 
 #include "vio_g2o/anchored_points.h"
 #include "vio_g2o/IMU_constraint.h"
+
 #include <g2o/core/block_solver.h> //for sparseoptimizer
 
 #include <viso2/p_match.h> //for matches adopted from libviso2
@@ -62,6 +64,32 @@ class Map;
 class LocalMapping;
 class LoopClosing;
 
+
+enum TrackingState{
+    SYSTEM_NOT_READY=-1,
+    NO_IMAGES_YET=0,
+    NOT_INITIALIZED=1,
+    INITIALIZING=2,
+    WORKING=3,
+    LOST=4
+};
+
+struct TrackingResult
+{
+    TrackingState status_; //tracking status at timestamp_
+    double timestamp_;
+    Sophus::SE3d T_Wc_C_; //transformation from camera frame to the custom world frame at timestamp_
+    Eigen::Matrix<double, 9,1> vwsBaBg_; // velocity of the device in the world frame, acc bias, gyro bias at timestamp_
+    TrackingResult():status_(TrackingState::SYSTEM_NOT_READY), timestamp_(-1)
+    {}
+    friend ostream& operator<<(ostream& os, const TrackingResult& tr);
+private:
+
+    TrackingResult(const TrackingResult&);
+    TrackingResult& operator= (const TrackingResult&);
+};
+
+
 class Tracking
 {  
 public:
@@ -73,14 +101,7 @@ public:
              Map* pMap, string strSettingPath);
 #endif
     ~Tracking();
-    enum eTrackingState{
-        SYSTEM_NOT_READY=-1,
-        NO_IMAGES_YET=0,
-        NOT_INITIALIZED=1,
-        INITIALIZING=2,
-        WORKING=3,
-        LOST=4
-    };
+
     double GetFPS() const {return (double)mFps;}
     int GetRegNumFeatures() const {return mnFeatures;}
     void SetLocalMapper(LocalMapping* pLocalMapper);
@@ -88,8 +109,6 @@ public:
     void SetKeyFrameDatabase(KeyFrameDatabase* pKFDB);
     bool isInTemporalWindow(const Frame* pFrame)const;
     long unsigned int GetCurrentFrameId() {return mpCurrentFrame->mnId;}
-    // This is the main function of the Tracking Thread
-    void Run();
 
     void ForceRelocalisation(const g2o::Sim3 );
     Sophus::Sim3d GetSnew2old(){
@@ -104,8 +123,22 @@ public:
     /// Optimize some of the observed 3D points.
     void optimizeStructure(FramePtr frame, size_t max_n_pts, int max_iter);
     vk::PinholeCamera* GetCameraModel(){return cam_;}
-    eTrackingState mState;
-    eTrackingState mLastProcessedState;    
+
+
+    void GetLastestPoseEstimate(TrackingResult & rhs) const;
+    void GetViso2PoseEstimate(TrackingResult & rhs) const;
+    bool ProcessAMonocularFrame(cv::Mat &left_img, double time_frame);
+    bool ProcessAStereoFrame(cv::Mat &left_img, cv::Mat &right_img, double time_frame);
+
+    /**
+     * @brief PrepareImuProcessor construct the ImuProcessor, and reads the initial values for IMU pose in the world frame at start time,
+     *  and the its velocity and acc bias and gyro bias. The start time is tied to the first frame that is covered by inertial data
+     */
+    void PrepareImuProcessor();
+    void ResizeCameraModel(const int downscale);
+
+    TrackingState mState;
+    TrackingState mLastProcessedState;
 
     // Current Frame
     Frame* mpCurrentFrame;
@@ -117,6 +150,13 @@ public:
     std::vector<cv::Point2f> mvbPrevMatched;
     std::vector<cv::Point3f> mvIniP3D;
     Frame* mpInitialFrame;
+
+    dataset_type experimDataset;
+    /// the following two are used to initialize the imu processor at start or reset it when tracking is lost
+    Sophus::SE3d initTws; // initial transformation from the inertial sensor frame to the world frame
+    Eigen::Matrix<double,9,1> initVwsBaBg; // initial velocity of IMU sensor in the world frame, accelerometer bias and gyro bias
+
+    Sophus::SE3d mT_Wc_W; //transformation from the world frame to the custom world frame, only used for visualization and output
 protected:
 
     //process stereo image pair, left_img and right_img, they shared the same time in seconds,
@@ -241,8 +281,6 @@ protected:
     //Motion Model
     Sophus::SE3d mVelocity; //T prev to curr
     Eigen::Vector3d mVelByStereoOdometry; //differentiated from visual stereo odometry
-    //Color order (true RGB, false BGR, ignored if grayscale)
-    bool mbRGB;
 
 #ifdef SLAM_USE_ROS
     // Transfor broadcaster (for visualization in rviz)
@@ -253,7 +291,6 @@ protected:
     double imu_sample_interval;             //sampling interval in second
     vio::G2oIMUParameters imu_;
 
-    int mnStartId; // used to offset the ID of frames
     long unsigned int mnFrameIdOfSecondKF; // the id of the second kf upon initialization of the map relative to the image sequence,
 
     const int mnFeatures;// how many point features to detect in a frame, for the initial keyframes, 2 times points
@@ -261,12 +298,16 @@ protected:
     PointStatistics point_stats;
     std::vector<KeyFrame*> core_kfs_;                      //!< Keyframes in the closer neighbourhood.
     MotionModel mMotionModel;
+    vio::IMUProcessor* mpImuProcessor;
 
     ///the following parameters determines necessary conditions to create a new keyframe
     float mfTrackedFeatureRatio; /// if the current frame tracks less than this ratio of features in the reference keyframe
     int mnMinTrackedFeatures; /// if the current frame tracks less than this number of features in the reference keyframe
 };
-    std::vector<p_match> cropMatches(const std::vector<p_match> &pMatches, float xl, float xr);
+
+std::vector<p_match> cropMatches(const std::vector<p_match> &pMatches, float xl, float xr);
+
+
 } //namespace ORB_SLAM
 
 #endif // TRACKING_H

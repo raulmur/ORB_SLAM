@@ -34,7 +34,7 @@ namespace ORB_SLAM
 
 FramePublisher::FramePublisher()
 {
-    mState=Tracking::SYSTEM_NOT_READY;
+    mState= SYSTEM_NOT_READY;
     mIm = cv::Mat(480,640,CV_8UC3, cv::Scalar(0,0,0));
     mbUpdated = true;
 #ifdef SLAM_USE_ROS
@@ -71,27 +71,27 @@ cv::Mat FramePublisher::DrawFrame()
     {
         boost::mutex::scoped_lock lock(mMutex);
         state=mState;
-        if(mState==Tracking::SYSTEM_NOT_READY)
-            mState=Tracking::NO_IMAGES_YET;
+        if(mState==SYSTEM_NOT_READY)
+            mState=NO_IMAGES_YET;
 
         mIm.copyTo(im);
 
-        if(mState==Tracking::NOT_INITIALIZED)
+        if(mState==NOT_INITIALIZED)
         {            
             vIniKeys = mvIniKeys;
         }
-        else if(mState==Tracking::INITIALIZING)
+        else if(mState==INITIALIZING)
         {
             vCurrentKeys = mvCurrentKeys;
             vIniKeys = mvIniKeys;
             vMatches = mvIniMatches;
         }
-        else if(mState==Tracking::WORKING)
+        else if(mState==WORKING)
         {
             vCurrentKeys = mvCurrentKeys;
             vMatchedMapPoints = mvpMatchedMapPoints;
         }
-        else if(mState==Tracking::LOST)
+        else if(mState==LOST)
         {
             vCurrentKeys = mvCurrentKeys;
         }
@@ -101,7 +101,7 @@ cv::Mat FramePublisher::DrawFrame()
         cvtColor(im,im,CV_GRAY2BGR);
 
     //Draw
-    if(state==Tracking::INITIALIZING) //INITIALIZING
+    if(state==INITIALIZING) //INITIALIZING
     {
         for(unsigned int i=0; i<vMatches.size(); i++)
         {
@@ -112,7 +112,7 @@ cv::Mat FramePublisher::DrawFrame()
             }
         }        
     }
-    else if(state==Tracking::WORKING) //TRACKING
+    else if(state==WORKING) //TRACKING
     {
         mnTracked=0;
         const float r = 5;
@@ -162,24 +162,24 @@ void FramePublisher::PublishFrame()
 void FramePublisher::DrawTextInfo(cv::Mat &im, int nState, cv::Mat &imText)
 {
     stringstream s;
-    if(nState==Tracking::NO_IMAGES_YET)
+    if(nState==NO_IMAGES_YET)
         s << "WAITING FOR IMAGES. (Topic: /camera/image_raw)";
-    else if(nState==Tracking::NOT_INITIALIZED)
+    else if(nState==NOT_INITIALIZED)
         s << " NOT INITIALIZED ";
-    else if(nState==Tracking::INITIALIZING)
+    else if(nState==INITIALIZING)
         s << " TRYING TO INITIALIZE ";
-    else if(nState==Tracking::WORKING)
+    else if(nState==WORKING)
     {
         s << " TRACKING ";
         int nKFs = mpMap->KeyFramesInMap();
         int nMPs = mpMap->MapPointsInMap();
         s << " - KFs: " << nKFs << " , MPs: " << nMPs << " , Tracked: " << mnTracked;
     }
-    else if(nState==Tracking::LOST)
+    else if(nState==LOST)
     {
         s << " TRACK LOST. TRYING TO RELOCALIZE ";
     }
-    else if(nState==Tracking::SYSTEM_NOT_READY)
+    else if(nState==SYSTEM_NOT_READY)
     {
         s << " LOADING ORB VOCABULARY. PLEASE WAIT...";
     }
@@ -205,7 +205,7 @@ void FramePublisher::Update(Tracking *pTracker, const cv::Mat& im)
         mvbOutliers = pTracker->mpCurrentFrame->mvbOutlier;
     }
 
-    if(pTracker->mLastProcessedState==Tracking::INITIALIZING)
+    if(pTracker->mLastProcessedState==INITIALIZING)
     {
         mvIniKeys=pTracker->mpInitialFrame->mvKeys;
         mvIniMatches=pTracker->mvIniMatches;

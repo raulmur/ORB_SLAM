@@ -77,15 +77,16 @@ StereoImageLoader::StereoImageLoader(std::string time_file, dataset_type _experi
     std::cout<<"Rectified R_r "<<std::endl<< R_r<< std::endl;
     std::cout<<"Rectified P_l "<<std::endl<< P_l<< std::endl;
     std::cout<<"Rectified P_r "<<std::endl<< P_r<< std::endl;
-    std::cout <<"Rectified baseline "<< std::endl<< P_r.colRange(0,3).inv()*P_r.col(3)<< std::endl;
+    std::cout <<"Rectified baseline, i.e., left camera center in right camera frame "<< std::endl<< P_r.colRange(0,3).inv()*P_r.col(3)<< std::endl;
 
-    // debug
+    // debug start
     double fx = fsSettings["Camera.fx"];
     double fy = fsSettings["Camera.fy"];
     double cx = fsSettings["Camera.cx"];
     double cy = fsSettings["Camera.cy"];
     cv::Mat K_expected= (cv::Mat_<double>(3,3)<<fx, 0, cx, 0, fy, cy, 0, 0, 1);
     assert(cv::norm(P_l.colRange(0,3) - K_expected)<1e-6);
+    // debug end
 
     cv::initUndistortRectifyMap(K_l,D_l,R_l,P_l.rowRange(0,3).colRange(0,3),cv::Size(cols_l,rows_l),CV_32F,M1l_,M2l_);
     cv::initUndistortRectifyMap(K_r,D_r,R_r,P_r.rowRange(0,3).colRange(0,3),cv::Size(cols_r,rows_r),CV_32F,M1r_,M2r_);
@@ -94,7 +95,7 @@ StereoImageLoader::StereoImageLoader(std::string time_file, dataset_type _experi
 
 bool StereoImageLoader::GetTimeAndRectifiedStereoImages(double &time_frame, cv::Mat& left_img, cv::Mat& right_img, int imageIndex){
 
-    const bool mbRGB= false;
+    const bool bRGB= false;
     char base_name[256];                // input file names
     std::string left_img_file_name;
     std::string right_img_file_name;
@@ -128,13 +129,14 @@ bool StereoImageLoader::GetTimeAndRectifiedStereoImages(double &time_frame, cv::
         right_img=cv::imread(right_img_file_name, 0);
         break;
     case DiLiLi:
-        time_frame=tg.extractTimestamp(imageIndex, false);
+        time_frame=tg.extractTimestamp(imageIndex-1, false);
         sprintf(base_name,"%d.pbm",imageIndex);
         left_img_file_name  = dir + "/left_" + base_name;
         right_img_file_name = dir + "/right_" + base_name;
         tempLeftImg=cv::imread(left_img_file_name, CV_LOAD_IMAGE_UNCHANGED);
         tempRightImg=cv::imread(right_img_file_name, CV_LOAD_IMAGE_UNCHANGED);
-
+        if(time_frame == -1)
+            return false;
         if(tempLeftImg.empty())
         {
             std::cerr << std::endl << "Failed to load image at: "
@@ -154,7 +156,7 @@ bool StereoImageLoader::GetTimeAndRectifiedStereoImages(double &time_frame, cv::
 
         if(left_img.channels()==3)
         {
-            if(mbRGB)
+            if(bRGB)
             {
                 cv::cvtColor(left_img,left_img,CV_RGB2GRAY);
                 cv::cvtColor(right_img,right_img,CV_RGB2GRAY);
@@ -167,7 +169,7 @@ bool StereoImageLoader::GetTimeAndRectifiedStereoImages(double &time_frame, cv::
         }
         else if(left_img.channels()==4)
         {
-            if(mbRGB)
+            if(bRGB)
             {
                 cv::cvtColor(left_img,left_img,CV_RGBA2GRAY);
                 cv::cvtColor(right_img,right_img,CV_RGBA2GRAY);
