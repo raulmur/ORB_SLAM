@@ -1,7 +1,6 @@
 SET(TRACE FALSE) # record timing of operations
 SET(MONO_SLAM false) # if false stereo SLAM with or without IMU, if true, monocular SLAM
-SET(USE_ROS true) # use ROS for visualization or not
-SET(USE_SYSTEM_OPENCV true) # Set False if you want to build this package using independent OpenCV instead of libopencv-dev
+SET(USE_ROS false) # use ROS for visualization or not
 
 SET(PROJECT_NAME orbslam_dwo)
 PROJECT(${PROJECT_NAME})
@@ -44,23 +43,13 @@ LIST(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake_modules)
 find_package(Eigen3 REQUIRED)
 find_package(Cholmod REQUIRED)
 FIND_PACKAGE(SuiteSparse REQUIRED)
-find_package(Sophus REQUIRED)
 
 set(Boost_USE_STATIC_LIBS OFF)
 set(Boost_USE_MULTITHREADED ON)
 set(Boost_USE_STATIC_RUNTIME OFF)
 find_package(Boost 1.45.0 COMPONENTS system thread REQUIRED)
 
-IF(USE_SYSTEM_OPENCV)
-  FIND_PACKAGE(OpenCV REQUIRED) # do not put findOpencv.cmake in cmake_module_path which causes an error
-ELSE()
-  SET(OPENCV_INCLUDE_DIR $ENV{HOME}/OpenCV/local_install/include)
-  SET(OPENCV_LIBRARY_DIR $ENV{HOME}/OpenCV/local_install/lib)
-  set(OpenCV_LIBS opencv_core opencv_features2d opencv_flann opencv_gpu
-               opencv_nonfree opencv_highgui opencv_imgproc opencv_calib3d opencv_video)
-  link_directories(${OPENCV_LIBRARY_DIR})
-ENDIF()
-
+FIND_PACKAGE(OpenCV REQUIRED)
 
 SET(vikit_common_INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/Thirdparty/vikit_common/include)
 SET(vikit_common_LIBRARIES ${PROJECT_SOURCE_DIR}/Thirdparty/vikit_common/lib/libvikit_common.so)
@@ -73,8 +62,10 @@ SET(vio_g2o_LIBRARIES ${PROJECT_SOURCE_DIR}/Thirdparty/vio_g2o/lib/libvio_g2o.so
 
 SET(DBOW2_LIB ${PROJECT_SOURCE_DIR}/Thirdparty/DBoW2/lib/libDBoW2.so)
 
-SET(G2O_INCLUDE_DIR $ENV{HOME}/g2o/local_install/include)
-SET(G2O_LIBRARY_DIR $ENV{HOME}/g2o/local_install/lib)
+SET(G2O_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/Thirdparty/g2o/local_install/include)
+SET(G2O_LIBRARY_DIR ${PROJECT_SOURCE_DIR}/Thirdparty/g2o/local_install/lib)
+
+SET(Sophus_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/Thirdparty/Sophus)
 
 IF(USE_ROS)
   FIND_PACKAGE(catkin REQUIRED COMPONENTS roscpp roslib cmake_modules tf cv_bridge)
