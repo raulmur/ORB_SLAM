@@ -1,9 +1,0 @@
-[submodule "Thirdparty/libviso2"]
-	path = Thirdparty/libviso2
-	url = https://github.com/JzHuai0108/viso2.git
-[submodule "Thirdparty/vio_common"]
-	path = Thirdparty/vio_common
-	url = https://github.com/JzHuai0108/vio_common.git
-[submodule "Thirdparty/vio_g2o"]
-	path = Thirdparty/vio_g2o
-	url = https://github.com/JzHuai0108/vio_g2o.git
