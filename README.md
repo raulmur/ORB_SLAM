@@ -16,13 +16,15 @@ ORBSLAM_DWO is released under a GPLv3 license. Please note that we provide along
 
 If you use ORBSLAM_DWO in an academic work, please cite:
 
-	@inproceedings{Huai2015stereo,
-	title={Stereo-inertial odometry using nonlinear optimization},
-	author={Huai, Jianzhu and Toth, Charles and Grejner-Brzezinska, Dorota},
-	booktitle={Proceedings of the 28th International Technical Meeting of The Satellite Division of the Institute of Navigation (ION GNSS+ 2015)},
-	year={2015},
-	organization={ION}
-	}
+```
+@inproceedings{Huai2015stereo,
+title={Stereo-inertial odometry using nonlinear optimization},
+author={Huai, Jianzhu and Toth, Charles and Grejner-Brzezinska, Dorota},
+booktitle={Proceedings of the 28th International Technical Meeting of The Satellite Division of the Institute of Navigation (ION GNSS+ 2015)},
+year={2015},
+organization={ION}
+}
+```
 
 # 2. Installing dependencies
 
@@ -31,31 +33,34 @@ The following installation procedure has been tested on Ubuntu 14.04 and 14.04.2
 ## 2.1 Boost
 
 The Boost library is used to launch different threads of the SLAM system.
-
-    sudo apt-get install libboost-all-dev
-
+```
+sudo apt-get install libboost-all-dev
+```
 ## 2.2 OpenCV 2.4.x
 
 OpenCV is mainly used for feature extraction, and matching. It can be installed via:
-
-		sudo apt-get install libopencv-dev
+```
+sudo apt-get install libopencv-dev
+```
 
 ## 2.3 Eigen >=3.0
 
 Eigen can be installed via
-
-		sudo apt-get install libeigen3-dev
-
+```
+sudo apt-get install libeigen3-dev
+```
 However, in Ubuntu 14.04, the above command may install Eigen 3.0 rather than newer versions. If a newer version is desired, you may build and install Eigen from the source. To do that, first download the proper source archive package from [here](http://eigen.tuxfamily.org/index.php?title=Main_Page), the following assuming Eigen 3.2.10 is downloaded into /home/username/ folder. Second, open a terminal and type
 
-    tar xvjf eigen-eigen-b9cd8366d4e8.tar.bz2
-    mv eigen-eigen-b9cd8366d4e8 eigen-3.2.10
-    cd eigen-3.2.10
-    mkdir build
-    cd build
-    cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX:PATH=/usr/local ..
-    make
-    sudo make install
+```
+tar xvjf eigen-eigen-b9cd8366d4e8.tar.bz2
+mv eigen-eigen-b9cd8366d4e8 eigen-3.2.10
+cd eigen-3.2.10
+mkdir build
+cd build
+cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX:PATH=/usr/local ..
+make
+sudo make install
+```
 
 ## 2.4 Install ROS (optional) and download orbslam_dwo
 
@@ -64,45 +69,45 @@ To build the program with the ROS support, a ROS distribution (e.g. Indigo) need
 If the program is to be built without ROS support, you may simply create a folder to contain the source of *ORBSLAM_DWO*, let's assume that the folder is created such that its path is '~/home/username/catkin_ws/src'.
 
 Regardless of the ROS support, download ORBSLAM_DWO into the workspace folder via:
-
-		cd catkin_ws/src		
-		git clone --recursive https://github.com/JzHuai0108/ORB_SLAM.git orbslam_dwo
-
+```
+cd catkin_ws/src		
+git clone --recursive https://github.com/JzHuai0108/ORB_SLAM.git orbslam_dwo
+```
 ## 2.5 g2o and its dependencies
 
 g2o is used to perform optimization tasks. Its dependencies(Eigen, CMAKE, SuiteSparse, QGLViewer) can be installed via:
-
-		sudo apt-get install cmake libsuitesparse-dev libqglviewer-dev
-
+```
+sudo apt-get install cmake libsuitesparse-dev libqglviewer-dev
+```
 Note this step assumes that Eigen is already installed.
 
 To avoid system wide installation, g2o is recommended to be installed into a local folder, e.g., *g2o/local_install*. To do that, navigate to the /home/username/ folder in a terminal, and run the following commands:
-
-    cd catkin_ws/src/orbslam_dwo/Thirdparty
-    git clone https://github.com/RainerKuemmerle/g2o.git
-    cd g2o
-    git checkout deafc0
-    mkdir local_install
-    mkdir build
-    cd build
-    cmake .. -DCMAKE_INSTALL_PREFIX:PATH=$HOME/catkin_ws/src/orbslam_dwo/Thirdparty/g2o/local_install -DCMAKE_BUILD_TYPE=Release -DEIGEN3_INCLUDE_DIR:PATH=/usr/local/include/eigen3
-    make -j4
-    make install
-    cd
-
+```
+cd catkin_ws/src/orbslam_dwo/Thirdparty
+git clone https://github.com/RainerKuemmerle/g2o.git
+cd g2o
+git checkout deafc0
+mkdir local_install
+mkdir build
+cd build
+cmake .. -DCMAKE_INSTALL_PREFIX:PATH=$HOME/catkin_ws/src/orbslam_dwo/Thirdparty/g2o/local_install -DCMAKE_BUILD_TYPE=Release -DEIGEN3_INCLUDE_DIR:PATH=/usr/local/include/eigen3
+make -j4
+make install
+cd
+```
 ## 2.6 Sophus
 
 The modified version of Sophus by Steven Lovegrove is used to manipulate Lie group members. The reason why Hauke Strasdat's version is not used is that Lovegrove's version is a header only library. More importantly, it complies with the jet numbers used in the autodiff module of the ceres solver. In this case, assume it is to be put in /catkin_ws/src/orbslam_dwo/Thirdparty/Sophus. To do that, navigate to the /home/username folder in a terminal and run:
-
-    cd catkin_ws/src/orbslam_dwo/Thirdparty
-    git clone https://github.com/stevenlovegrove/Sophus.git
-    cd Sophus
-    git checkout b474f0
-    mkdir build
-    cd build
-    cmake .. -DEIGEN3_INCLUDE_DIR:PATH=/usr/local/include/eigen3
-    make
-
+```
+cd catkin_ws/src/orbslam_dwo/Thirdparty
+git clone https://github.com/stevenlovegrove/Sophus.git
+cd Sophus
+git checkout b474f0
+mkdir build
+cd build
+cmake .. -DEIGEN3_INCLUDE_DIR:PATH=/usr/local/include/eigen3
+make
+```
 ## 2.7 vio_common, vio_g2o, DBoW2, libviso2, vikit (all included in /Thirdparty)
 
 **vio_common** is a library of common functions to read videos, inertial data files, and to manipulate Eigen matrices.
@@ -120,12 +125,12 @@ Note it depends on OpenCV.
 [**rpg-vikit**](https://github.com/uzh-rpg/rpg_vikit.git) is used to deal with camera models. It depended on Strasdat's version of Sophus. To make it work with Lovegrove's Sophus, SE3 is changed to SE3d, *rotation_matrix*() to rotationMatrix(), #include <sophus/se3.h> to #include <sophus/se3.hpp> in several of its files. Also, in rpg_vikit/vikit_common/CMakeLists.txt I set the flag *USE_ROS* to FALSE. For easy compilation, it is also included in the orbslam_dwo distribution.
 
 To build these five dependencies, navigate to the /orbslam_dwo folder in a terminal and run:
-
-    cd
-    cd catkin_ws/src/orbslam_dwo
-    chmod +x build.sh
-    ./build.sh
-
+```
+cd
+cd catkin_ws/src/orbslam_dwo
+chmod +x build.sh
+./build.sh
+```
 # 3. Build ORBSLAM_DWO and test with KITTI seq 00 and Tsukuba CG stereo dataset
 
 ## 3.1 stereo or stereo + inertial configuration
@@ -135,76 +140,76 @@ In *orbslam_dwo/CMakeLists.txt* make sure line "*SET(MONO_SLAM FALSE)*". Note wh
 ### 3.1.1 With ROS
 
 In *orbslam_dwo/CMakeLists.txt* make sure line "SET(USE_ROS TRUE)".
-
-		cd catkin_ws
-		source devel/setup.bash		
-		catkin_make -DCMAKE_BUILD_TYPE=Release --pkg orbslam_dwo -DOpenCV_DIR=/usr/local/share/OpenCV -DEIGEN3_INCLUDE_DIR=/usr/local/include/eigen3
-		make
-
+```
+cd catkin_ws
+source devel/setup.bash		
+catkin_make -DCMAKE_BUILD_TYPE=Release --pkg orbslam_dwo -DOpenCV_DIR=/usr/local/share/OpenCV -DEIGEN3_INCLUDE_DIR=/usr/local/include/eigen3
+make
+```
 To test the program, first launch roscore and related viewers for inspection via:
 
 launch ROS in a terminal:
-
-    roscore
-
+```
+roscore
+```
 launch image view in another terminal:
-
-    rosrun image_view image_view image:=/ORBSLAM_DWO/Frame _autosize:=true
-
+```
+rosrun image_view image_view image:=/ORBSLAM_DWO/Frame _autosize:=true
+```
 launch rviz in another terminal:
-
-    rosrun rviz rviz -d $HOME/catkin_ws/src/orbslam_dwo/data/rviz.rviz
-
+```
+rosrun rviz rviz -d $HOME/catkin_ws/src/orbslam_dwo/data/rviz.rviz
+```
 Then depending on the data for tests, execute one of the following commands in another terminal. Note you may need to change the paths for data in the yaml setting file. The simulated IMU data for both KITTI seq 00 and Tsukuba dataset is included in the *orbslam_dwo/data* folder. Also you need to download the vocabulary file ORBvoc.txt from the [ORB-SLAM2](https://github.com/raulmur/ORB_SLAM2.git) repository on github.
 
 To test the program on KITTI seq 00 (stereo)
-
-    rosrun orbslam_dwo test_orbslam $HOME/catkin_ws/src/orbslam_dwo/data/settingfiles_stereo/kittiseq00.yaml
-
+```
+rosrun orbslam_dwo test_orbslam $HOME/catkin_ws/src/orbslam_dwo/data/settingfiles_stereo/kittiseq00.yaml
+```
 To test the program on Tsukuba dataset (stereo)
-
-    rosrun orbslam_dwo test_orbslam $HOME/catkin_ws/src/orbslam_dwo/data/settingfiles_stereo/tsukuba.yaml
-
+```
+rosrun orbslam_dwo test_orbslam $HOME/catkin_ws/src/orbslam_dwo/data/settingfiles_stereo/tsukuba.yaml
+```
 To test the program on KITTI seq 00 with simulated inertial data (stereo + inertial)
-
-		rosrun orbslam_dwo test_orbslam $HOME/catkin_ws/src/orbslam_dwo/data/settingfiles_stereo_imu/kittiseq00_imu.yaml
-
+```
+rosrun orbslam_dwo test_orbslam $HOME/catkin_ws/src/orbslam_dwo/data/settingfiles_stereo_imu/kittiseq00_imu.yaml
+```
 To test the program on Tsukuba dataset with simulated inertial data (stereo + inertial)
-
-		rosrun orbslam_dwo test_orbslam $HOME/catkin_ws/src/orbslam_dwo/data/settingfiles_stereo_imu/tsukuba_imu.yaml
-
+```
+rosrun orbslam_dwo test_orbslam $HOME/catkin_ws/src/orbslam_dwo/data/settingfiles_stereo_imu/tsukuba_imu.yaml
+```
 ### 3.1.2 Without ROS
 
 In *orbslam_dwo/CMakeLists.txt* make sure line "SET(USE_ROS FALSE)", then in a terminal, execute:
-
-		cd catkin_ws/src/orbslam_dwo
-		mkdir build
-		cd build
-		cmake -DCMAKE_BUILD_TYPE=Release .. -DOpenCV_DIR=/usr/local/share/OpenCV -DEIGEN3_INCLUDE_DIR=/usr/local/include/eigen3
-		make
-
+```
+cd catkin_ws/src/orbslam_dwo
+mkdir build
+cd build
+cmake -DCMAKE_BUILD_TYPE=Release .. -DOpenCV_DIR=/usr/local/share/OpenCV -DEIGEN3_INCLUDE_DIR=/usr/local/include/eigen3
+make
+```
 Then depending on the data for tests, execute one of the following commands in another terminal. Note you may need to change the paths for data in the yaml setting file. The simulated IMU data for both KITTI seq 00 and Tsukuba dataset is included in the *orbslam_dwo/data* folder.
 
 To test the program on KITTI seq 00 (stereo)
-
-		cd catkin_ws/src/orbslam_dwo/bin
-		./test_orbslam $HOME/catkin_ws/src/orbslam_dwo/data/settingfiles_stereo/kittiseq00.yaml
-
+```
+cd catkin_ws/src/orbslam_dwo/bin
+./test_orbslam $HOME/catkin_ws/src/orbslam_dwo/data/settingfiles_stereo/kittiseq00.yaml
+```
 To test the program on Tsukuba dataset (stereo)
-
-		cd catkin_ws/src/orbslam_dwo/bin
-		./test_orbslam $HOME/catkin_ws/src/orbslam_dwo/data/settingfiles_stereo/tsukuba.yaml
-
+```
+cd catkin_ws/src/orbslam_dwo/bin
+./test_orbslam $HOME/catkin_ws/src/orbslam_dwo/data/settingfiles_stereo/tsukuba.yaml
+```
 To test the program on KITTI seq 00 with simulated inertial data (stereo + inertial)
-
-		cd catkin_ws/src/orbslam_dwo/bin
-		./test_orbslam $HOME/catkin_ws/src/orbslam_dwo/data/settingfiles_stereo_imu/kittiseq00_imu.yaml
-
+```
+cd catkin_ws/src/orbslam_dwo/bin
+./test_orbslam $HOME/catkin_ws/src/orbslam_dwo/data/settingfiles_stereo_imu/kittiseq00_imu.yaml
+```
 To test the program on Tsukuba dataset with simulated inertial data (stereo + inertial)
-
-		cd catkin_ws/src/orbslam_dwo/bin
-		./test_orbslam $HOME/catkin_ws/src/orbslam_dwo/data/settingfiles_stereo_imu/tsukuba_imu.yaml
-
+```
+cd catkin_ws/src/orbslam_dwo/bin
+./test_orbslam $HOME/catkin_ws/src/orbslam_dwo/data/settingfiles_stereo_imu/tsukuba_imu.yaml
+```
 # 3.2 monocular configuration
 
 In *orbslam_dwo/CMakeLists.txt* make sure line "SET(MONO_SLAM TRUE)". Note for now this program does not support monocular + inertial SLAM. Then build the program either with or without ROS as follows.
@@ -212,58 +217,58 @@ In *orbslam_dwo/CMakeLists.txt* make sure line "SET(MONO_SLAM TRUE)". Note for n
 ### 3.2.1 With ROS
 
 In *orbslam_dwo/CMakeLists.txt* make sure line "SET(USE_ROS TRUE)".
-
-		cd catkin_ws
-		source devel/setup.bash		
-		catkin_make -DCMAKE_BUILD_TYPE=Release --pkg orbslam_dwo -DOpenCV_DIR=/usr/local/share/OpenCV -DEIGEN3_INCLUDE_DIR=/usr/local/include/eigen3
-		make
-
+```
+cd catkin_ws
+source devel/setup.bash		
+catkin_make -DCMAKE_BUILD_TYPE=Release --pkg orbslam_dwo -DOpenCV_DIR=/usr/local/share/OpenCV -DEIGEN3_INCLUDE_DIR=/usr/local/include/eigen3
+make
+```
 To test the program, first launch roscore and related viewers for inspection via:
 
 launch ROS in a terminal:
-
-    roscore
-
+```
+roscore
+```
 launch image view in another terminal:
-
-    rosrun image_view image_view image:=/ORBSLAM_DWO/Frame _autosize:=true
-
+```
+rosrun image_view image_view image:=/ORBSLAM_DWO/Frame _autosize:=true
+```
 launch rviz in another terminal:
-
-    rosrun rviz rviz -d $HOME/catkin_ws/src/orbslam_dwo/data/rviz.rviz
-
+```
+rosrun rviz rviz -d $HOME/catkin_ws/src/orbslam_dwo/data/rviz.rviz
+```
 Then depending on the data for tests, execute one of the following commands in another terminal. Note you may need to change the paths for data in the yaml setting file.
 
 To test the program on KITTI seq 00 (monocular)
-
-		rosrun orbslam_dwo test_orbslam $HOME/catkin_ws/src/orbslam_dwo/data/setttingfiles_mono/kittiseq00_mono.yaml
-
+```
+rosrun orbslam_dwo test_orbslam $HOME/catkin_ws/src/orbslam_dwo/data/setttingfiles_mono/kittiseq00_mono.yaml
+```
 To test the program on Tsukuba dataset (monocular)
-
-    rosrun orbslam_dwo test_orbslam $HOME/catkin_ws/src/orbslam_dwo/data/setttingfiles_mono/tsukuba_mono.yaml
-
+```
+rosrun orbslam_dwo test_orbslam $HOME/catkin_ws/src/orbslam_dwo/data/setttingfiles_mono/tsukuba_mono.yaml
+```
 ### 3.2.2 Without ROS
 
 In *orbslam_dwo/CMakeLists.txt* make sure line "SET(USE_ROS FALSE)", then in a terminal, execute:
-
-		cd catkin_ws/src/orbslam_dwo
-		mkdir build
-		cd build
-		cmake -DCMAKE_BUILD_TYPE=Release .. -DOpenCV_DIR=/usr/local/share/OpenCV -DEIGEN3_INCLUDE_DIR=/usr/local/include/eigen3
-		make
-
+```
+cd catkin_ws/src/orbslam_dwo
+mkdir build
+cd build
+cmake -DCMAKE_BUILD_TYPE=Release .. -DOpenCV_DIR=/usr/local/share/OpenCV -DEIGEN3_INCLUDE_DIR=/usr/local/include/eigen3
+make
+```
 Then depending on the data for tests, execute one of the following commands in another terminal. Note you may need to change the paths for data in the yaml setting file.
 
 To test the program on KITTI seq 00 (monocular)
-
-		cd catkin_ws/src/orbslam_dwo/bin
-		./test_orbslam $HOME/catkin_ws/src/orbslam_dwo/data/setttingfiles_mono/kittiseq00_mono.yaml
-
+```
+cd catkin_ws/src/orbslam_dwo/bin
+./test_orbslam $HOME/catkin_ws/src/orbslam_dwo/data/setttingfiles_mono/kittiseq00_mono.yaml
+```
 To test the program on Tsukuba dataset (monocular)
-
-    cd catkin_ws/src/orbslam_dwo/bin
-    ./test_orbslam $HOME/catkin_ws/src/orbslam_dwo/data/setttingfiles_mono/tsukuba_mono.yaml
-
+```
+cd catkin_ws/src/orbslam_dwo/bin
+./test_orbslam $HOME/catkin_ws/src/orbslam_dwo/data/setttingfiles_mono/tsukuba_mono.yaml
+```
 # 4. Failure modes
 
 In general our stereo SLAM solution is expected to have a bad time in the following situations:
