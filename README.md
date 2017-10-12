@@ -287,6 +287,15 @@ In testing on KITTI seq 00 with either stereo + inertial or stereo configuration
 
 I suspect it is caused by too many large keyframes stored in memory. The Frame::PartialRelease function is used to release part of the frame before it is copied into a keyframe, but this does not solve the memory drain. One approach to circumvent this issue is to discourage frequent creation of keyframes by reducing the value of *Tracking.min_tracked_features* in the setting file. For KITTI seq 00, I set it to 120 instead of its default value, 200. Another tactic to alleviate this issue is to stick with shared pointers, e.g., std::shared_ptr, when dealing with keyframes and map points. This way, invalid map points and culled keyframes may get released from RAM and free up some space. This remains future work.
 
+TODO: use the capacity trimming technique as below.
+```
+vector <weight> decoy;
+void clear_decoy() {
+    decoy.clear();
+    vector<weight> (decoy).swap(decoy);
+}
+```
+
 ## 5.2 Result is not robust/stable
 
 Because there is some non-deterministic behavior in the program, it may give good results only 6 out of 10 times. It is also observed that when the program is fed with data at a high frequency, its performance degrades compared to processing the same data with a lower frequency.
