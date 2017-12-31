@@ -169,10 +169,12 @@ void TestScaleTransOptimizer::optimizeScale(){
     }
     //nonlinear optimization with g2o
     g2o::SparseOptimizer optimizer;
-    g2o::BlockSolverX::LinearSolverType * linearSolver;
-    linearSolver = new g2o::LinearSolverEigen<g2o::BlockSolverX::PoseMatrixType>();
-    g2o::BlockSolverX * solver_ptr = new g2o::BlockSolverX(linearSolver);
-    g2o::OptimizationAlgorithmLevenberg* solver = new g2o::OptimizationAlgorithmLevenberg(solver_ptr);
+
+    std::unique_ptr<g2o::BlockSolverX::LinearSolverType> linearSolver =
+            g2o::make_unique<g2o::LinearSolverEigen<g2o::BlockSolverX::PoseMatrixType> >();
+
+    g2o::OptimizationAlgorithmLevenberg* solver = new g2o::OptimizationAlgorithmLevenberg(
+       g2o::make_unique<g2o::BlockSolverX>(std::move(linearSolver)));
     optimizer.setAlgorithm(solver);
 
     // SET KEYFRAME VERTICES
@@ -260,10 +262,11 @@ void TestScaleTransOptimizer::optimizeScaleTrans(){
     }
     //nonlinear optimization with g2o
     g2o::SparseOptimizer optimizer;
-    g2o::BlockSolverX::LinearSolverType * linearSolver;
-    linearSolver = new g2o::LinearSolverEigen<g2o::BlockSolverX::PoseMatrixType>();
-    g2o::BlockSolverX * solver_ptr = new g2o::BlockSolverX(linearSolver);
-    g2o::OptimizationAlgorithmLevenberg* solver = new g2o::OptimizationAlgorithmLevenberg(solver_ptr);
+    std::unique_ptr<g2o::BlockSolverX::LinearSolverType> linearSolver =
+            g2o::make_unique<g2o::LinearSolverEigen<g2o::BlockSolverX::PoseMatrixType> >();
+
+    g2o::OptimizationAlgorithmLevenberg* solver = new g2o::OptimizationAlgorithmLevenberg(
+       g2o::make_unique<g2o::BlockSolverX>(std::move(linearSolver)));
     optimizer.setAlgorithm(solver);
 
     // SET KEYFRAME VERTICES

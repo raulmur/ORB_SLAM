@@ -51,6 +51,7 @@ typedef std::vector<cv::Mat> ImgPyr;
 class Frame
 {
 public:
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW 
     Frame(const Frame &frame);
 
     //monocular

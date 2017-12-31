@@ -43,6 +43,7 @@ const uchar LoopCandidateKF= 0x02;// if a keyframe is a loop candidate, then its
 class KeyFrame: public Frame
 {
 public:
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW 
     KeyFrame(Frame &F, Map* pMap, KeyFrameDatabase* pKFDB);
     ~KeyFrame(){Release();}
     bool isKeyFrame() const {return true;}

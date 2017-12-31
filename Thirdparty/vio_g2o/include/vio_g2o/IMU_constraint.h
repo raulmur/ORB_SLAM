@@ -2,7 +2,7 @@
 #ifndef G2O_IMU_CONSTRAINT_H
 #define G2O_IMU_CONSTRAINT_H
 
-#include "vio/IMUErrorModel.cpp" //template class
+#include "vio/IMUErrorModel.h" //template class
 #include "vio_g2o/anchored_points.h" //G2oVertexSE3
 
 #include "vio/eigen_utils.h" //for rvec2quat, skew3d

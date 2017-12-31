@@ -62,10 +62,10 @@ SET(vio_g2o_LIBRARIES ${PROJECT_SOURCE_DIR}/Thirdparty/vio_g2o/lib/libvio_g2o.so
 
 SET(DBOW2_LIB ${PROJECT_SOURCE_DIR}/Thirdparty/DBoW2/lib/libDBoW2.so)
 
-SET(G2O_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/Thirdparty/g2o/local_install/include)
-SET(G2O_LIBRARY_DIR ${PROJECT_SOURCE_DIR}/Thirdparty/g2o/local_install/lib)
+SET(G2O_INCLUDE_DIR ${INSTALL_PREFIX}/g2o/include)
+SET(G2O_LIBRARY_DIR ${INSTALL_PREFIX}/g2o/lib)
 
-SET(Sophus_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/Thirdparty/Sophus)
+SET(Sophus_INCLUDE_DIR ${INSTALL_PREFIX}/sophus/include)
 
 IF(USE_ROS)
   FIND_PACKAGE(catkin REQUIRED COMPONENTS roscpp roslib cmake_modules tf cv_bridge)

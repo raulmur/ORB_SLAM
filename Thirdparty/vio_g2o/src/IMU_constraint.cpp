@@ -204,7 +204,7 @@ struct LogDeltaSE3Vee
         typename Eigen::Matrix<T, 6, 1, Eigen::ColMajor>::ConstMapType deltaxpsi(pDeltaxpsi);
         se3Tskp12w.translation() =se3Tskp12wConst.translation() - deltaxpsi.template head<3>();
         Matrix<T,3,1> rvec= deltaxpsi.template tail<3>();
-        se3Tskp12w.setQuaternion(quaternionFromSmallAngle(rvec)*se3Tskp12wConst.unit_quaternion());
+        se3Tskp12w.setQuaternion(vio::quaternionFromSmallAngle(rvec)*se3Tskp12wConst.unit_quaternion());
 
         const Eigen::Map<const Sophus::SE3Group<T> > se3Tw2skp1(pTw2skp1); //qxyzw txyz
         Eigen::Map<Eigen::Matrix<T,6,1> > tang(value);
@@ -257,7 +257,7 @@ void G2oEdgeIMUConstraint
         SE3d temp_T=pred_T_s2_to_w;
         Vector3d rvec=Vector3d::Zero();
         rvec[i]=h;
-        temp_T.setQuaternion(quaternionFromSmallAngle(rvec)*temp_T.unit_quaternion());
+        temp_T.setQuaternion(vio::quaternionFromSmallAngle(rvec)*temp_T.unit_quaternion());
         diff=SE3d::log(temp_T*params_imu.T_imu_from_cam*T_c2_from_world->estimate());
         diff-=orig_pose_error;
         J_pred.col(i+6).head<6>() = diff/h; // +6 because $\psi^w$ corresponds to 6-8 rows/cols of P

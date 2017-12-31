@@ -712,7 +712,7 @@ void ORBextractor::ComputeKeyPointsBF(vector<vector<KeyPoint> >& allKeypoints,
         }
         allKeypointsSub[level].push_back(allKeypoints[level][*it-start_pos]);
     }
-    assert(finish_pos== total);
+    assert(finish_pos== (int)total);
     allKeypoints=allKeypointsSub;
 #if 0
     cv::Mat outimg;
@@ -1310,7 +1310,7 @@ void ORBextractor::ComputeBlurredPyramid(const std::vector<cv::Mat> & vImagePyra
                                          std::vector<cv::Mat> & vBlurredImagePyramid)
 {
     //compute blurred image pyramid
-    assert(vImagePyramid.size()==nlevels);
+    assert((int)vImagePyramid.size()==nlevels);
 
     vBlurredImagePyramid.resize(nlevels);
     for (int level = 0; level < nlevels; ++level)

@@ -232,6 +232,17 @@ int main(int argc, char **argv)
             time_frame= cap.get(CV_CAP_PROP_POS_MSEC)/1000.0;
             cap.read(left_img);
 
+            while(left_img.empty()){ // this happens when a frame is missed
+                ++numImages;
+                if(numImages > totalImages){
+                    left_img.release();
+                    return 0;
+                }
+                assert(cap.get(CV_CAP_PROP_POS_FRAMES) == numImages);
+                time_frame= cap.get(CV_CAP_PROP_POS_MSEC)/1000.0;
+                cap.read(left_img);
+            }
+
             if(downscale>1){
                 cv::pyrDown(left_img, dst, cv::Size((width+1)/2, (height+1)/2));
                 left_img= dst;
@@ -307,7 +318,7 @@ int main(int argc, char **argv)
             std::cout <<"processing frame "<< numImages <<" of timestamp "<< time_frame<<std::endl;
             SLAM_START_TIMER("tot_time");
 #ifdef MONO
-            Tracker.ProcessAMonocularFrame(left_img, time_stamp);
+            Tracker.ProcessAMonocularFrame(left_img, time_frame);
 #else
             Tracker.ProcessAStereoFrame(left_img, right_img, time_frame);
 #endif
