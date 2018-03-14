@@ -13,6 +13,7 @@ namespace vio{
 enum GPSSolutionType{TOW_ECEF=0, TOW_NED, UTC_ECEF, UTC_NED};
 class GPSGrabber:vio::DataGrabber{
 public:    
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     // GPS TOW
     class RtklibPosPattern{
         virtual std::ostream& print(std::ostream &) const;

@@ -47,14 +47,20 @@ bool FrameGrabber::grabFrame(cv::Mat & left_img, double & tk)
         assert(mCapture.get(CV_CAP_PROP_POS_FRAMES) == mnCurrentId);
         time_frame= mCapture.get(CV_CAP_PROP_POS_MSEC)/1000.0;
         mCapture.read(left_img);
-
-        while(left_img.empty()){ // this happens when a frame is missed
+   
+        while(left_img.empty()){ // this happens when a frame is missing or at the end of video file
             ++mnCurrentId;
-            if(mnCurrentId > mnFinishId){
-                left_img.release();
+            if(mnCurrentId > mnFinishId){                
                 return false;
             }
-            assert(mCapture.get(CV_CAP_PROP_POS_FRAMES) == mnCurrentId);
+            int videoFrameId = mCapture.get(CV_CAP_PROP_POS_FRAMES);
+            if(videoFrameId != mnCurrentId)
+            {
+              std::cerr <<"Expected frame id "<< mnCurrentId <<" and actual one in video "<<videoFrameId <<" differ. "<<std::endl;
+              std::cerr <<"Likely reached end of video file. Note mnFinishId "<<mnFinishId<< std::endl;
+              return false;
+            }
+           
             time_frame= mCapture.get(CV_CAP_PROP_POS_MSEC)/1000.0;
             mCapture.read(left_img);
         }
@@ -115,6 +121,87 @@ bool FrameGrabber::grabFrame(cv::Mat & left_img, double & tk)
     tk= time_frame;
     mTk =tk;
     ++mnCurrentId;
+    return true;
+}
+//queryIndex is zero based
+bool FrameGrabber::grabFrameByIndex(const int queryIndex, cv::Mat & left_img, double & tk)
+{
+    double time_frame(-1);                  //timestamp of current frame
+    double time_pair[2]={-1,0};              // timestamps of the previous and current images
+    if(queryIndex > mnFinishId || queryIndex < mnStartId){
+        std::cerr<<"Trying to grab a frame of index "<<queryIndex<<" outside the range ["<<mnStartId<<","<<mnFinishId<<"]"<<std::endl;
+        return false;
+    }
+
+    if(experim == CrowdSourcedData){
+        cv::Mat dst;
+        mCapture.set(CV_CAP_PROP_POS_FRAMES, queryIndex); 
+        assert(mCapture.get(CV_CAP_PROP_POS_FRAMES) == queryIndex);
+        time_frame= mCapture.get(CV_CAP_PROP_POS_MSEC)/1000.0;
+        mCapture.read(left_img);
+   
+        if(left_img.empty()){ // this happens when a frame is missing or at the end of video file
+           
+            std::cerr <<"Empty frame at "<< queryIndex <<" in video "<<std::endl;
+            std::cerr <<"Likely reached end of video file. Note mnFinishId "<<mnFinishId<< std::endl;
+            return false;
+        }
+
+        if(mnDownScale>1){
+            cv::pyrDown(left_img, dst);
+            left_img= dst;
+        }
+        time_pair[0]=time_pair[1];
+        time_pair[1]=time_frame;
+
+        if(left_img.channels()==3)
+        {
+            cv::Mat temp;
+            if(mbRGB)
+                cvtColor(left_img, temp, CV_RGB2GRAY);
+            else
+                cvtColor(left_img, temp, CV_BGR2GRAY);
+            left_img=temp;
+        }
+    }
+    else{
+//TODO: timegrabber does not support random reading timestamps
+        //for other types of image sequences
+        char base_name[256];                // input file names
+        string left_img_file_name;
+        string right_img_file_name;
+
+        switch(experim){
+        case KITTIOdoSeq:
+            sprintf(base_name,"%06d.png",queryIndex);
+            left_img_file_name  = mImageFolder + "/image_0/" + base_name;
+            right_img_file_name = mImageFolder + "/image_1/" + base_name;
+           // time_frame=mTG.readTimestamp(queryIndex); 
+            break;
+        case Tsukuba:
+            sprintf(base_name,"%05d.png",queryIndex + 1);
+            left_img_file_name  = mImageFolder + "/tsukuba_daylight_L_" + base_name;
+            right_img_file_name = mImageFolder + "/tsukuba_daylight_R_" + base_name;
+            //time_frame=queryIndex/30.0;
+            // time_frame=mTG.readTimestamp(queryIndex);
+            break;
+        case MalagaUrbanExtract6:
+           // time_frame=mTG.extractTimestamp(queryIndex); 
+            left_img_file_name=mTG.last_left_image_name;
+            right_img_file_name=left_img_file_name.substr(0, 30)+ "right"+left_img_file_name.substr(left_img_file_name.length()-4, 4);
+            left_img_file_name= mImageFolder + "/"+ left_img_file_name;
+            right_img_file_name= mImageFolder + "/"+ right_img_file_name;
+        default:
+            std::cerr<<"Please implement interface fot this dataset!"<<std::endl;
+            break;
+        }
+        time_pair[0]=time_pair[1];
+        time_pair[1]=time_frame;
+        left_img=cv::imread(left_img_file_name, 0);
+        //                 cv::Mat right_img=cv::imread(right_img_file_name, 0);
+
+    }
+    tk= time_frame;    
     return true;
 }
 }

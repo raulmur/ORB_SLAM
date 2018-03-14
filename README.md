@@ -36,7 +36,7 @@ The Boost library is used to launch different threads of the SLAM system.
 ```
 sudo apt-get install libboost-all-dev
 ```
-## 2.2 OpenCV 2.4.x
+## 2.2 OpenCV (>=3.0)
 
 OpenCV is mainly used for feature extraction, and matching. It can be installed via:
 ```

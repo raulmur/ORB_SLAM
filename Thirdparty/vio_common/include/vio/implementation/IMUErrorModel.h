@@ -1,6 +1,3 @@
-#include "vio/IMUErrorModel.h"
-
-
 template <class Scalar>
 IMUErrorModel<Scalar>::IMUErrorModel(const Eigen::Matrix<Scalar, 6, 1> b_ga): b_g(b_ga.template head<3>()),
     b_a(b_ga.template tail<3>()),
@@ -21,8 +18,8 @@ IMUErrorModel<Scalar>::IMUErrorModel(const Eigen::Matrix<Scalar, 6, 1> b_ga, con
                 T_s(i,j)=shapeMatrices(i*3+j+9);
                 S_a(i,j)=shapeMatrices(i*3+j+18);
             }
-            S_g(i,i)-=1;
-            S_a(i,i)-=1;
+            S_g(i,i)-=Scalar(1);
+            S_a(i,i)-=Scalar(1);
         }
     }
     else

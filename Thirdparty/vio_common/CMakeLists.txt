@@ -24,19 +24,20 @@ ENDIF()
 SET(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -O3 -fsee -fomit-frame-pointer -fno-signed-zeros -fno-math-errno -funroll-loops")
 
 # Add plain cmake packages 
-FIND_PACKAGE(OpenCV REQUIRED)
+find_package(OpenCV REQUIRED)
+message ("opencv include dir " ${OpenCV_INCLUDE_DIRS})
 FIND_PACKAGE(Eigen REQUIRED)
 
 # Include dirs
-INCLUDE_DIRECTORIES(
-  include
+LIST(APPEND vio_common_INCLUDE_DIR
+  ${CMAKE_CURRENT_SOURCE_DIR}/include
   ${Eigen_INCLUDE_DIRS}
-  ${OpenCV_INCLUDE_DIRS}  
+  ${OpenCV_INCLUDE_DIRS}
 )
 
 IF(USE_ROS)
   FIND_PACKAGE(catkin REQUIRED COMPONENTS roscpp cmake_modules)
-  LIST(APPEND INCLUDE_DIRECTORIES ${catkin_INCLUDE_DIRS})
+  LIST(APPEND vio_common_INCLUDE_DIR ${catkin_INCLUDE_DIRS})
   catkin_package(
     DEPENDS Eigen OpenCV
     CATKIN_DEPENDS roscpp
@@ -62,17 +63,17 @@ src/FrameGrabber.cpp
 src/eigen_utils.cpp
 include/vio/PointStatistics.h
 include/vio/IMUErrorModel.h
-include/vio/IMUErrorModel.cpp
 )
 
 IF(USE_GPSTK)
   ADD_DEFINITIONS(-DHAVE_GPSTK)
-  SET(GPSTK_INCLUDE_DIRS $ENV{HOME}/ScaViSLAM/svslocal/include)
-  INCLUDE_DIRECTORIES(${GPSTK_INCLUDE_DIRS})
-  SET(GPSTK_LIB $ENV{HOME}/ScaViSLAM/svslocal/lib/libgpstk.so)
+  SET(GPSTK_INCLUDE_DIRS $ENV{HOME}/workspace/local_install/gpstk/include)
+  LIST(APPEND vio_common_INCLUDE_DIR ${GPSTK_INCLUDE_DIRS})
+  SET(GPSTK_LIB $ENV{HOME}/workspace/local_install/gpstk/lib/libgpstk.so)
 ENDIF()
 
 # Create library
+INCLUDE_DIRECTORIES(${vio_common_INCLUDE_DIR})
 ADD_LIBRARY(${PROJECT_NAME} SHARED ${SOURCEFILES})
 TARGET_LINK_LIBRARIES(${PROJECT_NAME}
   ${OpenCV_LIBS})
@@ -104,12 +105,33 @@ TARGET_LINK_LIBRARIES(testeigeninverse ${PROJECT_NAME})
 ################################################################################
 # Create the vio_commonConfig.cmake file for other cmake projects.
 IF(NOT USE_ROS)
-  SET(vio_common_LIBRARIES ${PROJECT_SOURCE_DIR}/lib/libvio_common.so)
+  # Export package for use from the build tree
+  EXPORT( PACKAGE vio_common )
+
+  # Create the vio_commonConfig.cmake file for other cmake projects.
+  # ... for the build tree
+  SET( CONFIG_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+  SET( CONFIG_DIR ${CMAKE_CURRENT_BINARY_DIR})
+  SET(vio_common_LIBRARY ${PROJECT_SOURCE_DIR}/lib/libvio_common.so)
   SET(vio_common_LIBRARY_DIR ${PROJECT_SOURCE_DIR}/lib)
-  SET(vio_common_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/include")
   CONFIGURE_FILE( ${CMAKE_CURRENT_SOURCE_DIR}/vio_commonConfig.cmake.in
       ${CMAKE_CURRENT_BINARY_DIR}/vio_commonConfig.cmake @ONLY IMMEDIATE )
-  export( PACKAGE vio_common )
+  
+  # ... for the install tree
+  SET( CMAKECONFIG_INSTALL_DIR lib/cmake/vio_common )
+  FILE( RELATIVE_PATH REL_INCLUDE_DIR
+      "${CMAKE_INSTALL_PREFIX}/${CMAKECONFIG_INSTALL_DIR}"
+      "${CMAKE_INSTALL_PREFIX}/include" )
+
+  SET( vio_common_INCLUDE_DIR "\${vio_common_CMAKE_DIR}/${REL_INCLUDE_DIR}" ) 
+  SET( vio_common_LIBRARY_DIR "\${vio_common_CMAKE_DIR}/../.." )
+  SET( vio_common_LIBRARY "\${vio_common_CMAKE_DIR}/../../libvio_common.so" )
+  SET( CONFIG_SOURCE_DIR )
+  SET( CONFIG_DIR )
+  CONFIGURE_FILE( ${CMAKE_CURRENT_SOURCE_DIR}/vio_commonConfig.cmake.in
+      ${CMAKE_CURRENT_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/vio_commonConfig.cmake @ONLY )
+  INSTALL(FILES "${CMAKE_CURRENT_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/vio_commonConfig.cmake"
+        DESTINATION ${CMAKECONFIG_INSTALL_DIR} )
 
   INSTALL(DIRECTORY include/vio DESTINATION ${CMAKE_INSTALL_PREFIX}/include FILES_MATCHING PATTERN "*.h" )
   INSTALL(TARGETS ${PROJECT_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib )

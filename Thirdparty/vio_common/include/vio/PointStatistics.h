@@ -5,6 +5,7 @@
 #include <vector>
 struct PointStatistics
 {
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   PointStatistics(int USE_N_LEVELS_FOR_MATCHING=0)
     : num_matched_points(USE_N_LEVELS_FOR_MATCHING)
   {

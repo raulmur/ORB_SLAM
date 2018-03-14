@@ -11,7 +11,8 @@
 namespace vio{
 enum OUTPUT_FILE_TYPE{OKVIS_OUTPUT_FILE=0};
 class CsvReader:DataGrabber{
-public:    
+public: 
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW   
     class LinePattern{
         virtual std::ostream& print(std::ostream &) const=0;
         virtual std::istream& read(std::istream &)=0;
@@ -29,7 +30,7 @@ public:
         virtual double getTime()=0;
     };
 
-     class OkvisOutputPattern: public LinePattern{
+    class OkvisOutputPattern: public LinePattern{
 
         virtual std::ostream& print(std::ostream &) const;
         virtual std::istream& read(std::istream &);
@@ -70,6 +71,7 @@ void loadCsvData(std::string csvFile, std::vector<Eigen::Matrix<double, 19, 1> >
 
 class ViclamOutputReader:vio::DataGrabber{
 public:
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     class ViclamOutputPattern{
 
         virtual std::ostream& print(std::ostream &) const;

@@ -37,6 +37,8 @@ public:
      */
     bool grabFrame(cv::Mat & frame, double & tk);
     int getCurrentId(){return mnCurrentId - 1;} //because it's incremented once a frame is obtained
+    //queryIndex is zero based, currently only supports video not image sequences
+    bool grabFrameByIndex(const int queryIndex, cv::Mat & left_img, double & tk);
 protected:
     bool is_measurement_good;         //does the measurement fit our requirements?
     std::string mVideoFile;

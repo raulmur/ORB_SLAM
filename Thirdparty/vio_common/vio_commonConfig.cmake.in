@@ -1,17 +1,20 @@
 #######################################################
 # vio_common source dir
-set( vio_common_SOURCE_DIR "@CMAKE_CURRENT_SOURCE_DIR@")
+set( vio_common_SOURCE_DIR "@CONFIG_SOURCE_DIR@")
 
 #######################################################
 # vio_common build dir
-set( vio_common_DIR "@CMAKE_CURRENT_BINARY_DIR@")
+set( vio_common_DIR "@CONFIG_DIR@")
 
 #######################################################
+# Compute paths
+get_filename_component(vio_common_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" DIRECTORY)
+
 set( vio_common_INCLUDE_DIR  "@vio_common_INCLUDE_DIR@" )
 set( vio_common_INCLUDE_DIRS "@vio_common_INCLUDE_DIR@" )
 
-set( vio_common_LIBRARIES    "@vio_common_LIBRARIES@" )
-set( vio_common_LIBRARY      "@vio_common_LIBRARIES@" )
+set( vio_common_LIBRARIES    "@vio_common_LIBRARY@" )
+set( vio_common_LIBRARY      "@vio_common_LIBRARY@" )
 
 set( vio_common_LIBRARY_DIR  "@vio_common_LIBRARY_DIR@" )
 set( vio_common_LIBRARY_DIRS "@vio_common_LIBRARY_DIR@" )

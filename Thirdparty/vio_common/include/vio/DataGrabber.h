@@ -4,7 +4,6 @@
 
 #include <iostream>
 #include <fstream>
-#include <Eigen/Dense>
 
 namespace vio{
 

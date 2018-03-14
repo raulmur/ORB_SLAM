@@ -10,6 +10,7 @@ template <class Scalar>
 class IMUErrorModel
 {
 public:
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     //a volatile class to estimate linear acceleration and angular rate given measurements, or predict measurements given estimated values
     Eigen::Matrix<Scalar, 3,1> b_g;
     Eigen::Matrix<Scalar, 3, 1> b_a;
@@ -60,4 +61,5 @@ public:
     void dwa_B_dbgbaSTS(Eigen::Matrix<Scalar, 6, 27+6> & output);
 };
 
+#include "implementation/IMUErrorModel.h"
 #endif

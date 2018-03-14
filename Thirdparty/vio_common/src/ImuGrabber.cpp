@@ -232,6 +232,8 @@ bool IMUGrabber::getObservation(double tk)
         if(tk< transMat[0])
         {
             tkm1=tk;
+            std::cerr<<"Try to obtain inertial measurements until "<<std::setprecision(12)<<tk<<" which is however before the latest retrieved entry of time "<< transMat[0]<<std::endl;
+            std::cerr<<"from the file stream. A possible cause is a gap in the inertial data which can be filled by linear interpolation."<< std::endl;
             is_measurement_good = false;
             return is_measurement_good;
         }
@@ -308,6 +310,7 @@ bool IMUGrabber::getObservation(double tk)
     tkm1=tk;
     return is_measurement_good;
 }
+
 bool StatesGrabber::getObservation(double tk)
 {
     //Assume each line in States file: GPS TOW, i.e., t(k), position of sensor in world frame,
@@ -321,8 +324,14 @@ bool StatesGrabber::getObservation(double tk)
             if(stream.fail())
                 return false;
             measurement[0]=precursor;
-            for (size_t j=1; j<measurement.size(); ++j)
-                stream>>measurement[j];
+            char trashbin = '0';
+            if (delimiter != ' ') {
+                for (size_t j=1; j<measurement.size(); ++j)
+                    stream>>trashbin>>measurement[j];
+            } else {
+                for (size_t j=1; j<measurement.size(); ++j)
+                    stream>>measurement[j];
+            }
             getline(stream, tempStr);       //remove the remaining part, this works even when it is empty
             tkm1=precursor;
             if(std::fabs(precursor - tk)< epsilonTime)
@@ -367,8 +376,14 @@ bool StatesGrabber::getNextObservation()
         if(stream.fail())
             return false;
         measurement[0]=precursor;
-        for (size_t j=1; j<measurement.size(); ++j)
-            stream>>measurement[j];
+        if (delimiter == ' ') {
+            for (size_t j=1; j<measurement.size(); ++j)
+                stream>>measurement[j];
+        } else {
+            char trashbin = '0';
+            for (size_t j=1; j<measurement.size(); ++j)
+                stream >> trashbin >> measurement[j];
+        }
         getline(stream, tempStr);       //remove the remaining part, this works even when it is empty
 
         if(precursor > tkm1)
