@@ -1,5 +1,6 @@
 
 #include "vio_g2o/IMU_constraint.h"
+#include "vio_common/ImuGrabber.h"
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/core/eigen.hpp"
 #include <iostream>
@@ -164,18 +165,25 @@ void TestIMURoutine(char * argv[])
     P.block(12,12,3,3)=tempVec3d.asDiagonal();
 
     string imu_file=fSettings["imu_file"];
-    double imu_sample_interval=fSettings["sample_interval"];
+    imu_.sampling_interval = fSettings["sample_interval"];
+    std::shared_ptr<vio::IMUProcessor> imu_proc=new vio::IMUProcessor(imu_);
 
-    vio::IMUProcessor* imu_proc=new vio::IMUProcessor(imu_file, imu_sample_interval, imu_,
-                                       vio::IndexedPlainText);
-
+    std::shared_ptr<vio::ImuGrabber> ig = new vio::ImuGrabber(imu_file, vio::IndexedPlainText,
+                                                              imu_.sampling_interval);
 
     if(!imu_proc->bStatesInitialized){
+        if(ig->getObservation(startTime) == false) //inertial readings does not cover timestamp
+        {
+            std::cerr<<"start time not covered by inertial readings"<< std::endl;
+            exit(-1);
+        }
+
         imu_proc->initStates(T_s1_to_w, speed_bias_1, startTime, &P);
         //ASSUME the IMU measurements are continuous and covers longer than camera data
     }
+
     std::string output_file = fSettings["output_file"];
-    imu_proc->freeInertial(output_file, finishTime);
+    imu_proc->freeInertial(*ig, output_file, finishTime);
 
   /*  vector<Matrix<double, 7,1> > measurements;
     ifstream imu_stream(imu_file.c_str());

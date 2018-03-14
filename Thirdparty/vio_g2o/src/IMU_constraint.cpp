@@ -689,19 +689,19 @@ void G2oEdgeIMUConstraintEx
     //    cout<<_information.diagonal().transpose()<<endl;
 }
 
-IMUProcessor::IMUProcessor(const std::string imu_file, const double sample_interval,const G2oIMUParameters &imu, IMUFileType fileType):
+IMUProcessor::IMUProcessor(const G2oIMUParameters &imu):
     speed_bias_1(Eigen::Matrix<double, 9,1>::Zero()), pred_speed_bias_2(Eigen::Matrix<double, 9,1>::Zero()),
-    ft(fileType), ig(imu_file, ft, sample_interval), imu_(imu), bStatesInitialized(false),
+    imu_(imu), bStatesInitialized(false),
     P_(Eigen::Matrix<double,15,15>::Identity()),bPredictCov(false)
 {
     time_pair[0]=-1;
     time_pair[1]=-1;
 }
 
-Sophus::SE3d IMUProcessor::propagate(const double time_frame)
+Sophus::SE3d IMUProcessor::propagate(const double time_frame, const
+                                     std::vector<Eigen::Matrix<double, 7, 1> > & imuMeas)
 {
-    bool is_meas_good=ig.getObservation(time_frame);
-    assert(ig.measurement.size());
+  
     time_pair[0]=time_pair[1];
     time_pair[1]=time_frame;
 
@@ -711,11 +711,8 @@ Sophus::SE3d IMUProcessor::propagate(const double time_frame)
     if(bPredictCov)
         holder= &P_;
 
-//    std::cout <<"predictStates input ig.measurement 0, 1, and last entry time "<< ig.measurement[0][0] <<" "
-//    <<ig.measurement[1][0] <<" "<<ig.measurement.back()[0] <<" and frame time pair "<<
-//                             time_pair[0] <<" " << time_pair[1]<< std::endl;
     predictStates(T_s1_to_w, speed_bias_1, time_pair,
-                             ig.measurement, imu_.gwomegaw, imu_.q_n_aw_babw,
+                             imuMeas, imu_.gwomegaw, imu_.q_n_aw_babw,
                              &pred_T_s2_to_w, &tempVs0inw, holder);
     pred_speed_bias_2.head<3>()=tempVs0inw;
     pred_speed_bias_2.tail<6>()=speed_bias_1.tail<6>();     //biases do not change in propagation
@@ -745,7 +742,7 @@ void IMUProcessor::printStateAndCov(std::ofstream &output, double time)const {
     output<<stdDiag.transpose()<<endl;
 }
 
-void IMUProcessor::freeInertial(std::string output_file, double finish_time)
+void IMUProcessor::freeInertial(vio::IMUGrabber& ig, std::string output_file, double finish_time)
 {
     int every_n_reading=3;// update covariance every n IMU readings
     imu_traj_stream.open(output_file.c_str(), std::ios::out);
@@ -764,7 +761,7 @@ void IMUProcessor::freeInertial(std::string output_file, double finish_time)
         return;
     }
     time_pair[0]=time_pair[1];
-    time_pair[1]=finish_time;
+    time_pair[1]=ig.measurement.back()[0] - 0.001;
 
     pred_T_s2_to_w= T_s1_to_w;
     pred_speed_bias_2= speed_bias_1;
@@ -866,12 +863,7 @@ void IMUProcessor::freeInertial(std::string output_file, double finish_time)
 }
 
 bool IMUProcessor::initStates(const Sophus::SE3d &Ts1tow, const Eigen::Matrix<double, 9,1> & sb1, const double timestamp, Eigen::Matrix<double, 15, 15> *pCov)
-{    
-    if(ig.getObservation(timestamp) == false) //inertial readings does not cover timestamp
-    {
-        bStatesInitialized=false;
-        return false;
-    }
+{
 
     bStatesInitialized=true;
 
