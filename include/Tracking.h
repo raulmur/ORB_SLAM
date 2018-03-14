@@ -89,6 +89,8 @@ private:
     TrackingResult& operator= (const TrackingResult&);
 };
 
+typedef Eigen::Matrix<double, 7, 1> RawImuMeasurement; //double timestamp, accel xyz m/s^2, gyro xyz rad/sec
+typedef std::vector<RawImuMeasurement > RawImuMeasurementVector;
 
 class Tracking
 {  
@@ -127,8 +129,10 @@ public:
 
     void GetLastestPoseEstimate(TrackingResult & rhs) const;
     void GetViso2PoseEstimate(TrackingResult & rhs) const;
-    bool ProcessAMonocularFrame(cv::Mat &left_img, double time_frame);
-    bool ProcessAStereoFrame(cv::Mat &left_img, cv::Mat &right_img, double time_frame);
+    bool ProcessAMonocularFrame(cv::Mat &left_img, double time_frame,
+                                const RawImuMeasurementVector & imuMeas);
+    bool ProcessAStereoFrame(cv::Mat &left_img, cv::Mat &right_img, double time_frame,
+                             const RawImuMeasurementVector & imuMeas);
 
     /**
      * @brief PrepareImuProcessor construct the ImuProcessor, and reads the initial values for IMU pose in the world frame at start time,

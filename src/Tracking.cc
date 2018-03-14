@@ -3052,7 +3052,8 @@ void Tracking::GetViso2PoseEstimate(TrackingResult & rhs) const{
     rhs.vwsBaBg_.setZero();
 }
 
-bool Tracking::ProcessAMonocularFrame(cv::Mat &left_img, double time_frame){
+bool Tracking::ProcessAMonocularFrame(cv::Mat &left_img, double time_frame,
+                                      const RawImuMeasurementVector & imuMeas){
     if(left_img.cols != cam_->width() || left_img.rows!= cam_->height())
     {
         cerr<<"Incompatible image size, check setting file Camera.width .height fields or the end of video!"<<endl;
@@ -3061,20 +3062,14 @@ bool Tracking::ProcessAMonocularFrame(cv::Mat &left_img, double time_frame){
     Sophus::SE3d predTcp; //predicted transformation from previous camera frame to current camera frame
     if(mbUseIMUData){
         if(!mpImuProcessor->bStatesInitialized){
-
-            bool bImuInitialized = mpImuProcessor->initStates(initTws, initVwsBaBg, time_frame);
-            if(!bImuInitialized){
-                std::cerr<<"skipping monocular frame at "<< time_frame<<" for imu processor has not been initialized!"<< std::endl;
-                return false;  //wait until the IMU system is initialized
-            }
-            else
-                ProcessFrameMono(left_img, time_frame, std::vector<Eigen::Matrix<double, 7,1 > >(),
+            mpImuProcessor->initStates(initTws, initVwsBaBg, time_frame);
+            ProcessFrameMono(left_img, time_frame, std::vector<Eigen::Matrix<double, 7,1 > >(),
                                  NULL, initVwsBaBg);
         }
         else{
-            predTcp=mpImuProcessor->propagate(time_frame);
+            predTcp=mpImuProcessor->propagate(time_frame, imuMeas);
             ProcessFrameMono(left_img, time_frame,
-                             mpImuProcessor->getMeasurements(), &predTcp, mpImuProcessor->speed_bias_1);
+                             imuMeas, &predTcp, mpImuProcessor->speed_bias_1);
 
             if(mState == WORKING){
                 mpImuProcessor->resetStates((imu_.T_imu_from_cam*mpLastFrame->mTcw).inverse(), mpLastFrame->speed_bias);
@@ -3097,7 +3092,8 @@ bool Tracking::ProcessAMonocularFrame(cv::Mat &left_img, double time_frame){
     return true;
 }
 
-bool Tracking::ProcessAStereoFrame(cv::Mat &left_img, cv::Mat &right_img, double time_frame){
+bool Tracking::ProcessAStereoFrame(cv::Mat &left_img, cv::Mat &right_img, double time_frame,
+                                   const RawImuMeasurementVector & imuMeas){
     if(left_img.cols != cam_->width() || left_img.rows!= cam_->height())
     {
         cerr<<"Incompatible image size, check setting file Camera.width .height fields!"<<endl;
@@ -3107,18 +3103,12 @@ bool Tracking::ProcessAStereoFrame(cv::Mat &left_img, cv::Mat &right_img, double
     Sophus::SE3d predTcp; //predicted transformation from previous camera frame to current camera frame
     if(mbUseIMUData){
         if(!mpImuProcessor->bStatesInitialized){
-            bool bImuInitialized = mpImuProcessor->initStates(initTws, initVwsBaBg, time_frame);
-            if(!bImuInitialized){
-                std::cerr<<"skipping stereo frame at "<< time_frame<<" for imu processor has not been initialized!"<< std::endl;
-                return false;  //wait until the IMU system is initialized
-            }
-            else
-                ProcessFrame(left_img, right_img, time_frame, std::vector<Eigen::Matrix<double, 7,1 > >(),
+            mpImuProcessor->initStates(initTws, initVwsBaBg, time_frame);
+            ProcessFrame(left_img, right_img, time_frame, std::vector<Eigen::Matrix<double, 7,1 > >(),
                              NULL, initVwsBaBg);
         }
         else{
-            predTcp=mpImuProcessor->propagate(time_frame);
-            assert(mpImuProcessor->getMeasurements().size());
+            predTcp=mpImuProcessor->propagate(time_frame, imuMeas);
 
             Eigen::Matrix<double, 9, 1> velAndBiases = mpImuProcessor->speed_bias_1;
             if(experimDataset == DiLiLi)
@@ -3126,14 +3116,14 @@ bool Tracking::ProcessAStereoFrame(cv::Mat &left_img, cv::Mat &right_img, double
                 velAndBiases.head<3>() = mVelByStereoOdometry;
 
             ProcessFrame(left_img, right_img, time_frame,
-                         mpImuProcessor->getMeasurements(), &predTcp, velAndBiases);
+                         imuMeas, &predTcp, velAndBiases);
         }
         if(mState == WORKING){
             mpImuProcessor->resetStates((imu_.T_imu_from_cam*mpLastFrame->mTcw).inverse(), mpLastFrame->speed_bias);
         }else if(mState == NOT_INITIALIZED){ //this occurs when tracking is reset
             mpImuProcessor->initStates(initTws, initVwsBaBg, time_frame); //TODO: this assumes the velocity eqauls to the specified value, use an initialization procedure is preferred
             std::cout <<"imu proc reset at frame time "<< time_frame <<std::endl;
-        }
+        }        
     }
     else if(Config::useDecayVelocityModel()){
         Eigen::Vector3d trans;
@@ -3153,11 +3143,9 @@ bool Tracking::ProcessAStereoFrame(cv::Mat &left_img, cv::Mat &right_img, double
     return true;
 }
 
-void Tracking::PrepareImuProcessor(){
+void Tracking::PrepareImuProcessor(){   
     if(mbUseIMUData){
-        string imu_file = slamhome + (std::string)mfsSettings["imu_file"];;
-        mpImuProcessor=new vio::IMUProcessor(imu_file, imu_sample_interval, imu_,
-                                             experimDataset==DiLiLi? vio::IndexedPlainText:vio::PlainText);
+        mpImuProcessor=new vio::IMUProcessor(imu_);
 
         //initialize IMU states
         initTws=imu_.T_imu_from_cam.inverse();

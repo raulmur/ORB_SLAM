@@ -86,7 +86,7 @@ To avoid system wide installation, g2o is recommended to be installed into a loc
 cd catkin_ws/src/orbslam_dwo/Thirdparty
 git clone https://github.com/RainerKuemmerle/g2o.git
 cd g2o
-git checkout deafc0
+git checkout 4d23d59
 mkdir local_install
 mkdir build
 cd build

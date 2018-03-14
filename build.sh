@@ -13,15 +13,16 @@ fi
 
 build_type=Debug
 FULL_PATH=`pwd`
-INSTALL_FOLDER=$HOME/slam_devel
-mkdir -p $HOME/slam_devel
+INSTALL_FOLDER=$FULL_PATH/build/slam_devel
+rm -rf build
+mkdir -p $INSTALL_FOLDER
 
 cd Thirdparty
 echo "Configuring and building Thirdparty/Sophus ..."
 git clone https://github.com/stevenlovegrove/Sophus.git
 cd Sophus
 git checkout b474f05
-#rm -rf build
+rm -rf build
 mkdir -p build
 cd build
 cmake .. -DCMAKE_BUILD_TYPE=Release -DEIGEN3_INCLUDE_DIR:PATH=$EIGEN3_INCLUDE_FOLDER -DCMAKE_INSTALL_PREFIX:PATH=$INSTALL_FOLDER/sophus
@@ -32,8 +33,8 @@ echo "Configuring and building Thirdparty/g2o ..."
 cd ../..
 git clone https://github.com/RainerKuemmerle/g2o.git
 cd g2o
-git checkout 46f615ca32bd98a0f8a7ab1cb429566c43000e98
-#rm -rf build
+git checkout 4d23d59
+rm -rf build
 mkdir -p build
 cd build
 cmake .. -DCMAKE_INSTALL_PREFIX:PATH=$INSTALL_FOLDER/g2o -DEIGEN3_INCLUDE_DIR:PATH=$EIGEN3_INCLUDE_FOLDER
@@ -69,16 +70,17 @@ make -j
 cd ../../vio_common
 
 echo "Configuring and building Thirdparty/vio_common ..."
-
+rm -rf build
 mkdir build
 cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release -DOpenCV_DIR=$OPENCV_CONFIG_PATH -DEIGEN_INCLUDE_DIR:PATH=$EIGEN3_INCLUDE_FOLDER
+cmake .. -DCMAKE_BUILD_TYPE=Release -DOpenCV_DIR=$OPENCV_CONFIG_PATH -DEIGEN_INCLUDE_DIR:PATH=$EIGEN3_INCLUDE_FOLDER -DCMAKE_INSTALL_PREFIX:PATH=$INSTALL_FOLDER/vio_common
 make -j
+make install
 
 cd ../..
 echo "Configuring and building Thirdparty/vio_g2o ..."
-git clone https://github.com/JzHuai0108/vio_g2o.git
 cd vio_g2o
+rm -rf build
 mkdir -p build
 cd build
 cmake .. -DCMAKE_BUILD_TYPE=Release -DOpenCV_DIR=$OPENCV_CONFIG_PATH -DEIGEN_INCLUDE_DIR:PATH=$EIGEN3_INCLUDE_FOLDER -DINSTALL_PREFIX=$INSTALL_FOLDER
@@ -93,5 +95,5 @@ cmake .. -DCMAKE_BUILD_TYPE=$build_type -DOpenCV_DIR=$OPENCV_CONFIG_PATH -DEIGEN
 make -j2
 
 cd ../Thirdparty
-#rm -rf Sophus
-#rm -rf g2o
+rm -rf Sophus
+rm -rf g2o

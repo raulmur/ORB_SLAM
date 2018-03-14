@@ -140,6 +140,18 @@ int main(int argc, char **argv)
     }
     cout << "Vocabulary loaded!" << endl << endl;
 
+    // create the imudata grabber
+    bool bUseIMUData=vio::to_bool(fsSettings["use_imu_data"]);
+    vio::IMUFileType imuFileType =vio::PlainText;
+    std::shared_ptr<vio::IMUGrabber> imuGrabber;
+
+    if(bUseIMUData){
+        string imu_file = slamhome + "/" + (std::string)fsSettings["imu_file"];
+        double sampling_interval=fsSettings["sample_interval"];
+        imuGrabber = std::shared_ptr<vio::IMUGrabber>(new vio::IMUGrabber(imu_file,
+                                      imuFileType, sampling_interval));
+    }
+
     //Create KeyFrame Database
     ORB_SLAM::KeyFrameDatabase Database(Vocabulary);
 
@@ -264,7 +276,9 @@ int main(int argc, char **argv)
             std::cout <<"processing frame "<< numImages <<"th of timestamp "<< time_frame<<std::endl;
             SLAM_START_TIMER("tot_time");
 
-            Tracker.ProcessAMonocularFrame(left_img, time_frame);
+            imuGrabber->getObservation(time_frame);
+            ORB_SLAM::RawImuMeasurementVector imuMeas = imuGrabber->measurement;
+            Tracker.ProcessAMonocularFrame(left_img, time_frame, imuMeas);
 
             SLAM_STOP_TIMER("tot_time");
 
@@ -317,10 +331,14 @@ int main(int argc, char **argv)
 //            SLAM_DEBUG_STREAM("processing frame "<< numImages);
             std::cout <<"processing frame "<< numImages <<" of timestamp "<< time_frame<<std::endl;
             SLAM_START_TIMER("tot_time");
+
+            imuGrabber->getObservation(time_frame);
+            ORB_SLAM::RawImuMeasurementVector imuMeas = imuGrabber->measurement;
+
 #ifdef MONO
-            Tracker.ProcessAMonocularFrame(left_img, time_frame);
+            Tracker.ProcessAMonocularFrame(left_img, time_frame, imuMeas);
 #else
-            Tracker.ProcessAStereoFrame(left_img, right_img, time_frame);
+            Tracker.ProcessAStereoFrame(left_img, right_img, time_frame, imuMeas);
 #endif
             SLAM_STOP_TIMER("tot_time");
 
