@@ -656,7 +656,7 @@ vector<MapPoint*> Frame::GetMapPointMatches()
 }
 
 
-void Frame::SetIMUObservations(const std::vector<Eigen::Matrix<double, 7, 1> >& imu_meas)
+void Frame::SetIMUObservations(const RawImuMeasurementVector& imu_meas)
 {
     imu_observ=imu_meas;
 }

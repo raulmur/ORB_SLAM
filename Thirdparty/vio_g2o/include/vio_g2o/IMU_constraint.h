@@ -8,6 +8,7 @@
 #include "vio/eigen_utils.h" //for rvec2quat, skew3d
 #include "vio/ImuGrabber.h"
 
+#include <Eigen/StdVector>
 #include <sophus/se3.hpp>
 #ifdef MONO
 #include <sophus/sim3.hpp>
@@ -347,9 +348,11 @@ template<typename Scalar>
 void predictStatesImpl(const std::pair< Eigen::Quaternion<Scalar>, Eigen::Matrix<Scalar, 3, 1> > &T_sk_to_w,
                    const Eigen::Matrix<Scalar, 9,1>& speed_bias_k,
                    const Scalar * time_pair,
-                   const std::vector<Eigen::Matrix<Scalar, 7,1> >& measurements, const Eigen::Matrix<Scalar, 6,1> & gwomegaw,
+                   const std::vector<Eigen::Matrix<Scalar, 7, 1>,
+                       Eigen::aligned_allocator<Eigen::Matrix<Scalar, 7, 1> > >& measurements,
+                   const Eigen::Matrix<Scalar, 6,1> & gwomegaw,
                    const Eigen::Matrix<Scalar, 12, 1>& q_n_aw_babw,
-                   std::pair< Eigen::Quaternion<Scalar>, Eigen::Matrix<Scalar, 3, 1> > * pred_T_skp1_to_w, Eigen::Matrix<Scalar, 3,1>* pred_speed_kp1,
+                   std::pair<Eigen::Quaternion<Scalar>, Eigen::Matrix<Scalar, 3, 1> > * pred_T_skp1_to_w, Eigen::Matrix<Scalar, 3,1>* pred_speed_kp1,
                    Eigen::Matrix<Scalar, 15,15> *P, const Eigen::Matrix<Scalar, 27,1> shape_matrices= Eigen::Matrix<Scalar, 27,1>::Zero())
 {
     bool predict_cov=(P!=NULL);
@@ -371,7 +374,8 @@ void predictStatesImpl(const std::pair< Eigen::Quaternion<Scalar>, Eigen::Matrix
     bool hasStarted = false;
     int i = 0;
     Scalar nexttime;
-    for(typename std::vector<Eigen::Matrix<Scalar, 7, 1 > >::const_iterator it = measurements.begin();
+    for(typename std::vector<Eigen::Matrix<Scalar, 7, 1 >,
+        Eigen::aligned_allocator<Eigen::Matrix<Scalar, 7, 1> > >::const_iterator it = measurements.begin();
           it != measurements.end(); ++it) {
 
       Eigen::Matrix<Scalar,3,1> omega_S_0 = it->template block<3,1>(4,0);
@@ -448,7 +452,9 @@ template<typename Scalar>
 void predictStates(const Sophus::SE3Group<Scalar> &T_sk_to_w,
                    const Eigen::Matrix<Scalar, 9,1>& speed_bias_k,
                    const Scalar * time_pair,
-                   const std::vector<Eigen::Matrix<Scalar, 7,1> >& measurements, const Eigen::Matrix<Scalar, 6,1> & gwomegaw,
+                   const std::vector<Eigen::Matrix<Scalar, 7, 1>,
+                   Eigen::aligned_allocator<Eigen::Matrix<Scalar, 7, 1> > >& measurements,
+                   const Eigen::Matrix<Scalar, 6,1> & gwomegaw,
                    const Eigen::Matrix<Scalar, 12, 1>& q_n_aw_babw,
                    Sophus::SE3Group<Scalar> * pred_T_skp1_to_w, Eigen::Matrix<Scalar, 3,1>* pred_speed_kp1,
                    Eigen::Matrix<Scalar, 15,15> *P, const Eigen::Matrix<Scalar, 27,1> shape_matrices= Eigen::Matrix<Scalar, 27,1>::Zero())
@@ -470,7 +476,8 @@ void predictStates(const Sophus::SE3Group<Scalar> &T_sk_to_w,
 // the reference frame referred to as the camera frame, however, can be other well defined sensor frame depending on applications,
 // for example, in integrating GPS/IMU, the reference sensor frame can be the IMU frame
 // observations are the difference between predicted states at k+1 and the states at k+1
-class G2oEdgeIMUConstraint : public  g2o::BaseMultiEdge<15, std::vector<Eigen::Matrix<double, 7,1> > >
+class G2oEdgeIMUConstraint : public  g2o::BaseMultiEdge<15, std::vector<Eigen::Matrix<double, 7, 1>,
+        Eigen::aligned_allocator<Eigen::Matrix<double, 7, 1> > > >
 {
     //IMU measurements are stored in a std::vector<Matrix<double, 7,1> > structure, each entry: timestamp in seconds,
     //acceleration measurements in m/s^2, gyro measurements in radian/sec
@@ -514,7 +521,8 @@ public:
 // the velocity of the IMU sensor in the world frame, and IMU acc and gyro biases
 // observations are the difference between predicted states at k+1 and the states at k+1
 
-class G2oEdgeIMUConstraintEx : public  g2o::BaseMultiEdge<15, std::vector<Eigen::Matrix<double, 7,1> > >
+class G2oEdgeIMUConstraintEx : public  g2o::BaseMultiEdge<15, std::vector<Eigen::Matrix<double, 7, 1>,
+        Eigen::aligned_allocator<Eigen::Matrix<double, 7, 1> > > >
 {
     //IMU measurements are stored in a std::vector<Matrix<double, 7,1> > structure, each entry: timestamp in seconds,
     //acceleration measurements in m/s^2, gyro measurements in radian/sec
@@ -807,8 +815,9 @@ public:
     // output the transformation from previous to current camera frame
     // propagate multiple steps from the last time_frame to current time_frame
     // which is assumed to have a larger interval than the IMU sampling interval
-    Sophus::SE3d propagate(const double time_frame, const
-                           std::vector<Eigen::Matrix<double, 7, 1> > & imuMeas);
+    Sophus::SE3d propagate(const double time_frame,
+                           const std::vector<Eigen::Matrix<double, 7, 1>,
+                           Eigen::aligned_allocator<Eigen::Matrix<double, 7, 1> > > & imuMeas);
 
     void printStateAndCov(std::ofstream &output, double time)const;
 

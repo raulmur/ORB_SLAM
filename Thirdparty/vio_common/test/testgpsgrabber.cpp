@@ -3,7 +3,7 @@
 
 int main(){
   const std::string gps_file = "../test/rtkliboutput.pos";
-  std::vector<Eigen::Matrix<double, 7, 1> > gpsdata;
+  std::vector<Eigen::Matrix<double, 7, 1>, Eigen::aligned_allocator<Eigen::Matrix<double, 7, 1> > > gpsdata;
   double startTime = 0, finishTime = 1e10;
 
   vio::loadGPSData(gps_file, gpsdata, startTime, finishTime);

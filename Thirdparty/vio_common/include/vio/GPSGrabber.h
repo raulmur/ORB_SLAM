@@ -7,7 +7,7 @@
 #include <fstream>
 #include <vector>
 #include <Eigen/Dense>
-
+#include <Eigen/StdVector>
 namespace vio{
 
 enum GPSSolutionType{TOW_ECEF=0, TOW_NED, UTC_ECEF, UTC_NED};
@@ -72,7 +72,7 @@ public:
     Eigen::Matrix<double, 7,1> measurement; //GPS TOW, XYZ ECEF, Q, number of satellites, std XYZ in ECEF
     RtklibPosPattern * pat_;
 };
-void loadGPSData(std::string gps_file, std::vector<Eigen::Matrix<double, 7, 1> > &gpsdata,
+void loadGPSData(std::string gps_file, std::vector<Eigen::Matrix<double, 7, 1>, Eigen::aligned_allocator<Eigen::Matrix<double, 7, 1> > > &gpsdata,
                  double startGPSTime, double finishGPSTime);
 void testReadTOWECEF();
 int gpstk_example1();

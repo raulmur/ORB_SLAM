@@ -24,6 +24,7 @@
 #include "vio_g2o/anchored_points.h"
 #include "vio_g2o/IMU_constraint.h"
 #include <Eigen/Dense>
+#include <Eigen/StdVector>
 #include <viso2/p_match.h> //for matches adopted from libviso2
 
 #include "Thirdparty/DBoW2/DBoW2/BowVector.h"
@@ -47,6 +48,7 @@ class KeyFrameDatabase;
 
 
 typedef std::vector<cv::Mat> ImgPyr;
+typedef std::vector<Eigen::Matrix<double, 7, 1>, Eigen::aligned_allocator<Eigen::Matrix<double, 7, 1> > > RawImuMeasurementVector;
 
 class Frame
 {
@@ -157,7 +159,7 @@ inline void updatePointStatistics(PointStatistics* stats){
   }
 
     Eigen::Matrix3d ComputeFlr(Frame* pRightF, const Sophus::SE3d & Tl2r);
-    void SetIMUObservations(const std::vector<Eigen::Matrix<double, 7, 1> >&  );
+    void SetIMUObservations(const RawImuMeasurementVector&);
     void SetPrevNextFrame(Frame* last_frame);
 
     void ReplaceMapPointMatch(const size_t &idx, MapPoint* pMP);
@@ -214,7 +216,7 @@ inline void updatePointStatistics(PointStatistics* stats){
     Frame* prev_frame;// the previous frame (k-1) linked to this frame (k) by imu measurements, both frame having same cam_id_
     Frame* next_frame; //next frame (k+1) connected to this frame (k) by imu measurements, both frame having same cam_id_
     Eigen::Matrix<double, 9,1> speed_bias; //IMU states, vel_imu in world frame, accelerometer bias and gyro bias, at the epoch of this frame( of index k)
-    std::vector<Eigen::Matrix<double, 7,1> > imu_observ;// IMU readings from t(p(k-1)-1) to t(p(k)-1) where k is this image index in stream
+    RawImuMeasurementVector imu_observ;// IMU readings from t(p(k-1)-1) to t(p(k)-1) where k is this image index in stream
     // t(p(k)-1)<=t(k) and t(p(k)+1) must>t(k)
     // members for first estimate Jacoabians
     bool mbFixedLinearizationPoint;

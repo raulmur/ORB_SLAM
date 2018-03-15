@@ -8,6 +8,7 @@
 
 
 #include <vector>
+#include <Eigen/StdVector>
 
 namespace vio{
 
@@ -120,8 +121,8 @@ public:
     std::vector<double> sw2i;
     std::vector<double> sw2i_est;
 
-    std::vector<Eigen::Vector3d> twini;
-    std::vector<Eigen::Vector3d> twini_est;
+    std::vector<Eigen::Vector3d, Eigen::aligned_allocator<Eigen::Vector3d> > twini;
+    std::vector<Eigen::Vector3d, Eigen::aligned_allocator<Eigen::Vector3d> > twini_est;
 
     TestScaleTransOptimizer(const int _num_poses=50): num_poses(_num_poses),
         sw2i(num_poses), sw2i_est(num_poses),

@@ -276,8 +276,13 @@ int main(int argc, char **argv)
             std::cout <<"processing frame "<< numImages <<"th of timestamp "<< time_frame<<std::endl;
             SLAM_START_TIMER("tot_time");
 
-            imuGrabber->getObservation(time_frame);
-            ORB_SLAM::RawImuMeasurementVector imuMeas = imuGrabber->measurement;
+
+            ORB_SLAM::RawImuMeasurementVector imuMeas;
+            if (bUseIMUData) {
+                imuGrabber->getObservation(time_frame);
+                imuMeas = imuGrabber->measurement;
+            }
+
             Tracker.ProcessAMonocularFrame(left_img, time_frame, imuMeas);
 
             SLAM_STOP_TIMER("tot_time");
@@ -332,8 +337,11 @@ int main(int argc, char **argv)
             std::cout <<"processing frame "<< numImages <<" of timestamp "<< time_frame<<std::endl;
             SLAM_START_TIMER("tot_time");
 
-            imuGrabber->getObservation(time_frame);
-            ORB_SLAM::RawImuMeasurementVector imuMeas = imuGrabber->measurement;
+            ORB_SLAM::RawImuMeasurementVector imuMeas;
+            if (bUseIMUData) {
+                imuGrabber->getObservation(time_frame);
+                imuMeas = imuGrabber->measurement;
+            }
 
 #ifdef MONO
             Tracker.ProcessAMonocularFrame(left_img, time_frame, imuMeas);

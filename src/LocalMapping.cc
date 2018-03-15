@@ -417,11 +417,6 @@ void LocalMapping::CreateNewMapPointsStereo()
     Eigen::Matrix<double,3,4> Tw2c1r= mpCurrentKeyFrame->GetPose(false).matrix3x4();
     Eigen::Vector3d Ow1 = mpCurrentKeyFrame->GetCameraCenter();
 
-    std::vector< Eigen::Vector3d> obs(4);
-    std::vector<Sophus::SE3d> frame_poses(4);
-    frame_poses[0]= Sophus::SE3d(Tw2c1.topLeftCorner<3,3>(), Tw2c1.col(3));
-    frame_poses[1]= Sophus::SE3d(Tw2c1r.topLeftCorner<3,3>(), Tw2c1r.col(3));
-
     const float fx1 = mpCurrentKeyFrame->cam_.fx();
     const float fy1 = mpCurrentKeyFrame->cam_.fy();
     const float cx1 = mpCurrentKeyFrame->cam_.cx();
@@ -464,8 +459,6 @@ void LocalMapping::CreateNewMapPointsStereo()
         Eigen::Vector3d twinc2= Tw2c2.col(3);
         Eigen::Matrix<double,3,4> Tw2c2r= pKF2->GetPose(false).matrix3x4();
 
-        frame_poses[2]= Sophus::SE3d(Tw2c2.topLeftCorner<3,3>(), Tw2c2.col(3));
-        frame_poses[3]= Sophus::SE3d(Tw2c2r.topLeftCorner<3,3>(), Tw2c2r.col(3));
 
         const float fx2 = pKF2->cam_.fx();
         const float fy2 = pKF2->cam_.fy();

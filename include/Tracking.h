@@ -90,7 +90,7 @@ private:
 };
 
 typedef Eigen::Matrix<double, 7, 1> RawImuMeasurement; //double timestamp, accel xyz m/s^2, gyro xyz rad/sec
-typedef std::vector<RawImuMeasurement > RawImuMeasurementVector;
+typedef std::vector<RawImuMeasurement, Eigen::aligned_allocator<RawImuMeasurement> > RawImuMeasurementVector;
 
 class Tracking
 {  
@@ -167,17 +167,17 @@ protected:
     //time_pair[1], time_pair[0] is for the previous frame
     //in the following two versions, the original implementation ProcessFrame gives the best result
     void ProcessFrame(cv::Mat &left_img, cv::Mat &right_img, double timeStampSec,
-                      const std::vector<Eigen::Matrix<double, 7,1> >& imu_measurements = std::vector<Eigen::Matrix<double, 7,1> >(),
-                      const Sophus::SE3d * pTcp=NULL, Eigen::Matrix<double, 9,1> sb=Eigen::Matrix<double, 9,1>::Zero());
+                      const RawImuMeasurementVector& imu_measurements = RawImuMeasurementVector(),
+                      const Sophus::SE3d * pTcp=NULL, Eigen::Matrix<double, 9, 1> sb=Eigen::Matrix<double, 9, 1>::Zero());
 
     void ProcessFrameQCV(cv::Mat &left_img, cv::Mat &right_img, double timeStampSec,
-                      const std::vector<Eigen::Matrix<double, 7,1> >& imu_measurements = std::vector<Eigen::Matrix<double, 7,1> >(),
-                      const Sophus::SE3d * pTcp=NULL, Eigen::Matrix<double, 9,1> sb=Eigen::Matrix<double, 9,1>::Zero());
+                      const RawImuMeasurementVector& imu_measurements = RawImuMeasurementVector(),
+                      const Sophus::SE3d * pTcp=NULL, Eigen::Matrix<double, 9, 1> sb=Eigen::Matrix<double, 9, 1>::Zero());
 
     // monocular and imu integration
     void  ProcessFrameMono(cv::Mat &im, double timeStampSec,
-                           const std::vector<Eigen::Matrix<double, 7,1> >& imu_measurements = std::vector<Eigen::Matrix<double, 7,1> >(),
-                           const Sophus::SE3d * pTcp=NULL, const Eigen::Matrix<double, 9,1> sb=Eigen::Matrix<double, 9,1>::Zero());
+                           const RawImuMeasurementVector& imu_measurements = RawImuMeasurementVector(),
+                           const Sophus::SE3d * pTcp=NULL, const Eigen::Matrix<double, 9, 1> sb=Eigen::Matrix<double, 9, 1>::Zero());
 
     void FirstInitialization();
 

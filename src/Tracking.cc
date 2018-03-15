@@ -252,7 +252,7 @@ Tracking::Tracking(ORBVocabulary* pVoc, FramePublisher*pFramePublisher, /*MapPub
     param.base     = -mTl2r.translation()[0]; // baseline in meters
     param.inlier_threshold =sqrt(5.991);
     mVisoStereo.setParameters(param);
-    cout<<"Refinedment viso2: "<<param.match.refinement<<endl;
+    cout<<"Refinement viso2: "<<param.match.refinement<<endl;
     mPose=libviso2::Matrix::eye(4);
     // use external saved visual odometry
     if(mfsSettings["qcv_tracks"].isString() && mfsSettings["qcv_deltas"].isString())
@@ -401,13 +401,6 @@ void Tracking::CreateNewMapPoints(const std::vector<p_match>& vQuadMatches)
     const float ratioFactor = 1.5f*mpLastKeyFrame->GetScaleFactor();
     Eigen::Vector3d Ow1 = mpLastKeyFrame->GetCameraCenter();
     Eigen::Vector3d Ow2 = pCurrFrame->GetCameraCenter();
-
-    std::vector< Eigen::Vector3d> obs(4);
-    std::vector<Sophus::SE3d> frame_poses(4);
-    frame_poses[0]= Sophus::SE3d(Tw2c1.topLeftCorner<3,3>(), Tw2c1.col(3));
-    frame_poses[1]= Sophus::SE3d(Tw2c1r.topLeftCorner<3,3>(), Tw2c1r.col(3));
-    frame_poses[2]= Sophus::SE3d(Tw2c2.topLeftCorner<3,3>(), Tw2c2.col(3));
-    frame_poses[3]= Sophus::SE3d(Tw2c2r.topLeftCorner<3,3>(), Tw2c2r.col(3));
 
     Eigen::Matrix<int,8,1> rejectHisto=Eigen::Matrix<int,8,1>::Zero();//for debug
 
@@ -740,7 +733,7 @@ void Tracking::CreateNewMapPoints(KeyFrame* pKF2, KeyFrame* pCurrentKeyFrame)
 // N.B. different to ProcessFrame, the current frame is added as a keyframe if not enough features are tracked,
 // and the last frame is included in the temporal window
 void  Tracking::ProcessFrameMono(cv::Mat &im, double timeStampSec,
-                                 const std::vector<Eigen::Matrix<double, 7,1> >& imu_measurements,
+                                 const RawImuMeasurementVector& imu_measurements,
                                  const Sophus::SE3d *pred_Tr_delta, const Eigen::Matrix<double, 9,1> sb)
 {
     Sophus::SE3d Tcp =(pred_Tr_delta==NULL? Sophus::SE3d(): (*pred_Tr_delta)); // current frame from previous frame
@@ -994,7 +987,7 @@ void  Tracking::ProcessFrameMono(cv::Mat &im, double timeStampSec,
 // similar to ProcessFrame, but it uses external saved feature tracks and
 // incremental motion estimate by stereo SFM(qcv) to drive DWO
 void  Tracking::ProcessFrameQCV(cv::Mat &im, cv::Mat &right_img, double timeStampSec,
-                             const std::vector<Eigen::Matrix<double, 7,1> >& imu_measurements,
+                             const RawImuMeasurementVector& imu_measurements,
                              const Sophus::SE3d *pred_Tr_delta, Eigen::Matrix<double, 9,1> sb)
 {
     Sophus::SE3d Tcp =pred_Tr_delta==NULL? Sophus::SE3d(): (*pred_Tr_delta); // current frame from previous frame
@@ -1265,7 +1258,7 @@ void  Tracking::ProcessFrameQCV(cv::Mat &im, cv::Mat &right_img, double timeStam
 // Therefore, the last frame cannot be a keyframe and used in local mapping until the current frame is processed
 
 void  Tracking::ProcessFrame(cv::Mat &im, cv::Mat &right_img, double timeStampSec,
-                             const std::vector<Eigen::Matrix<double, 7,1> >& imu_measurements,
+                             const RawImuMeasurementVector& imu_measurements,
                              const Sophus::SE3d *pred_Tr_delta,Eigen::Matrix<double, 9,1> sb)
 {
     Sophus::SE3d Tcp =pred_Tr_delta==NULL? Sophus::SE3d(): (*pred_Tr_delta); // current frame from previous frame
@@ -1684,13 +1677,6 @@ void Tracking::CreateInitialMapStereo(const Sophus::SE3d &Tcw, const std::vector
 
     Eigen::Matrix<double,3,4> Tw2c1r= pKFcur->GetPose(false).matrix3x4();
     Eigen::Matrix<double,3,4> Tw2c2r= pPrevFrame->GetPose(false).matrix3x4();
-
-    std::vector< Eigen::Vector3d> obs(4);
-    std::vector<Sophus::SE3d> frame_poses(4);
-    frame_poses[0]= Sophus::SE3d(Tw2c1.topLeftCorner<3,3>(), Tw2c1.col(3));
-    frame_poses[1]= Sophus::SE3d(Tw2c1r.topLeftCorner<3,3>(), Tw2c1r.col(3));
-    frame_poses[2]= Sophus::SE3d(Tw2c2.topLeftCorner<3,3>(), Tw2c2.col(3));
-    frame_poses[3]= Sophus::SE3d(Tw2c2r.topLeftCorner<3,3>(), Tw2c2r.col(3));
 
     const float ratioFactor = 1.5f*pKFcur->GetScaleFactor();
     Eigen::Vector3d Ow1 = pKFcur->GetCameraCenter();
@@ -3063,7 +3049,7 @@ bool Tracking::ProcessAMonocularFrame(cv::Mat &left_img, double time_frame,
     if(mbUseIMUData){
         if(!mpImuProcessor->bStatesInitialized){
             mpImuProcessor->initStates(initTws, initVwsBaBg, time_frame);
-            ProcessFrameMono(left_img, time_frame, std::vector<Eigen::Matrix<double, 7,1 > >(),
+            ProcessFrameMono(left_img, time_frame, RawImuMeasurementVector(),
                                  NULL, initVwsBaBg);
         }
         else{
@@ -3080,7 +3066,7 @@ bool Tracking::ProcessAMonocularFrame(cv::Mat &left_img, double time_frame,
         Eigen::Quaterniond quat;
         mMotionModel.PredictNextCameraMotion(trans,quat);
         predTcp= SE3d(quat,trans);
-        ProcessFrameMono(left_img, time_frame, std::vector<Eigen::Matrix<double, 7,1 > >(),
+        ProcessFrameMono(left_img, time_frame, RawImuMeasurementVector(),
                          &predTcp);
         if(mState == WORKING){
             SE3d Twc= mpLastFrame->mTcw.inverse();
@@ -3104,7 +3090,7 @@ bool Tracking::ProcessAStereoFrame(cv::Mat &left_img, cv::Mat &right_img, double
     if(mbUseIMUData){
         if(!mpImuProcessor->bStatesInitialized){
             mpImuProcessor->initStates(initTws, initVwsBaBg, time_frame);
-            ProcessFrame(left_img, right_img, time_frame, std::vector<Eigen::Matrix<double, 7,1 > >(),
+            ProcessFrame(left_img, right_img, time_frame, RawImuMeasurementVector(),
                              NULL, initVwsBaBg);
         }
         else{
@@ -3130,7 +3116,7 @@ bool Tracking::ProcessAStereoFrame(cv::Mat &left_img, cv::Mat &right_img, double
         Eigen::Quaterniond quat;
         mMotionModel.PredictNextCameraMotion(trans,quat);
         predTcp= SE3d(quat,trans);
-        ProcessFrame(left_img, right_img, time_frame, std::vector<Eigen::Matrix<double, 7,1 > >(),
+        ProcessFrame(left_img, right_img, time_frame, RawImuMeasurementVector(),
                      &predTcp);
         if(mState == WORKING){
             SE3d Twc= mpLastFrame->mTcw.inverse();

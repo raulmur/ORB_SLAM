@@ -121,7 +121,8 @@ std::istream& CsvReader::OkvisOutputPattern::read(std::istream & is)
     return is;
 }
 
-void loadCsvData(string csvFile, vector<Eigen::Matrix<double, 19, 1> > &csvData, double startTime, double finishTime)
+void loadCsvData(string csvFile, vector<Eigen::Matrix<double, 19, 1>,
+                 Eigen::aligned_allocator<Eigen::Matrix<double, 19, 1> > > &csvData, double startTime, double finishTime)
 {
     if(finishTime<=0)
         finishTime = 1E20;
@@ -227,7 +228,8 @@ std::istream& ViclamOutputReader::ViclamOutputPattern::read(std::istream & is)
     return is;
 }
 
-void loadViclamData(string viclamFile, vector<Eigen::Matrix<double, 19, 1> > &viclamData, double startTime, double finishTime)
+void loadViclamData(string viclamFile, vector<Eigen::Matrix<double, 19, 1>,
+                    Eigen::aligned_allocator<Eigen::Matrix<double, 19, 1> > > &viclamData, double startTime, double finishTime)
 {
     if(finishTime<=0)
         finishTime = 1E20;

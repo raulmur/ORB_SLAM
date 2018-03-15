@@ -6,7 +6,7 @@
 #include <fstream>
 #include <vector>
 #include <Eigen/Dense>
-
+#include <Eigen/StdVector>
 #include "vio/DataGrabber.h" // only for datagrabber base class
 namespace vio{
 enum OUTPUT_FILE_TYPE{OKVIS_OUTPUT_FILE=0};
@@ -65,7 +65,8 @@ public:
 };
 
 // use CsvReader to load data from the okvis output csv file in which each line contains frameIdInSource
-void loadCsvData(std::string csvFile, std::vector<Eigen::Matrix<double, 19, 1> > &csvData,
+void loadCsvData(std::string csvFile, std::vector<Eigen::Matrix<double, 19, 1>,
+                 Eigen::aligned_allocator<Eigen::Matrix<double, 19, 1> > > &csvData,
                  double startTime=0, double finishTime=0);
 
 
@@ -111,8 +112,9 @@ public:
     ViclamOutputPattern * pat_;
 };
 //load all data of a viclam output file
-void loadViclamData(std::string viclamFile, std::vector<Eigen::Matrix<double, 19, 1> > &viclamData,
-                 double startTime=0, double finishTime=0);
+void loadViclamData(std::string viclamFile, std::vector<Eigen::Matrix<double, 19, 1>,
+                    Eigen::aligned_allocator<Eigen::Matrix<double, 19, 1> > > &viclamData,
+                    double startTime=0, double finishTime=0);
 }
 
 #endif // CSVREADER_H

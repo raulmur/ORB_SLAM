@@ -285,7 +285,8 @@ int gpstk_example1()
 #endif
 
 
-void loadGPSData(string gps_file, vector<Eigen::Matrix<double, 7, 1> > &gpsdata, double startGPSTime, double finishGPSTime)
+void loadGPSData(string gps_file, vector<Eigen::Matrix<double, 7, 1>,
+                 Eigen::aligned_allocator<Eigen::Matrix<double, 7, 1> > > &gpsdata, double startGPSTime, double finishGPSTime)
 {
     GPSGrabber gg(gps_file, 0.004);
     while(gg.getNextObservation()){

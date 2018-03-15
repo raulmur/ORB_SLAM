@@ -103,7 +103,7 @@ bool G2oEdgeIMUConstraint
     SE3Group<T> perturbed_Tw2ck=Sophus::SE3Group<T>::exp(epsk)*se3Tw2ck;
     Sophus::SE3Group<T>  T_s1_to_w=(params_imu->T_imu_from_cam.cast<T>()*perturbed_Tw2ck).inverse();
 
-    std::vector<Eigen::Matrix<T,7,1> > cast_measurement(_measurement.size());
+    std::vector<Eigen::Matrix<T, 7, 1>, Eigen::aligned_allocator<Eigen::Matrix<T, 7, 1> > > cast_measurement(_measurement.size());
     for(unsigned int jack=0; jack<_measurement.size(); ++jack)
         cast_measurement[jack]=_measurement[jack].cast<T>();
     T cast_time_frames[2]={T(time_frames[0]), T(time_frames[1])};
@@ -144,7 +144,7 @@ bool G2oEdgeIMUConstraintEx
     SE3Group<T> perturbed_Tw2ck=Sophus::SE3Group<T>::exp(epsk)*se3Tw2ck;
     Sophus::SE3Group<T>  T_s1_to_w=(params_imu->T_imu_from_cam.cast<T>()*perturbed_Tw2ck).inverse();
 
-    std::vector<Eigen::Matrix<T,7,1> > cast_measurement(_measurement.size());
+    std::vector<Eigen::Matrix<T, 7, 1>, Eigen::aligned_allocator<Eigen::Matrix<T, 7, 1> > > cast_measurement(_measurement.size());
     for(unsigned int jack=0; jack<_measurement.size(); ++jack)
         cast_measurement[jack]=_measurement[jack].cast<T>();
     T cast_time_frames[2]={T(time_frames[0]), T(time_frames[1])};
@@ -698,8 +698,9 @@ IMUProcessor::IMUProcessor(const G2oIMUParameters &imu):
     time_pair[1]=-1;
 }
 
-Sophus::SE3d IMUProcessor::propagate(const double time_frame, const
-                                     std::vector<Eigen::Matrix<double, 7, 1> > & imuMeas)
+Sophus::SE3d IMUProcessor::propagate(const double time_frame,
+                                     const std::vector<Eigen::Matrix<double, 7, 1>,
+                                     Eigen::aligned_allocator<Eigen::Matrix<double, 7, 1> > > & imuMeas)
 {
   
     time_pair[0]=time_pair[1];
@@ -787,7 +788,8 @@ void IMUProcessor::freeInertial(vio::IMUGrabber& ig, std::string output_file, do
     Vector3d r_new, r_old(T_s1_to_w.translation()), v_new, v_old(speed_bias_1.head<3>());
     Quaterniond q_new, q_old(T_s1_to_w.unit_quaternion().conjugate());
 
-    vector<Eigen::Matrix<double, 7,1> > measurements=ig.measurement;
+    vector<Eigen::Matrix<double, 7, 1>, Eigen::aligned_allocator<Eigen::Matrix<double, 7, 1> > >
+            measurements=ig.measurement;
     double dt=measurements[1][0]-time_pair[0];
     double covupt_time(time_pair[0]);
     assert(dt>0);
