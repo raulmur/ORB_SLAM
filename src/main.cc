@@ -50,6 +50,62 @@
 using namespace std;
 std::string slamhome;
 
+
+typedef std::deque<ORB_SLAM::RawImuMeasurement, Eigen::aligned_allocator<ORB_SLAM::RawImuMeasurement> >
+RawImuMeasurementDeque;
+class VioDataPool {
+public:
+    VioDataPool() : lastMeasTime_(-1) {}
+    ORB_SLAM::RawImuMeasurementVector getImuMeasurements(
+            double& imuDataBeginTime, double& imuDataEndTime) {
+        // sanity checks:
+        // if end time is smaller than begin time, return empty queue.
+        // if begin time is larger than newest imu time, return empty queue.
+        if (imuDataEndTime < imuDataBeginTime
+                || imuDataBeginTime > imuMeasurements_.back()[0])
+            return ORB_SLAM::RawImuMeasurementVector();
+
+        // get iterator to imu data before previous frame
+        RawImuMeasurementDeque::iterator first_imu_package = imuMeasurements_
+                .begin();
+        RawImuMeasurementDeque::iterator last_imu_package =
+                imuMeasurements_.end();
+        // TODO go backwards through queue. Is probably faster.
+        for (auto iter = imuMeasurements_.begin(); iter != imuMeasurements_.end();
+             ++iter) {
+            // move first_imu_package iterator back until iter->timeStamp is higher than requested begintime
+            if ((*iter)[0] <= imuDataBeginTime)
+                first_imu_package = iter;
+
+            // set last_imu_package iterator as soon as we hit first timeStamp higher than requested endtime & break
+            if ((*iter)[0] > imuDataEndTime) {
+                last_imu_package = iter;
+                ++last_imu_package;// this last imu measurement will be included in returned Deque
+                break;
+            }
+        }
+        ORB_SLAM::RawImuMeasurementVector rawvector(first_imu_package, last_imu_package);
+        if (imuDataBeginTime > imuMeasurements_.front()[0] + 10.0) {
+            imuMeasurements_.erase(imuMeasurements_.begin(), first_imu_package);
+        }
+        return rawvector;
+    }
+
+    void addImuFrame(const ORB_SLAM::RawImuMeasurementVector& rhs)
+    {
+        for(const ORB_SLAM::RawImuMeasurement & meas:rhs) {
+            if (std::fabs(meas[0] - lastMeasTime_) > 1e-6) {
+                imuMeasurements_.push_back(meas);
+                lastMeasTime_ = meas[0];
+            }
+        }
+    }
+
+private:
+    RawImuMeasurementDeque imuMeasurements_;
+    double lastMeasTime_;
+};
+
 int main(int argc, char **argv)
 {
 #ifdef SLAM_USE_ROS
@@ -144,7 +200,8 @@ int main(int argc, char **argv)
     bool bUseIMUData=vio::to_bool(fsSettings["use_imu_data"]);
     vio::IMUFileType imuFileType =vio::PlainText;
     std::shared_ptr<vio::IMUGrabber> imuGrabber;
-
+    VioDataPool vdp;
+    const double advance = 0.5;
     if(bUseIMUData){
         string imu_file = slamhome + "/" + (std::string)fsSettings["imu_file"];
         double sampling_interval=fsSettings["sample_interval"];
@@ -279,8 +336,9 @@ int main(int argc, char **argv)
 
             ORB_SLAM::RawImuMeasurementVector imuMeas;
             if (bUseIMUData) {
-                imuGrabber->getObservation(time_frame);
-                imuMeas = imuGrabber->measurement;
+                imuGrabber->getObservation(time_frame + advance);
+                vdp.addImuFrame(imuGrabber->measurement);
+                imuMeas = vdp.getImuMeasurements(time_pair[0], time_frame);
             }
 
             Tracker.ProcessAMonocularFrame(left_img, time_frame, imuMeas);
@@ -339,8 +397,9 @@ int main(int argc, char **argv)
 
             ORB_SLAM::RawImuMeasurementVector imuMeas;
             if (bUseIMUData) {
-                imuGrabber->getObservation(time_frame);
-                imuMeas = imuGrabber->measurement;
+                imuGrabber->getObservation(time_frame + advance);
+                vdp.addImuFrame(imuGrabber->measurement);
+                imuMeas = vdp.getImuMeasurements(time_pair[0], time_frame);
             }
 
 #ifdef MONO

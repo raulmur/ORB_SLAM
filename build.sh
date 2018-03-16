@@ -11,7 +11,7 @@ else
     echo "EIGEN3_INCLUDE_FOLDER " $EIGEN3_INCLUDE_FOLDER
 fi
 
-build_type=Debug
+build_type=Release
 FULL_PATH=`pwd`
 INSTALL_FOLDER=$FULL_PATH/build/slam_devel
 rm -rf build
