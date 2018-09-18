@@ -1,5 +1,5 @@
 
-##Check out our new [ORB-SLAM2](https://github.com/raulmur/ORB_SLAM2) (Monocular, Stereo and RGB-D)
+## Check out our new [ORB-SLAM2](https://github.com/raulmur/ORB_SLAM2) (Monocular, Stereo and RGB-D)
 ---
 # ORB-SLAM Monocular
 **Authors:** [Raul Mur-Artal](http://webdiis.unizar.es/~raulmur/), [Juan D. Tardos](http://webdiis.unizar.es/~jdtardos/), [J. M. M. Montiel](http://webdiis.unizar.es/~josemari/) and [Dorian Galvez-Lopez](http://doriangalvez.com/) ([DBoW2](https://github.com/dorian3d/DBoW2))
@@ -10,14 +10,14 @@ ORB-SLAM is a versatile and accurate Monocular SLAM solution able to compute in 
 
 See our project webpage: http://webdiis.unizar.es/~raulmur/orbslam/
 
-###Related Publications:
+### Related Publications:
 
 [1] Raúl Mur-Artal, J. M. M. Montiel and Juan D. Tardós. **ORB-SLAM: A Versatile and Accurate Monocular SLAM System**. *IEEE Transactions on Robotics,* vol. 31, no. 5, pp. 1147-1163, 2015. (2015 IEEE Transactions on Robotics **Best Paper Award**). **[PDF](http://webdiis.unizar.es/~raulmur/MurMontielTardosTRO15.pdf)**.
 
 [2] Dorian Gálvez-López and Juan D. Tardós. **Bags of Binary Words for Fast Place Recognition in Image Sequences**. *IEEE Transactions on Robotics,* vol. 28, no. 5, pp.  1188-1197, 2012. **[PDF](http://doriangalvez.com/php/dl.php?dlp=GalvezTRO12.pdf)**.
 
 
-#1. License
+# 1. License
 
 ORB-SLAM is released under a [GPLv3 license](https://github.com/raulmur/ORB_SLAM/blob/master/License-gpl.txt). For a list of all code/library dependencies (and associated licenses), please see [Dependencies.md](https://github.com/raulmur/ORB_SLAM/blob/master/Dependencies.md).
 
@@ -37,35 +37,35 @@ If you use ORB-SLAM in an academic work, please cite:
      }
 
 
-#2. Prerequisites (dependencies)
+# 2. Prerequisites (dependencies)
 
-##2.1 Boost
+## 2.1 Boost
 
 We use the Boost library to launch the different threads of our SLAM system.
 
 	sudo apt-get install libboost-all-dev 
 
-##2.2 ROS
+## 2.2 ROS
 We use ROS to receive images from the camera or from a recorded sequence (rosbag), and for visualization (rviz, image_view). 
 **We have tested ORB-SLAM in Ubuntu 12.04 with ROS Fuerte, Groovy and Hydro; and in Ubuntu 14.04 with ROS Indigo**. 
 If you do not have already installed ROS in your computer, we recommend you to install the Full-Desktop version of ROS Fuerte (http://wiki.ros.org/fuerte/Installation/Ubuntu).
 
 **If you use ROS Indigo, remove the depency of opencv2 in the manifest.xml.**
 
-##2.3 OpenCV
+## 2.3 OpenCV
 We use OpenCV to manipulate images and features. If you use a ROS version older than ROS Indigo, OpenCV is already included in the ROS distribution. In newer version of ROS, OpenCV is not included and you will need to install it. **We tested OpenCV 2.4**. Dowload and install instructions can be found at: http://opencv.org/
 
-##2.4 g2o (included in Thirdparty)
+## 2.4 g2o (included in Thirdparty)
 We use a modified version of g2o (see original at https://github.com/RainerKuemmerle/g2o) to perform optimizations.
 In order to compile g2o you will need to have installed Eigen3 (at least 3.1.0).
 	
 	sudo apt-get install libeigen3-dev
 
-##2.5 DBoW2 (included in Thirdparty)
+## 2.5 DBoW2 (included in Thirdparty)
 We make use of some components of the DBoW2 and DLib library (see original at https://github.com/dorian3d/DBoW2) for place recognition and feature matching. There are no additional dependencies to compile DBoW2.
 
 
-#3. Installation
+# 3. Installation
 
 1. Make sure you have installed ROS and all library dependencies (boost, eigen3, opencv, blas, lapack).
 
@@ -107,7 +107,7 @@ We make use of some components of the DBoW2 and DLib library (see original at ht
 
 	*Tip: Set your favorite compilation flags in line 12 and 13 of* `./CMakeLists.txt` (by default -03 -march=native)
 
-#4. Usage
+# 4. Usage
 
 **See section 5 to run the Example Sequence**.
 
@@ -147,7 +147,7 @@ If you have a sequence with individual image files, you will need to generate a 
 	roslaunch ExampleGroovyOrNewer.launch
 
 
-#5. Example Sequence
+# 5. Example Sequence
 We provide the settings and the rosbag of an example sequence in our lab. In this sequence you will see a loop closure and two relocalisation from a big viewpoint change.
 
 1. Download the rosbag file:  
@@ -172,13 +172,13 @@ We provide the settings and the rosbag of an example sequence in our lab. In thi
 		rosbag play --pause Example.bag
 
 
-#6. The Settings File
+# 6. The Settings File
 
 ORB_SLAM reads the camera calibration and setting parameters from a YAML file. We provide an example in `Data/Settings.yaml`, where you will find all parameters and their description. We use the camera calibration model of OpenCV.
 
 Please make sure you write and call your own settings file for your camera (copy the example file and modify the calibration)
 
-#7. Failure Modes
+# 7. Failure Modes
 
 You should expect to achieve good results in sequences similar to those in which we show results in our paper [1], in terms of camera movement and texture in the environment. In general our Monocular SLAM solution is expected to have a bad time in the following situations:
 - No translation at system initialization (or too much rotation).
