@@ -1,4 +1,5 @@
 # ORBSLAM_DWO
+# WARN: This package is OBSOLETE and no longer maintained.
 
 **ORBSLAM_DWO** is developed on top of ORB-SLAM with double window optimization by Jianzhu Huai. The major differences from ORB-SLAM are: (1) it can run with or without ROS, (2) it does not use the modified version of g2o shipped in ORB-SLAM, instead it uses the g2o from github, (3) it uses Eigen vectors and Sophus members instead of Opencv Mat to represent pose entities, (4) it incorporates the pinhole camera model from [rpg_vikit](https://github.com/uzh-rpg/rpg_vikit.git) and a decay velocity motion model from [Stereo PTAM](https://github.com/lrse/sptam.git), (5) currently, it supports monocular, stereo, and stereo + inertial input for SLAM, note it does not work with monocular + inertial input.
 
